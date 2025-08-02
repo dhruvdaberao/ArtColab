@@ -80,7 +80,7 @@
         }
 
         // Socket.io for online count (placeholder for now)
-        const socket = io('http://localhost:8080');
+        const socket = io('https://artcolab.onrender.com');
         socket.on('connect', () => {
             console.log('Connected to server');
             socket.on('updateMembers', (members) => {
