@@ -101,7 +101,6 @@
 
 
 
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -166,21 +165,23 @@
     </footer>
 
     <script>
+        const socket = io('https://artcolab.onrender.com');
+
         function goToDrawing(action, value) {
             if (value.trim() === '') {
                 alert('Please enter a room name or code.');
                 return;
             }
-            const urlParams = new URLSearchParams({
-                action: action,
-                value: encodeURIComponent(value)
-            }).toString();
+            const urlParams = new URLSearchParams({ action, value: encodeURIComponent(value) }).toString();
             window.location.href = `drawing.html?${urlParams}`;
         }
 
-        const socket = io('https://artcolab.onrender.com');
         socket.on('updateUsers', (count) => {
             document.getElementById('onlineCount').textContent = count;
+        });
+
+        socket.on('roomExists', (message) => {
+            alert(message);
         });
     </script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.2/p5.min.js"></script>

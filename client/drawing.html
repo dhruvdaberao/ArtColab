@@ -207,8 +207,6 @@
 
 
 
-
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -235,7 +233,6 @@
             <ul id="memberListItems" class="text-sm text-gray-700"></ul>
         </div>
         <div class="flex flex-col md:flex-row gap-6">
-            <!-- Sidebar (Toolbar) -->
             <div class="w-full md:w-64 bg-white/90 rounded-2xl shadow-2xl p-5 flex flex-col gap-5">
                 <h2 class="text-lg font-semibold text-indigo-800 font-poppins mb-3">Tools</h2>
                 <button id="chooseColorBtn" onclick="toggleColorPalette()" class="w-full bg-indigo-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition duration-300 flex items-center justify-center">
@@ -257,13 +254,12 @@
                     <input type="range" id="eraserSize" min="1" max="50" value="10" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
                     <span id="eraserSizeValue" class="text-sm text-gray-600">10</span>
                 </div>
-                <button onclick="clearCanvas()" class="w-full bg-red-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-red-700 transition duration-300">Clear My Drawing</button>
+                <button onclick="clearCanvas()" class="w-full bg-red-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-red-700 transition duration-300">Clear Room</button>
                 <div class="mt-5 flex flex-col sm:flex-row gap-4">
                     <button onclick="leaveRoom()" class="w-full sm:w-auto bg-red-600 text-white py-2 px-4 rounded-lg text-sm font-medium hover:bg-red-700 transition duration-300">Leave</button>
                     <button onclick="downloadDrawing()" class="w-full sm:w-auto bg-indigo-600 text-white py-2 px-4 rounded-lg text-sm font-medium hover:bg-indigo-700 transition duration-300">Download</button>
                 </div>
             </div>
-            <!-- Canvas -->
             <div id="canvas-container" class="flex-grow bg-white/90 rounded-2xl shadow-2xl overflow-hidden relative h-[600px] md:h-auto md:min-h[600px]">
             </div>
         </div>
@@ -273,25 +269,12 @@
     </footer>
     <script>
         const socket = io('https://artcolab.onrender.com');
-        const userId = Math.random().toString(36).substr(2, 9); // Unique ID for each user
-
-        // Join a room based on URL parameters
-        window.addEventListener('load', () => {
-            const urlParams = new URLSearchParams(window.location.search);
-            const action = urlParams.get('action');
-            const value = urlParams.get('value') || `room_${Math.random().toString(36).substr(2, 8)}`;
-            if (action === 'create' || action === 'join') {
-                socket.emit('joinRoom', value);
-                document.getElementById('onlineCount').textContent = `Room: ${value} (Users: 0)`;
-            }
-        });
-
+        let points = [];
+        let isDrawing = false;
         let penSize = 5;
         let eraserSize = 10;
         let activeTool = 'pen';
         let currentColor = '#6B21A8';
-        let points = [];
-        let isDrawing = false;
 
         function setup() {
             let canvasDiv = document.getElementById('canvas-container');
@@ -299,8 +282,7 @@
             canvas.parent('canvas-container');
             background(255);
 
-            let colorPicker = document.getElementById('colorPicker');
-            colorPicker.addEventListener('input', (e) => {
+            document.getElementById('colorPicker').addEventListener('input', (e) => {
                 currentColor = e.target.value;
                 document.getElementById('colorPreview').style.backgroundColor = currentColor;
             });
@@ -318,22 +300,28 @@
             canvas.canvas.addEventListener('mousedown', () => isDrawing = true);
             canvas.canvas.addEventListener('mouseup', () => isDrawing = false);
             canvas.canvas.addEventListener('mouseleave', () => isDrawing = false);
+
+            // Join room on load
+            const urlParams = new URLSearchParams(window.location.search);
+            const action = urlParams.get('action');
+            const value = urlParams.get('value') || `room_${Math.random().toString(36).substr(2, 8)}`;
+            if (action === 'create' || action === 'join') {
+                socket.emit('joinRoom', value);
+            }
         }
 
         function draw() {
             if (isDrawing && mouseX >= 0 && mouseX <= width && mouseY >= 0 && mouseY <= height) {
                 let strokeColor = activeTool === 'eraser' ? '#FFFFFF' : currentColor;
                 let strokeWeightVal = activeTool === 'eraser' ? eraserSize : penSize;
-
                 stroke(strokeColor);
                 strokeWeight(strokeWeightVal);
                 if (points.length > 0) {
                     line(points[points.length - 1].x, points[points.length - 1].y, mouseX, mouseY);
                 }
-
-                let point = { x: mouseX, y: mouseY, color: strokeColor, size: strokeWeightVal, userId };
+                let point = { x: mouseX, y: mouseY, color: strokeColor, size: strokeWeightVal };
                 points.push(point);
-                socket.emit('draw', point); // Emit to server with userId
+                socket.emit('draw', point);
             }
         }
 
@@ -347,29 +335,11 @@
         }
 
         function clearCanvas() {
-            const lastPointIndex = points.length - 1;
-            if (lastPointIndex >= 0) {
-                const lastPoint = points[lastPointIndex];
-                points = points.filter(p => p.userId !== userId); // Remove only this user's points
-                redraw();
-                socket.emit('clearSelf', userId); // Notify others to clear this user's last drawing
-            }
-        }
-
-        function redraw() {
-            background(255);
-            for (let i = 0; i < points.length; i++) {
-                stroke(points[i].color);
-                strokeWeight(points[i].size);
-                if (i > 0) {
-                    line(points[i-1].x, points[i-1].y, points[i].x, points[i].y);
-                }
-            }
+            socket.emit('clearRoom');
         }
 
         function toggleColorPalette() {
-            const palette = document.getElementById('colorPalette');
-            palette.classList.toggle('hidden');
+            document.getElementById('colorPalette').classList.toggle('hidden');
         }
 
         function leaveRoom() {
@@ -389,37 +359,44 @@
             });
         }
 
-        function toggleMemberList() {
-            let memberList = document.getElementById('memberList');
-            memberList.classList.toggle('hidden');
-        }
-
         window.addEventListener('resize', () => {
             let canvasDiv = document.getElementById('canvas-container');
             resizeCanvas(canvasDiv.offsetWidth, canvasDiv.offsetHeight);
             redraw();
         });
 
-        socket.on('draw', (data) => {
-            if (data.userId !== userId) { // Only add others' drawings
-                points.push(data);
-                redraw();
+        function redraw() {
+            background(255);
+            for (let i = 0; i < points.length; i++) {
+                stroke(points[i].color);
+                strokeWeight(points[i].size);
+                if (i > 0) {
+                    line(points[i-1].x, points[i-1].y, points[i].x, points[i].y);
+                }
             }
+        }
+
+        socket.on('initialState', (initialPoints) => {
+            points = initialPoints;
+            redraw();
         });
 
-        socket.on('clearOther', (data) => {
-            if (data.room === socket.room && data.userId !== userId) {
-                points = points.filter(p => p.userId !== data.userId); // Remove other's cleared drawings
-                redraw();
-            }
+        socket.on('draw', (point) => {
+            points.push(point);
+            redraw();
         });
 
-        socket.on('roomJoined', (roomId) => {
-            console.log('Joined room:', roomId);
+        socket.on('clearRoom', () => {
+            points = [];
+            redraw();
+        });
+
+        socket.on('roomExists', (message) => {
+            alert(message);
         });
 
         socket.on('updateUsers', (count) => {
-            document.getElementById('onlineCount').textContent = `Room: ${socket.room} (Users: ${count})`;
+            document.getElementById('onlineCount').textContent = count;
         });
     </script>
 </body>
