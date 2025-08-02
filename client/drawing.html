@@ -1,8 +1,11 @@
-<!-- <!DOCTYPE html>
+
+<!-- 
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/x-icon" href="/client/favicon.ico">
     <title>ARTCOLAB - Drawing</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.2/p5.min.js"></script>
@@ -47,84 +50,12 @@
                     <span id="eraserSizeValue" class="text-sm text-gray-600">10</span>
                 </div>
                 <button onclick="clearCanvas()" class="w-full bg-red-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-red-700 transition duration-300">Clear Canvas</button>
-              
                 <div class="mt-5 flex flex-col sm:flex-row gap-4">
                     <button onclick="leaveRoom()" class="w-full sm:w-auto bg-red-600 text-white py-2 px-4 rounded-lg text-sm font-medium hover:bg-red-700 transition duration-300">Leave</button>
                     <button onclick="downloadDrawing()" class="w-full sm:w-auto bg-indigo-600 text-white py-2 px-4 rounded-lg text-sm font-medium hover:bg-indigo-700 transition duration-300">Download</button>
                 </div>
             </div>
-           
-            <div id="canvas-container" class="flex-grow bg-white/90 rounded-2xl shadow-2xl overflow-hidden relative h-[600px] md:h-auto md:min-h-[600px]">
-            </div>
-        </div>
-    </div>
-    <footer class="mt-6 text-center text-gray-300 font-poppins w-full max-w-7xl">
-        Online Users: <span id="onlineCount">0</span> | Explore more features and join our community! | © 2025 ArtFusion Studio. All rights reserved.
-    </footer>
-    <script src="script.js"></script>
-</body>
-</html> -->
-
-
-
-
-
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="icon" type="image/x-icon" href="/client/favicon.ico">
-    <title>ARTCOLAB - Drawing</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.2/p5.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.4/socket.io.min.js"></script>
-    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css">
-</head>
-<body class="min-h-screen bg-indigo-800 text-gray-100 flex flex-col items-center justify-start p-4">
-    <div class="w-full max-w-7xl flex flex-col gap-6">
-        <header class="text-center mb-6">
-            <h1 class="text-4xl font-semibold text-white font-poppins">ARTCOLAB</h1>
-            <p class="text-lg text-gray-200 font-poppins mt-2">Collaborate and Create Together</p>
-            <p class="text-sm text-gray-300 font-poppins mt-1">A platform for artists to connect, share inspiration, and co-create in real-time.</p>
-        </header>
-        <div id="memberList" class="bg-white/80 rounded-xl p-4 shadow-lg w-full mb-6 hidden">
-            <h3 class="text-lg font-bold text-indigo-800 font-poppins mb-2">Room Members</h3>
-            <ul id="memberListItems" class="text-sm text-gray-700"></ul>
-        </div>
-        <div class="flex flex-col md:flex-row gap-6">
-            <!-- Sidebar (Toolbar) -->
-            <div class="w-full md:w-64 bg-white/90 rounded-2xl shadow-2xl p-5 flex flex-col gap-5">
-                <h2 class="text-lg font-semibold text-indigo-800 font-poppins mb-3">Tools</h2>
-                <button id="chooseColorBtn" onclick="toggleColorPalette()" class="w-full bg-indigo-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition duration-300 flex items-center justify-center">
-                    Choose Color
-                    <div id="colorPreview" class="w-4 h-4 ml-2 rounded-full bg-purple-600"></div>
-                </button>
-                <div id="colorPalette" class="flex flex-col gap-2 mb-4 hidden">
-                    <input type="color" id="colorPicker" value="#6B21A8" class="w-full h-10 rounded-lg border-2 border-gray-300 focus:border-indigo-600 focus:ring-2 focus:ring-indigo-600">
-                </div>
-                <div>
-                    <label for="penSize" class="block text-sm font-medium text-gray-700">Pen Size</label>
-                    <input type="range" id="penSize" min="1" max="30" value="5" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
-                    <span id="penSizeValue" class="text-sm text-gray-600">5</span>
-                </div>
-                <button id="penBtn" onclick="selectTool('pen')" class="w-full bg-indigo-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition duration-300">Pen</button>
-                <button id="eraserBtn" onclick="selectTool('eraser')" class="w-full bg-indigo-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition duration-300">Eraser</button>
-                <div>
-                    <label for="eraserSize" class="block text-sm font-medium text-gray-700">Eraser Size</label>
-                    <input type="range" id="eraserSize" min="1" max="50" value="10" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
-                    <span id="eraserSizeValue" class="text-sm text-gray-600">10</span>
-                </div>
-                <button onclick="clearCanvas()" class="w-full bg-red-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-red-700 transition duration-300">Clear Canvas</button>
-                <div class="mt-5 flex flex-col sm:flex-row gap-4">
-                    <button onclick="leaveRoom()" class="w-full sm:w-auto bg-red-600 text-white py-2 px-4 rounded-lg text-sm font-medium hover:bg-red-700 transition duration-300">Leave</button>
-                    <button onclick="downloadDrawing()" class="w-full sm:w-auto bg-indigo-600 text-white py-2 px-4 rounded-lg text-sm font-medium hover:bg-indigo-700 transition duration-300">Download</button>
-                </div>
-            </div>
-            <!-- Canvas -->
+          
             <div id="canvas-container" class="flex-grow bg-white/90 rounded-2xl shadow-2xl overflow-hidden relative h-[600px] md:h-auto md:min-h[600px]">
             </div>
         </div>
@@ -268,6 +199,227 @@
 
         socket.on('roomJoined', (roomId) => {
             console.log('Joined room:', roomId);
+        });
+    </script>
+</body>
+</html> -->
+
+
+
+
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ARTCOLAB - Drawing</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.2/p5.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.4/socket.io.min.js"></script>
+    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="min-h-screen bg-indigo-800 text-gray-100 flex flex-col items-center justify-start p-4">
+    <div class="w-full max-w-7xl flex flex-col gap-6">
+        <header class="text-center mb-6">
+            <h1 class="text-4xl font-semibold text-white font-poppins">ARTCOLAB</h1>
+            <p class="text-lg text-gray-200 font-poppins mt-2">Collaborate and Create Together</p>
+            <p class="text-sm text-gray-300 font-poppins mt-1">A platform for artists to connect, share inspiration, and co-create in real-time.</p>
+        </header>
+        <div id="memberList" class="bg-white/80 rounded-xl p-4 shadow-lg w-full mb-6 hidden">
+            <h3 class="text-lg font-bold text-indigo-800 font-poppins mb-2">Room Members</h3>
+            <ul id="memberListItems" class="text-sm text-gray-700"></ul>
+        </div>
+        <div class="flex flex-col md:flex-row gap-6">
+            <!-- Sidebar (Toolbar) -->
+            <div class="w-full md:w-64 bg-white/90 rounded-2xl shadow-2xl p-5 flex flex-col gap-5">
+                <h2 class="text-lg font-semibold text-indigo-800 font-poppins mb-3">Tools</h2>
+                <button id="chooseColorBtn" onclick="toggleColorPalette()" class="w-full bg-indigo-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition duration-300 flex items-center justify-center">
+                    Choose Color
+                    <div id="colorPreview" class="w-4 h-4 ml-2 rounded-full bg-purple-600"></div>
+                </button>
+                <div id="colorPalette" class="flex flex-col gap-2 mb-4 hidden">
+                    <input type="color" id="colorPicker" value="#6B21A8" class="w-full h-10 rounded-lg border-2 border-gray-300 focus:border-indigo-600 focus:ring-2 focus:ring-indigo-600">
+                </div>
+                <div>
+                    <label for="penSize" class="block text-sm font-medium text-gray-700">Pen Size</label>
+                    <input type="range" id="penSize" min="1" max="30" value="5" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                    <span id="penSizeValue" class="text-sm text-gray-600">5</span>
+                </div>
+                <button id="penBtn" onclick="selectTool('pen')" class="w-full bg-indigo-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition duration-300">Pen</button>
+                <button id="eraserBtn" onclick="selectTool('eraser')" class="w-full bg-indigo-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition duration-300">Eraser</button>
+                <div>
+                    <label for="eraserSize" class="block text-sm font-medium text-gray-700">Eraser Size</label>
+                    <input type="range" id="eraserSize" min="1" max="50" value="10" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                    <span id="eraserSizeValue" class="text-sm text-gray-600">10</span>
+                </div>
+                <button onclick="clearCanvas()" class="w-full bg-red-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-red-700 transition duration-300">Clear My Drawing</button>
+                <div class="mt-5 flex flex-col sm:flex-row gap-4">
+                    <button onclick="leaveRoom()" class="w-full sm:w-auto bg-red-600 text-white py-2 px-4 rounded-lg text-sm font-medium hover:bg-red-700 transition duration-300">Leave</button>
+                    <button onclick="downloadDrawing()" class="w-full sm:w-auto bg-indigo-600 text-white py-2 px-4 rounded-lg text-sm font-medium hover:bg-indigo-700 transition duration-300">Download</button>
+                </div>
+            </div>
+            <!-- Canvas -->
+            <div id="canvas-container" class="flex-grow bg-white/90 rounded-2xl shadow-2xl overflow-hidden relative h-[600px] md:h-auto md:min-h[600px]">
+            </div>
+        </div>
+    </div>
+    <footer class="mt-6 text-center text-gray-300 font-poppins w-full max-w-7xl">
+        Online Users: <span id="onlineCount">0</span> | Explore more features and join our community! | © 2025 ArtFusion Studio. All rights reserved.
+    </footer>
+    <script>
+        const socket = io('https://artcolab.onrender.com');
+        const userId = Math.random().toString(36).substr(2, 9); // Unique ID for each user
+
+        // Join a room based on URL parameters
+        window.addEventListener('load', () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const action = urlParams.get('action');
+            const value = urlParams.get('value') || `room_${Math.random().toString(36).substr(2, 8)}`;
+            if (action === 'create' || action === 'join') {
+                socket.emit('joinRoom', value);
+                document.getElementById('onlineCount').textContent = `Room: ${value} (Users: 0)`;
+            }
+        });
+
+        let penSize = 5;
+        let eraserSize = 10;
+        let activeTool = 'pen';
+        let currentColor = '#6B21A8';
+        let points = [];
+        let isDrawing = false;
+
+        function setup() {
+            let canvasDiv = document.getElementById('canvas-container');
+            let canvas = createCanvas(canvasDiv.offsetWidth, canvasDiv.offsetHeight);
+            canvas.parent('canvas-container');
+            background(255);
+
+            let colorPicker = document.getElementById('colorPicker');
+            colorPicker.addEventListener('input', (e) => {
+                currentColor = e.target.value;
+                document.getElementById('colorPreview').style.backgroundColor = currentColor;
+            });
+
+            document.getElementById('penSize').addEventListener('input', (e) => {
+                penSize = parseInt(e.target.value);
+                document.getElementById('penSizeValue').textContent = penSize;
+            });
+
+            document.getElementById('eraserSize').addEventListener('input', (e) => {
+                eraserSize = parseInt(e.target.value);
+                document.getElementById('eraserSizeValue').textContent = eraserSize;
+            });
+
+            canvas.canvas.addEventListener('mousedown', () => isDrawing = true);
+            canvas.canvas.addEventListener('mouseup', () => isDrawing = false);
+            canvas.canvas.addEventListener('mouseleave', () => isDrawing = false);
+        }
+
+        function draw() {
+            if (isDrawing && mouseX >= 0 && mouseX <= width && mouseY >= 0 && mouseY <= height) {
+                let strokeColor = activeTool === 'eraser' ? '#FFFFFF' : currentColor;
+                let strokeWeightVal = activeTool === 'eraser' ? eraserSize : penSize;
+
+                stroke(strokeColor);
+                strokeWeight(strokeWeightVal);
+                if (points.length > 0) {
+                    line(points[points.length - 1].x, points[points.length - 1].y, mouseX, mouseY);
+                }
+
+                let point = { x: mouseX, y: mouseY, color: strokeColor, size: strokeWeightVal, userId };
+                points.push(point);
+                socket.emit('draw', point); // Emit to server with userId
+            }
+        }
+
+        function selectTool(tool) {
+            activeTool = tool;
+            document.getElementById('penBtn').classList.toggle('bg-indigo-700', tool === 'pen');
+            document.getElementById('eraserBtn').classList.toggle('bg-indigo-700', tool === 'eraser');
+            if (tool === 'pen') {
+                document.getElementById('colorPreview').style.backgroundColor = currentColor;
+            }
+        }
+
+        function clearCanvas() {
+            const lastPointIndex = points.length - 1;
+            if (lastPointIndex >= 0) {
+                const lastPoint = points[lastPointIndex];
+                points = points.filter(p => p.userId !== userId); // Remove only this user's points
+                redraw();
+                socket.emit('clearSelf', userId); // Notify others to clear this user's last drawing
+            }
+        }
+
+        function redraw() {
+            background(255);
+            for (let i = 0; i < points.length; i++) {
+                stroke(points[i].color);
+                strokeWeight(points[i].size);
+                if (i > 0) {
+                    line(points[i-1].x, points[i-1].y, points[i].x, points[i].y);
+                }
+            }
+        }
+
+        function toggleColorPalette() {
+            const palette = document.getElementById('colorPalette');
+            palette.classList.toggle('hidden');
+        }
+
+        function leaveRoom() {
+            window.location.href = '/';
+        }
+
+        function downloadDrawing() {
+            html2canvas(document.querySelector('#canvas-container canvas')).then(canvas => {
+                const imgData = canvas.toDataURL('image/png');
+                const { jsPDF } = window.jspdf;
+                const pdf = new jsPDF();
+                const imgProps = pdf.getImageProperties(imgData);
+                const pdfWidth = pdf.internal.pageSize.getWidth();
+                const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+                pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+                pdf.save('ARTCOLAB.pdf');
+            });
+        }
+
+        function toggleMemberList() {
+            let memberList = document.getElementById('memberList');
+            memberList.classList.toggle('hidden');
+        }
+
+        window.addEventListener('resize', () => {
+            let canvasDiv = document.getElementById('canvas-container');
+            resizeCanvas(canvasDiv.offsetWidth, canvasDiv.offsetHeight);
+            redraw();
+        });
+
+        socket.on('draw', (data) => {
+            if (data.userId !== userId) { // Only add others' drawings
+                points.push(data);
+                redraw();
+            }
+        });
+
+        socket.on('clearOther', (data) => {
+            if (data.room === socket.room && data.userId !== userId) {
+                points = points.filter(p => p.userId !== data.userId); // Remove other's cleared drawings
+                redraw();
+            }
+        });
+
+        socket.on('roomJoined', (roomId) => {
+            console.log('Joined room:', roomId);
+        });
+
+        socket.on('updateUsers', (count) => {
+            document.getElementById('onlineCount').textContent = `Room: ${socket.room} (Users: ${count})`;
         });
     </script>
 </body>
