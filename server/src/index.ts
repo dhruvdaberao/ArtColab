@@ -2,6 +2,7 @@ import http from 'node:http';
 import cors from 'cors';
 import express from 'express';
 import { Server } from 'socket.io';
+import { SOCKET_EVENTS } from '@cloudcanvas/shared';
 import { env } from './config/env.js';
 import { RoomManager } from './rooms/roomManager.js';
 import { roomsRouter } from './routes/rooms.js';
@@ -35,12 +36,14 @@ app.use('/api/rooms', roomsRouter(roomManager));
 
 registerSocketHandlers(io, roomManager);
 
-setInterval(() => {
+const cleanupTimer = setInterval(() => {
   const removed = roomManager.cleanupExpiredRooms();
   removed.forEach((roomId) => {
-    io.to(roomId).emit('room_expired', { roomId });
+    io.to(roomId).emit(SOCKET_EVENTS.ROOM_EXPIRED, { roomId });
   });
 }, env.CLEANUP_INTERVAL_MS);
+
+cleanupTimer.unref();
 
 server.listen(env.PORT, () => {
   console.log(`CloudCanvas server running on :${env.PORT}`);

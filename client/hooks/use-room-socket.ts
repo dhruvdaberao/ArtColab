@@ -1,6 +1,7 @@
 'use client';
 
 import { socket } from '@/lib/socket';
+import { SOCKET_EVENTS } from '@cloudcanvas/shared';
 import type { Participant, RoomState, Stroke } from '@cloudcanvas/shared';
 import { useEffect, useState } from 'react';
 
@@ -9,37 +10,47 @@ export function useRoomSocket(roomId: string, userId: string, displayName: strin
   const [strokes, setStrokes] = useState<Stroke[]>([]);
   const [status, setStatus] = useState<'connecting' | 'connected' | 'disconnected'>('connecting');
   const [expired, setExpired] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [hasJoined, setHasJoined] = useState(false);
 
   useEffect(() => {
     if (!userId) return;
+
     socket.connect();
     setStatus('connecting');
+    setError(null);
+    setHasJoined(false);
 
-    socket.on('connect', () => {
+    const onConnect = () => {
       setStatus('connected');
-      socket.emit('join_room', { roomId, userId, displayName });
-    });
+      socket.emit(SOCKET_EVENTS.ROOM_JOIN, { roomId, userId, displayName });
+    };
 
-    socket.on('disconnect', () => setStatus('disconnected'));
+    const onDisconnect = () => setStatus('disconnected');
 
-    socket.on('room_joined', ({ room }: { room: RoomState }) => {
+    const onRoomJoined = ({ room }: { room: RoomState }) => {
       setParticipants(room.participants);
       setStrokes(room.strokes);
       setExpired(false);
-    });
+      setHasJoined(true);
+    };
 
-    socket.on('room_state', ({ room }: { room: RoomState }) => {
+    const onRoomState = ({ room }: { room: RoomState }) => {
       setParticipants(room.participants);
       setStrokes(room.strokes);
-    });
+    };
 
-    socket.on('participants_updated', ({ participants: next }: { participants: Participant[] }) => setParticipants(next));
+    socket.on('connect', onConnect);
+    socket.on('disconnect', onDisconnect);
+    socket.on(SOCKET_EVENTS.ROOM_JOINED, onRoomJoined);
+    socket.on(SOCKET_EVENTS.ROOM_STATE, onRoomState);
+    socket.on(SOCKET_EVENTS.ROOM_PARTICIPANTS_UPDATED, ({ participants: next }: { participants: Participant[] }) => setParticipants(next));
 
-    socket.on('draw_event', (event) => {
-      if (event.type === 'draw_start') {
+    socket.on(SOCKET_EVENTS.STROKE_EVENT, (event) => {
+      if (event.type === SOCKET_EVENTS.STROKE_START) {
         setStrokes((prev) => [...prev, event.stroke]);
       }
-      if (event.type === 'draw_move') {
+      if (event.type === SOCKET_EVENTS.STROKE_APPEND) {
         setStrokes((prev) =>
           prev.map((stroke) =>
             stroke.strokeId === event.strokeId ? { ...stroke, points: [...stroke.points, ...event.points] } : stroke
@@ -48,26 +59,28 @@ export function useRoomSocket(roomId: string, userId: string, displayName: strin
       }
     });
 
-    socket.on('board_cleared', () => setStrokes([]));
-    socket.on('stroke_undone', ({ strokeId }: { strokeId: string }) => {
+    socket.on(SOCKET_EVENTS.BOARD_CLEARED, () => setStrokes([]));
+    socket.on(SOCKET_EVENTS.STROKE_UNDONE, ({ strokeId }: { strokeId: string }) => {
       setStrokes((prev) => prev.filter((stroke) => stroke.strokeId !== strokeId));
     });
-    socket.on('room_expired', () => setExpired(true));
+    socket.on(SOCKET_EVENTS.ROOM_EXPIRED, () => setExpired(true));
+    socket.on(SOCKET_EVENTS.ROOM_ERROR, ({ message }: { message: string }) => setError(message));
 
     return () => {
-      socket.emit('leave_room', { roomId });
-      socket.off('connect');
-      socket.off('disconnect');
-      socket.off('room_joined');
-      socket.off('room_state');
-      socket.off('participants_updated');
-      socket.off('draw_event');
-      socket.off('board_cleared');
-      socket.off('stroke_undone');
-      socket.off('room_expired');
+      socket.emit(SOCKET_EVENTS.ROOM_LEAVE, { roomId });
+      socket.off('connect', onConnect);
+      socket.off('disconnect', onDisconnect);
+      socket.off(SOCKET_EVENTS.ROOM_JOINED, onRoomJoined);
+      socket.off(SOCKET_EVENTS.ROOM_STATE, onRoomState);
+      socket.off(SOCKET_EVENTS.ROOM_PARTICIPANTS_UPDATED);
+      socket.off(SOCKET_EVENTS.STROKE_EVENT);
+      socket.off(SOCKET_EVENTS.BOARD_CLEARED);
+      socket.off(SOCKET_EVENTS.STROKE_UNDONE);
+      socket.off(SOCKET_EVENTS.ROOM_EXPIRED);
+      socket.off(SOCKET_EVENTS.ROOM_ERROR);
       socket.disconnect();
     };
   }, [roomId, userId, displayName]);
 
-  return { participants, setParticipants, strokes, setStrokes, status, expired };
+  return { participants, setParticipants, strokes, setStrokes, status, expired, error, hasJoined, setError };
 }

@@ -1,5 +1,6 @@
 import type { Server, Socket } from 'socket.io';
-import type { Participant, Stroke } from '@cloudcanvas/shared';
+import type { DrawMovePayload, DrawStartPayload, ErrorPayload, Participant, Stroke } from '@cloudcanvas/shared';
+import { SOCKET_EVENTS } from '@cloudcanvas/shared';
 import { RoomManager } from '../rooms/roomManager.js';
 import {
   drawEndSchema,
@@ -11,21 +12,37 @@ import {
 } from '../utils/validation.js';
 
 const emitParticipants = (io: Server, roomId: string, participants: Participant[]) => {
-  io.to(roomId).emit('participants_updated', { roomId, participants });
+  io.to(roomId).emit(SOCKET_EVENTS.ROOM_PARTICIPANTS_UPDATED, { roomId, participants });
+};
+
+const emitError = (socket: Socket, payload: ErrorPayload) => {
+  socket.emit(SOCKET_EVENTS.ROOM_ERROR, payload);
 };
 
 export const registerSocketHandlers = (io: Server, roomManager: RoomManager) => {
+  const leaveCurrentRoom = (socket: Socket, roomId?: string) => {
+    const result = roomId ? roomManager.removeParticipantByRoom(roomId, socket.id) : roomManager.removeParticipant(socket.id);
+    if (!result?.room) return;
+
+    socket.leave(result.roomId);
+    socket.to(result.roomId).emit(SOCKET_EVENTS.ROOM_PARTICIPANT_LEFT, {
+      roomId: result.roomId,
+      participant: result.participant
+    });
+    emitParticipants(io, result.roomId, result.room.participants);
+  };
+
   io.on('connection', (socket: Socket) => {
-    socket.on('join_room', (payload) => {
+    socket.on(SOCKET_EVENTS.ROOM_JOIN, (payload: unknown) => {
       const parsed = joinRoomSocketSchema.safeParse(payload);
       if (!parsed.success) {
-        socket.emit('error_event', { code: 'INVALID_PAYLOAD', message: 'Unable to join room.' });
+        emitError(socket, { code: 'INVALID_PAYLOAD', message: 'Unable to join room with the provided details.' });
         return;
       }
 
       const room = roomManager.getRoom(parsed.data.roomId);
       if (!room) {
-        socket.emit('room_expired', { roomId: parsed.data.roomId });
+        socket.emit(SOCKET_EVENTS.ROOM_EXPIRED, { roomId: parsed.data.roomId });
         return;
       }
 
@@ -39,92 +56,103 @@ export const registerSocketHandlers = (io: Server, roomManager: RoomManager) => 
       socket.join(parsed.data.roomId);
       const updatedRoom = roomManager.addParticipant(parsed.data.roomId, participant);
       if (!updatedRoom) {
-        socket.emit('error_event', { code: 'ROOM_MISSING', message: 'Room unavailable.' });
+        emitError(socket, { code: 'ROOM_UNAVAILABLE', message: 'This room is no longer available.' });
         return;
       }
 
-      socket.emit('room_joined', { room: updatedRoom, participant });
-      socket.to(parsed.data.roomId).emit('user_joined', { roomId: parsed.data.roomId, participant });
+      socket.emit(SOCKET_EVENTS.ROOM_JOINED, { room: updatedRoom, participant });
+      socket.to(parsed.data.roomId).emit(SOCKET_EVENTS.ROOM_PARTICIPANT_JOINED, { roomId: parsed.data.roomId, participant });
       emitParticipants(io, parsed.data.roomId, updatedRoom.participants);
     });
 
-    socket.on('draw_start', (payload) => {
+    socket.on(SOCKET_EVENTS.STROKE_START, (payload: DrawStartPayload) => {
       const parsed = drawStartSchema.safeParse(payload);
-      if (!parsed.success) return;
+      if (!parsed.success) {
+        emitError(socket, { code: 'INVALID_STROKE', message: 'Could not start stroke.' });
+        return;
+      }
       const room = roomManager.getRoom(parsed.data.roomId);
-      if (!room) return;
+      if (!room) {
+        socket.emit(SOCKET_EVENTS.ROOM_EXPIRED, { roomId: parsed.data.roomId });
+        return;
+      }
       const stroke: Stroke = { ...parsed.data.stroke, timestamp: Date.now() };
       roomManager.addStroke(parsed.data.roomId, stroke);
-      socket.to(parsed.data.roomId).emit('draw_event', { type: 'draw_start', stroke });
+      socket.to(parsed.data.roomId).emit(SOCKET_EVENTS.STROKE_EVENT, { type: SOCKET_EVENTS.STROKE_START, stroke });
     });
 
-    socket.on('draw_move', (payload) => {
+    socket.on(SOCKET_EVENTS.STROKE_APPEND, (payload: DrawMovePayload) => {
       const parsed = drawMoveSchema.safeParse(payload);
-      if (!parsed.success) return;
+      if (!parsed.success) {
+        emitError(socket, { code: 'INVALID_STROKE', message: 'Could not append stroke points.' });
+        return;
+      }
       const appended = roomManager.appendStrokePoints(parsed.data.roomId, parsed.data.strokeId, parsed.data.points);
       if (!appended) return;
-      socket.to(parsed.data.roomId).emit('draw_event', {
-        type: 'draw_move',
+      socket.to(parsed.data.roomId).emit(SOCKET_EVENTS.STROKE_EVENT, {
+        type: SOCKET_EVENTS.STROKE_APPEND,
         strokeId: parsed.data.strokeId,
         points: parsed.data.points
       });
     });
 
-    socket.on('draw_end', (payload) => {
+    socket.on(SOCKET_EVENTS.STROKE_END, (payload: unknown) => {
       const parsed = drawEndSchema.safeParse(payload);
       if (!parsed.success) return;
-      socket.to(parsed.data.roomId).emit('draw_event', { type: 'draw_end', strokeId: parsed.data.strokeId });
+      socket.to(parsed.data.roomId).emit(SOCKET_EVENTS.STROKE_EVENT, {
+        type: SOCKET_EVENTS.STROKE_END,
+        strokeId: parsed.data.strokeId
+      });
     });
 
-    socket.on('clear_board', (payload) => {
+    socket.on(SOCKET_EVENTS.BOARD_CLEAR, (payload: unknown) => {
       const parsed = roomActionSchema.safeParse(payload);
-      if (!parsed.success) return;
+      if (!parsed.success) {
+        emitError(socket, { code: 'INVALID_ROOM', message: 'Invalid room identifier.' });
+        return;
+      }
       const room = roomManager.clearBoard(parsed.data.roomId);
-      if (!room) return;
-      io.to(parsed.data.roomId).emit('board_cleared', { roomId: parsed.data.roomId });
+      if (!room) {
+        socket.emit(SOCKET_EVENTS.ROOM_EXPIRED, { roomId: parsed.data.roomId });
+        return;
+      }
+      io.to(parsed.data.roomId).emit(SOCKET_EVENTS.BOARD_CLEARED, { roomId: parsed.data.roomId });
     });
 
-    socket.on('undo_stroke', (payload) => {
+    socket.on(SOCKET_EVENTS.STROKE_UNDO, (payload: unknown) => {
       const parsed = undoSchema.safeParse(payload);
-      if (!parsed.success) return;
+      if (!parsed.success) {
+        emitError(socket, { code: 'INVALID_PAYLOAD', message: 'Unable to undo stroke.' });
+        return;
+      }
       const removed = roomManager.undoLastStroke(parsed.data.roomId, parsed.data.userId);
       if (!removed) return;
-      io.to(parsed.data.roomId).emit('stroke_undone', {
+      io.to(parsed.data.roomId).emit(SOCKET_EVENTS.STROKE_UNDONE, {
         roomId: parsed.data.roomId,
         strokeId: removed.strokeId,
         userId: parsed.data.userId
       });
     });
 
-    socket.on('request_room_state', (payload) => {
+    socket.on(SOCKET_EVENTS.ROOM_STATE_REQUEST, (payload: unknown) => {
       const parsed = roomActionSchema.safeParse(payload);
       if (!parsed.success) return;
       const room = roomManager.getRoom(parsed.data.roomId);
       if (!room) {
-        socket.emit('room_expired', { roomId: parsed.data.roomId });
+        socket.emit(SOCKET_EVENTS.ROOM_EXPIRED, { roomId: parsed.data.roomId });
         return;
       }
-      socket.emit('room_state', { room });
+      socket.emit(SOCKET_EVENTS.ROOM_STATE, { room });
     });
 
-    socket.on('leave_room', (payload) => {
+    socket.on(SOCKET_EVENTS.ROOM_LEAVE, (payload: unknown) => {
       const parsed = roomActionSchema.safeParse(payload);
       if (!parsed.success) return;
-      socket.leave(parsed.data.roomId);
-      const result = roomManager.removeParticipant(socket.id);
-      if (!result?.room) return;
-      socket.to(parsed.data.roomId).emit('user_left', {
-        roomId: parsed.data.roomId,
-        participant: result.participant
-      });
-      emitParticipants(io, parsed.data.roomId, result.room.participants);
+      leaveCurrentRoom(socket, parsed.data.roomId);
     });
 
     socket.on('disconnect', () => {
-      const result = roomManager.removeParticipant(socket.id);
-      if (!result?.room) return;
-      socket.to(result.roomId).emit('user_left', { roomId: result.roomId, participant: result.participant });
-      emitParticipants(io, result.roomId, result.room.participants);
+      leaveCurrentRoom(socket);
     });
   });
 };
