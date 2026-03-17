@@ -14,15 +14,29 @@ export type SessionUser = {
   updatedAt?: string;
 };
 
+export type RoomListItem = {
+  roomId: string;
+  name: string;
+  visibility: 'public' | 'private';
+  owner: { type: 'user' | 'guest'; name: string } | null;
+  createdAt: number;
+  updatedAt: number;
+  lastActiveAt: number;
+  participants: number;
+};
+
 export interface CreateRoomResponse {
-  room: { roomId: string };
+  room: { roomId: string; name?: string; visibility?: 'public' | 'private' };
 }
 
 export interface RoomResponse {
   room: {
     roomId: string;
+    name?: string;
+    visibility?: 'public' | 'private';
     createdAt: number;
     updatedAt: number;
+    lastActiveAt?: number;
     expiresAt: number | null;
   };
 }
@@ -83,7 +97,24 @@ export const setAuthToken = (token: string | null) => {
   localStorage.setItem('cloudcanvas-auth-token', token);
 };
 
-export const createRoom = async (): Promise<CreateRoomResponse> => request('/api/rooms/create', { method: 'POST' }, 'Failed to create room.');
+export const createRoom = async (payload: { name: string; visibility: 'public' | 'private'; password?: string }): Promise<CreateRoomResponse> =>
+  request('/api/rooms/create', { method: 'POST', body: JSON.stringify(payload) }, 'Failed to create room.');
+
+export const joinRoom = async (payload: { name: string; visibility: 'public' | 'private'; password?: string }): Promise<{ roomId: string }> =>
+  request('/api/rooms/join', { method: 'POST', body: JSON.stringify(payload) }, 'Failed to join room.');
+
+export const browseRooms = async (query: string): Promise<{ rooms: RoomListItem[] }> =>
+  request(`/api/rooms/browse?q=${encodeURIComponent(query)}`, { cache: 'no-store' }, 'Failed to browse rooms.');
+
+export const getManageRooms = async (): Promise<{ ownedRooms: RoomListItem[]; joinedRooms: RoomListItem[]; message?: string }> =>
+  request('/api/rooms/manage', { cache: 'no-store' }, 'Failed to load manage rooms.');
+
+export const updateRoomSettings = async (roomId: string, payload: { name?: string; visibility?: 'public' | 'private'; password?: string }) =>
+  request<{ room: RoomListItem }>(`/api/rooms/${roomId}/settings`, { method: 'PATCH', body: JSON.stringify(payload) }, 'Failed to update room settings.');
+
+export const deleteRoom = async (roomId: string) => request<{ success: boolean }>(`/api/rooms/${roomId}`, { method: 'DELETE' }, 'Failed to delete room.');
+
+export const leaveRoom = async (roomId: string) => request<{ success: boolean }>(`/api/rooms/${roomId}/leave`, { method: 'POST' }, 'Failed to leave room.');
 
 export const getRoom = async (roomId: string): Promise<RoomResponse> => request(`/api/rooms/${roomId}`, { cache: 'no-store' }, 'Failed to load room.');
 
