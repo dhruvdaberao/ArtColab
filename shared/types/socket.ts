@@ -1,5 +1,5 @@
-import type { CanvasPoint, Stroke } from './canvas';
-import type { Participant, RoomState } from './room';
+import type { CanvasPoint, Stroke } from './canvas.js';
+import type { Participant, RoomState } from './room.js';
 
 export const SOCKET_EVENTS = {
   ROOM_JOIN: 'room:join',
