@@ -13,6 +13,8 @@ const envSchema = z.object({
   REDIS_URL: z.string().optional()
 });
 
+const normalizeOrigin = (origin: string): string => origin.trim().replace(/\/+$/, '');
+
 export const env = envSchema.parse(process.env);
 
 export const allowedClientOrigins = env.CLIENT_ORIGIN.split(',')
