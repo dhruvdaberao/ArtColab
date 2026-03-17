@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, type Request, type Response } from 'express';
 import { z } from 'zod';
 import { requireAuth } from '../middleware/auth.js';
 import { User } from '../models/User.js';
@@ -10,7 +10,18 @@ const profileSchema = z.object({
   profileImageDataUri: z.string().trim().optional()
 });
 
-const safeUser = (user: any) => ({
+type SafeUserSource = {
+  _id: string;
+  username: string;
+  email: string;
+  profileImage?: string;
+  createdRooms: string[];
+  joinedRooms: string[];
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+const safeUser = (user: SafeUserSource) => ({
   id: String(user._id),
   username: user.username,
   email: user.email,
@@ -25,7 +36,7 @@ const safeUser = (user: any) => ({
 export const profileRouter = () => {
   const router = Router();
 
-  router.get('/', requireAuth, async (req, res) => {
+  router.get('/', requireAuth, async (req: Request, res: Response) => {
     const user = await User.findById(req.auth!.sub).lean();
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found.' });
@@ -34,7 +45,7 @@ export const profileRouter = () => {
     return res.json({ success: true, user: safeUser(user) });
   });
 
-  router.patch('/', requireAuth, async (req, res) => {
+  router.patch('/', requireAuth, async (req: Request, res: Response) => {
     const parsed = profileSchema.safeParse(req.body);
     if (!parsed.success) {
       return res.status(400).json({ success: false, message: parsed.error.issues[0]?.message || 'Invalid profile payload.' });
