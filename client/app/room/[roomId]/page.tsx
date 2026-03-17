@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { SOCKET_EVENTS } from '@cloudcanvas/shared';
 import type { DrawingTool } from '@cloudcanvas/shared';
@@ -10,17 +10,21 @@ import { Toolbar } from '@/components/toolbar';
 import { Badge, Button, Card, SecondaryButton } from '@/components/ui';
 import { socket } from '@/lib/socket';
 import { useRoomSocket } from '@/hooks/use-room-socket';
+import { getRoom } from '@/lib/api';
 
 export default function RoomPage() {
   const params = useParams<{ roomId: string }>();
   const router = useRouter();
-  const roomId = params.roomId.toUpperCase();
+  const roomId = useMemo(() => params.roomId.toUpperCase(), [params.roomId]);
+  const isValidRoomId = /^[A-Z0-9]{6}$/.test(roomId);
   const [tool, setTool] = useState<DrawingTool>('pen');
   const [color, setColor] = useState('#0f172a');
   const [size, setSize] = useState(4);
   const [userId, setUserId] = useState('');
   const [displayName, setDisplayName] = useState('Guest');
   const [shareLabel, setShareLabel] = useState('Share');
+  const [roomReady, setRoomReady] = useState(false);
+  const [roomLoadError, setRoomLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     const existing = localStorage.getItem('cloudcanvas-user-id');
@@ -34,7 +38,39 @@ export default function RoomPage() {
     setDisplayName(localStorage.getItem('cloudcanvas-display-name') ?? 'Guest');
   }, []);
 
-  const { participants, strokes, setStrokes, status, expired, error, hasJoined, setError } = useRoomSocket(roomId, userId, displayName);
+  useEffect(() => {
+    if (!isValidRoomId) {
+      setRoomLoadError('Invalid room code. Room IDs must be 6 alphanumeric characters.');
+      setRoomReady(false);
+      return;
+    }
+
+    let isCancelled = false;
+    setRoomLoadError(null);
+    setRoomReady(false);
+
+    getRoom(roomId)
+      .then(() => {
+        if (!isCancelled) {
+          setRoomReady(true);
+        }
+      })
+      .catch((error: Error) => {
+        if (!isCancelled) {
+          setRoomLoadError(error.message || 'Room unavailable.');
+        }
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [roomId, isValidRoomId]);
+
+  const { participants, strokes, setStrokes, status, expired, error, hasJoined, setError } = useRoomSocket(
+    roomReady ? roomId : '',
+    roomReady ? userId : '',
+    displayName
+  );
 
   const clearBoard = () => {
     if (window.confirm('Clear the board for everyone in this room?')) {
@@ -72,14 +108,14 @@ export default function RoomPage() {
     }
   };
 
-  if (expired) {
+  if (roomLoadError || expired) {
     return (
       <main className="flex min-h-screen items-center justify-center p-6">
         <Card className="max-w-md space-y-3 p-8 text-center">
-          <h1 className="text-2xl font-semibold">Room expired</h1>
-          <p className="text-slate-600">This temporary room is no longer active.</p>
+          <h1 className="text-2xl font-semibold">Room unavailable</h1>
+          <p className="text-slate-600">{roomLoadError || 'This temporary room is no longer active.'}</p>
           <Button className="mt-2" onClick={() => router.push('/')}>
-            Create a new room
+            Go to home
           </Button>
         </Card>
       </main>
