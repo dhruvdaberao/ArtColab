@@ -24,53 +24,28 @@ const getErrorMessage = async (response: Response, fallback: string) => {
   }
 };
 
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-
-const getOriginHint = (): string => {
-  if (typeof window === 'undefined') {
-    return 'unknown-origin';
-  }
-
-  return window.location.origin;
-};
-
 const withNetworkErrorHandling = async <T>(request: () => Promise<T>, fallback: string): Promise<T> => {
   try {
     return await request();
   } catch (error) {
     if (error instanceof TypeError) {
-      throw new Error(
-        `${fallback} Backend is unreachable or blocked by CORS. API URL: ${API_URL}. Frontend origin: ${getOriginHint()}. Check NEXT_PUBLIC_API_URL and backend CLIENT_ORIGIN.`
-      );
+      throw new Error(`${fallback} Backend is unreachable. Please check server URL and deployment status.`);
     }
     throw error;
   }
 };
 
-const createRoomRequest = async (): Promise<CreateRoomResponse> => {
-  const response = await fetch(`${API_URL}/api/rooms/create`, {
-    method: 'POST'
-  });
-
-  if (!response.ok) {
-    throw new Error(await getErrorMessage(response, 'Failed to create room.'));
-  }
-
-  return response.json();
-};
-
 export const createRoom = async (): Promise<CreateRoomResponse> => {
   return withNetworkErrorHandling(async () => {
-    try {
-      return await createRoomRequest();
-    } catch (error) {
-      if (error instanceof TypeError) {
-        await sleep(1200);
-        return createRoomRequest();
-      }
+    const response = await fetch(`${API_URL}/api/rooms/create`, {
+      method: 'POST'
+    });
 
-      throw error;
+    if (!response.ok) {
+      throw new Error(await getErrorMessage(response, 'Failed to create room.'));
     }
+
+    return response.json();
   }, 'Failed to create room.');
 };
 
