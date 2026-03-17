@@ -42,6 +42,7 @@ export const registerSocketHandlers = (io: Server, roomManager: RoomManager) => 
 
       const room = roomManager.getRoom(parsed.data.roomId);
       if (!room) {
+        console.warn('[socket:join] room unavailable', { roomId: parsed.data.roomId, socketId: socket.id });
         socket.emit(SOCKET_EVENTS.ROOM_EXPIRED, { roomId: parsed.data.roomId });
         return;
       }
@@ -56,6 +57,7 @@ export const registerSocketHandlers = (io: Server, roomManager: RoomManager) => 
       socket.join(parsed.data.roomId);
       const updatedRoom = roomManager.addParticipant(parsed.data.roomId, participant);
       if (!updatedRoom) {
+        console.error('[socket:join] failed to add participant', { roomId: parsed.data.roomId, socketId: socket.id });
         emitError(socket, { code: 'ROOM_UNAVAILABLE', message: 'This room is no longer available.' });
         return;
       }
@@ -73,6 +75,7 @@ export const registerSocketHandlers = (io: Server, roomManager: RoomManager) => 
       }
       const room = roomManager.getRoom(parsed.data.roomId);
       if (!room) {
+        console.warn('[socket:stroke:start] room unavailable', { roomId: parsed.data.roomId, socketId: socket.id });
         socket.emit(SOCKET_EVENTS.ROOM_EXPIRED, { roomId: parsed.data.roomId });
         return;
       }
@@ -139,6 +142,7 @@ export const registerSocketHandlers = (io: Server, roomManager: RoomManager) => 
       if (!parsed.success) return;
       const room = roomManager.getRoom(parsed.data.roomId);
       if (!room) {
+        console.warn('[socket:join] room unavailable', { roomId: parsed.data.roomId, socketId: socket.id });
         socket.emit(SOCKET_EVENTS.ROOM_EXPIRED, { roomId: parsed.data.roomId });
         return;
       }
