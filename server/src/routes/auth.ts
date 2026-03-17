@@ -1,6 +1,6 @@
 import crypto from 'node:crypto';
 import bcrypt from 'bcryptjs';
-import { Router, type Request, type Response } from 'express';
+import { Router, type NextFunction, type Request, type Response } from 'express';
 import { z } from 'zod';
 import { isMongoReady } from '../db/mongo.js';
 import { optionalAuth } from '../middleware/auth.js';
@@ -43,16 +43,22 @@ const ensureMongo = (res: Response): boolean => {
   return false;
 };
 
+const asyncHandler =
+  (handler: (req: Request, res: Response, next: NextFunction) => Promise<void | Response>) =>
+  (req: Request, res: Response, next: NextFunction) => {
+    void handler(req, res, next).catch(next);
+  };
+
 export const authRouter = () => {
   const router = Router();
 
-  router.post('/guest', optionalAuth, async (_req: Request, res: Response) => {
+  router.post('/guest', optionalAuth, asyncHandler(async (_req: Request, res: Response) => {
     const username = generateGuestUsername();
     const token = signGuestToken({ sub: crypto.randomUUID(), username, role: 'guest' });
     res.status(201).json({ success: true, token, user: { username, role: 'guest' as const } });
-  });
+  }));
 
-  router.post('/register', async (req: Request, res: Response) => {
+  router.post('/register', asyncHandler(async (req: Request, res: Response) => {
     if (!ensureMongo(res)) return;
     const parsed = registerSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -60,15 +66,20 @@ export const authRouter = () => {
     }
 
     const { email, username, password } = parsed.data;
+    const normalizedEmail = email.toLowerCase();
 
-    const existing = await User.findOne({ $or: [{ email: email.toLowerCase() }, { username }] }).lean();
+    const existing = await User.findOne({
+      $or: [{ email: normalizedEmail }, { username }]
+    }).lean();
+
     if (existing) {
-      return res.status(409).json({ success: false, message: existing.email === email.toLowerCase() ? 'Email already in use.' : 'Username already in use.' });
+      const isEmailTaken = existing.email === normalizedEmail;
+      return res.status(409).json({ success: false, message: isEmailTaken ? 'Email already in use.' : 'Username already in use.' });
     }
 
     const passwordHash = await bcrypt.hash(password, 12);
     const user = await User.create({
-      email: email.toLowerCase(),
+      email: normalizedEmail,
       username,
       password: passwordHash
     });
@@ -76,9 +87,9 @@ export const authRouter = () => {
     const token = signUserToken({ sub: String(user._id), username: user.username, email: user.email, role: 'user' });
 
     return res.status(201).json({ success: true, token, user: serializeSafeUser(user) });
-  });
+  }));
 
-  router.post('/login', async (req: Request, res: Response) => {
+  router.post('/login', asyncHandler(async (req: Request, res: Response) => {
     if (!ensureMongo(res)) return;
     const parsed = loginSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -101,9 +112,9 @@ export const authRouter = () => {
 
     const token = signUserToken({ sub: String(user._id), username: user.username, email: user.email, role: 'user' });
     return res.json({ success: true, token, user: serializeSafeUser(user) });
-  });
+  }));
 
-  router.post('/forgot-password/request', async (req: Request, res: Response) => {
+  router.post('/forgot-password/request', asyncHandler(async (req: Request, res: Response) => {
     if (!ensureMongo(res)) return;
     const parsed = resetRequestSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -116,13 +127,17 @@ export const authRouter = () => {
       user.resetCodeHash = hashResetCode(code);
       user.resetCodeExpiresAt = new Date(Date.now() + 15 * 60 * 1000);
       await user.save();
-      await sendPasswordResetCodeEmail(user.email, code);
+      try {
+        await sendPasswordResetCodeEmail(user.email, code);
+      } catch (error) {
+        console.error('[auth] failed to send reset email', error);
+      }
     }
 
     return res.status(200).json({ success: true, message: 'If an account exists, a reset code has been sent.' });
-  });
+  }));
 
-  router.post('/forgot-password/verify', async (req: Request, res: Response) => {
+  router.post('/forgot-password/verify', asyncHandler(async (req: Request, res: Response) => {
     if (!ensureMongo(res)) return;
     const parsed = resetVerifySchema.safeParse(req.body);
     if (!parsed.success || parsed.data.password !== parsed.data.confirmPassword) {
@@ -147,9 +162,9 @@ export const authRouter = () => {
     await user.save();
 
     return res.json({ success: true, message: 'Password updated successfully.' });
-  });
+  }));
 
-  router.get('/me', optionalAuth, async (req: Request, res: Response) => {
+  router.get('/me', optionalAuth, asyncHandler(async (req: Request, res: Response) => {
     if (!req.auth) {
       return res.json({ success: true, user: null });
     }
@@ -165,7 +180,7 @@ export const authRouter = () => {
     }
 
     return res.json({ success: true, user: serializeSafeUser(user) });
-  });
+  }));
 
   router.post('/logout', (_req, res) => {
     res.json({ success: true });

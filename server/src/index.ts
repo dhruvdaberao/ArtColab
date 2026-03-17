@@ -3,7 +3,7 @@ import cors from 'cors';
 import express, { type NextFunction, type Request, type Response } from 'express';
 import { Server } from 'socket.io';
 import { SOCKET_EVENTS } from '@cloudcanvas/shared';
-import { allowedClientOrigins, env, isAllowedClientOrigin } from './config/env.js';
+import { allowedClientOrigins, env, isAllowedClientOrigin, validateCriticalEnv } from './config/env.js';
 import { connectMongo, isMongoReady } from './db/mongo.js';
 import { Room } from './models/Room.js';
 import { RoomManager } from './rooms/roomManager.js';
@@ -12,6 +12,15 @@ import { authRouter } from './routes/auth.js';
 import { profileRouter } from './routes/profile.js';
 import { roomsRouter } from './routes/rooms.js';
 import { registerSocketHandlers } from './socket/registerHandlers.js';
+
+
+process.on('unhandledRejection', (reason) => {
+  console.error('[process] unhandled promise rejection', reason);
+});
+
+process.on('uncaughtException', (error) => {
+  console.error('[process] uncaught exception', error);
+});
 
 const app = express();
 const server = http.createServer(app);
@@ -107,6 +116,7 @@ const cleanupTimer = setInterval(() => {
 cleanupTimer.unref();
 
 const start = async () => {
+  validateCriticalEnv();
   await connectMongo();
 
   if (isMongoReady()) {
@@ -127,5 +137,4 @@ const start = async () => {
 
 start().catch((error) => {
   console.error('[CloudCanvas] failed to start server', error);
-  process.exit(1);
 });

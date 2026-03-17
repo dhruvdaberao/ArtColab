@@ -6,8 +6,8 @@ import './globals.css';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'SprinkleSketch',
-  description: 'A candy-fun collaborative doodle playground'
+  title: 'ArtColab',
+  description: 'Professional real-time collaborative drawing app'
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

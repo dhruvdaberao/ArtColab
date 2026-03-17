@@ -9,10 +9,15 @@ export const sendPasswordResetCodeEmail = async (to: string, code: string) => {
     return;
   }
 
-  await resend.emails.send({
-    from: env.RESEND_FROM_EMAIL,
-    to,
-    subject: 'CloudCanvas password reset code',
-    text: `Your reset code is: ${code}`
-  });
+  try {
+    await resend.emails.send({
+      from: env.RESEND_FROM_EMAIL,
+      to,
+      subject: 'CloudCanvas password reset code',
+      text: `Your reset code is: ${code}`
+    });
+  } catch (error) {
+    console.error('[email] resend send failed', error);
+    throw error;
+  }
 };
