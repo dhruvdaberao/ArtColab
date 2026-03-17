@@ -1,5 +1,4 @@
-import type { Participant, RoomState } from '@cloudcanvas/shared';
-import type { Stroke } from '@cloudcanvas/shared';
+import type { Participant, RoomState, Stroke } from '@cloudcanvas/shared';
 import { nanoid } from 'nanoid';
 import { env } from '../config/env.js';
 
@@ -12,6 +11,9 @@ export interface RoomOwnership {
 }
 
 interface RoomInternal extends RoomState {
+  name: string;
+  visibility: RoomVisibility;
+  lastActiveAt: number;
   pendingExpiryAt: number | null;
 }
 
@@ -28,12 +30,67 @@ interface RoomMeta {
   ownerName: string;
 }
 
+interface PersistState {
+  strokes: Stroke[];
+  updatedAt: Date;
+  lastActiveAt: Date;
+  lastSavedAt: Date;
+}
+
 const ROOM_CODE_REGEX = /[^A-Za-z0-9]/g;
+const SAVE_DEBOUNCE_MS = 1500;
 
 export class RoomManager {
   private rooms = new Map<string, RoomInternal>();
   private socketToRoom = new Map<string, string>();
   private roomMeta = new Map<string, RoomMeta>();
+  private saveTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
+  constructor(private persistRoomState?: (roomId: string, state: PersistState) => Promise<void>) {}
+
+  hydrateFromStorage(
+    rooms: Array<{
+      roomId: string;
+      name: string;
+      visibility: RoomVisibility;
+      passwordHash: string | null;
+      ownerType: 'user' | 'guest';
+      ownerId: string;
+      ownerName: string;
+      createdAt: Date;
+      updatedAt: Date;
+      lastActiveAt: Date;
+      canvasState?: { strokes?: Stroke[] };
+    }>
+  ): void {
+    for (const item of rooms) {
+      const room: RoomInternal = {
+        roomId: item.roomId,
+        name: item.name,
+        visibility: item.visibility,
+        createdAt: new Date(item.createdAt).getTime(),
+        updatedAt: new Date(item.updatedAt).getTime(),
+        lastActiveAt: new Date(item.lastActiveAt).getTime(),
+        expiresAt: null,
+        pendingExpiryAt: null,
+        participants: [],
+        strokes: (item.canvasState?.strokes ?? []).map((stroke) => ({ ...stroke, points: [...stroke.points] }))
+      };
+      this.rooms.set(room.roomId, room);
+      this.roomMeta.set(room.roomId, {
+        roomId: room.roomId,
+        name: room.name,
+        visibility: room.visibility,
+        passwordHash: item.passwordHash,
+        createdAt: room.createdAt,
+        updatedAt: room.updatedAt,
+        lastActiveAt: room.lastActiveAt,
+        ownerType: item.ownerType,
+        ownerId: item.ownerId,
+        ownerName: item.ownerName
+      });
+    }
+  }
 
   createRoom(input: { name: string; visibility: RoomVisibility; passwordHash: string | null; owner: RoomOwnership }): RoomState {
     const roomId = this.generateUniqueRoomId();
@@ -71,10 +128,6 @@ export class RoomManager {
   getRoom(roomId: string): RoomState | null {
     const room = this.rooms.get(roomId);
     if (!room) return null;
-    if (this.isExpired(room)) {
-      this.deleteRoom(roomId);
-      return null;
-    }
     return this.serialize(room);
   }
 
@@ -129,11 +182,6 @@ export class RoomManager {
     this.socketToRoom.delete(socketId);
     room.updatedAt = Date.now();
 
-    if (room.participants.length === 0) {
-      room.pendingExpiryAt = Date.now() + env.ROOM_IDLE_TIMEOUT_MS;
-      room.expiresAt = room.pendingExpiryAt;
-    }
-
     return { roomId, participant: target, room: this.serialize(room) };
   }
 
@@ -151,6 +199,7 @@ export class RoomManager {
       meta.lastActiveAt = room.updatedAt;
       meta.updatedAt = room.updatedAt;
     }
+    this.schedulePersist(roomId);
     return this.serialize(room);
   }
 
@@ -161,6 +210,7 @@ export class RoomManager {
     if (!stroke) return null;
     stroke.points.push(...points);
     room.updatedAt = Date.now();
+    this.schedulePersist(roomId);
     return stroke;
   }
 
@@ -169,6 +219,7 @@ export class RoomManager {
     if (!room) return null;
     room.strokes = [];
     room.updatedAt = Date.now();
+    this.schedulePersist(roomId, true);
     return this.serialize(room);
   }
 
@@ -179,6 +230,7 @@ export class RoomManager {
       if (room.strokes[i].userId === userId) {
         const [removed] = room.strokes.splice(i, 1);
         room.updatedAt = Date.now();
+        this.schedulePersist(roomId);
         return removed;
       }
     }
@@ -186,15 +238,7 @@ export class RoomManager {
   }
 
   cleanupExpiredRooms(): string[] {
-    const now = Date.now();
-    const removed: string[] = [];
-    for (const [roomId, room] of this.rooms) {
-      if (room.pendingExpiryAt && room.pendingExpiryAt <= now) {
-        this.deleteRoom(roomId);
-        removed.push(roomId);
-      }
-    }
-    return removed;
+    return [];
   }
 
   deleteRoom(roomId: string): void {
@@ -206,10 +250,50 @@ export class RoomManager {
     });
     this.rooms.delete(roomId);
     this.roomMeta.delete(roomId);
+    const existingTimer = this.saveTimers.get(roomId);
+    if (existingTimer) {
+      clearTimeout(existingTimer);
+      this.saveTimers.delete(roomId);
+    }
   }
 
-  private isExpired(room: RoomInternal): boolean {
-    return Boolean(room.pendingExpiryAt && room.pendingExpiryAt <= Date.now());
+  private schedulePersist(roomId: string, immediate = false): void {
+    if (!this.persistRoomState) return;
+
+    const existing = this.saveTimers.get(roomId);
+    if (existing) {
+      clearTimeout(existing);
+      this.saveTimers.delete(roomId);
+    }
+
+    const persistNow = () => {
+      this.saveTimers.delete(roomId);
+      this.persist(roomId);
+    };
+
+    if (immediate) {
+      persistNow();
+      return;
+    }
+
+    const timer = setTimeout(persistNow, SAVE_DEBOUNCE_MS);
+    timer.unref();
+    this.saveTimers.set(roomId, timer);
+  }
+
+  private persist(roomId: string): void {
+    if (!this.persistRoomState) return;
+    const room = this.rooms.get(roomId);
+    if (!room) return;
+
+    this.persistRoomState(roomId, {
+      strokes: room.strokes.map((stroke) => ({ ...stroke, points: [...stroke.points] })),
+      updatedAt: new Date(room.updatedAt),
+      lastActiveAt: new Date(room.lastActiveAt),
+      lastSavedAt: new Date()
+    }).catch((error) => {
+      console.error('[room:persist] failed', { roomId, error });
+    });
   }
 
   private generateUniqueRoomId(): string {
@@ -239,7 +323,7 @@ export class RoomManager {
       createdAt: room.createdAt,
       updatedAt: room.updatedAt,
       lastActiveAt: room.lastActiveAt,
-      expiresAt: room.pendingExpiryAt,
+      expiresAt: null,
       participants: [...room.participants],
       strokes: room.strokes.map((stroke) => ({ ...stroke, points: [...stroke.points] }))
     };

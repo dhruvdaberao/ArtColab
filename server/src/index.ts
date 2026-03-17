@@ -4,7 +4,8 @@ import express, { type NextFunction, type Request, type Response } from 'express
 import { Server } from 'socket.io';
 import { SOCKET_EVENTS } from '@cloudcanvas/shared';
 import { allowedClientOrigins, env, isAllowedClientOrigin } from './config/env.js';
-import { connectMongo } from './db/mongo.js';
+import { connectMongo, isMongoReady } from './db/mongo.js';
+import { Room } from './models/Room.js';
 import { RoomManager } from './rooms/roomManager.js';
 import { authRouter } from './routes/auth.js';
 import { profileRouter } from './routes/profile.js';
@@ -13,7 +14,21 @@ import { registerSocketHandlers } from './socket/registerHandlers.js';
 
 const app = express();
 const server = http.createServer(app);
-const roomManager = new RoomManager();
+const roomManager = new RoomManager(async (roomId, state) => {
+  if (!isMongoReady()) return;
+  await Room.findOneAndUpdate(
+    { roomId },
+    {
+      $set: {
+        'canvasState.strokes': state.strokes,
+        'canvasState.lastSavedAt': state.lastSavedAt,
+        updatedAt: state.updatedAt,
+        lastActiveAt: state.lastActiveAt
+      },
+      $inc: { 'canvasState.version': 1 }
+    }
+  );
+});
 
 const corsOrigin: cors.CorsOptions['origin'] = (origin, callback) => {
   if (isAllowedClientOrigin(origin)) {
@@ -91,6 +106,12 @@ cleanupTimer.unref();
 
 const start = async () => {
   await connectMongo();
+
+  if (isMongoReady()) {
+    const persistedRooms = await Room.find({}).lean();
+    roomManager.hydrateFromStorage(persistedRooms);
+  }
+
   server.listen(env.PORT, '0.0.0.0', () => {
     console.log('[CloudCanvas] backend started');
     console.log(`[CloudCanvas] port=${env.PORT}`);
