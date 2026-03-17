@@ -62,10 +62,12 @@ npm run dev
 - Root Directory: `server`
 - Build Command: `npm install && npm run build`
 - Start Command: `npm start`
+- Note: backend uses local package dependency `file:../shared`; keep `server` as Root Directory so Render can resolve the shared package from the same repo checkout.
 - Health Check Path: `/health`
 
 Required Render environment variables:
 - `NODE_ENV=production`
+- `CLIENT_ORIGIN=https://<your-vercel-domain>` (or comma-separated list, e.g. `https://art-colab-client.vercel.app,https://your-preview.vercel.app`)
 - `CLIENT_ORIGIN=https://<your-vercel-domain>`
 - `PORT=4000` (Render may inject one automatically; app supports `process.env.PORT || 4000`)
 
@@ -86,6 +88,8 @@ Optional:
 
 If room creation fails with `Failed to fetch` or `ERR_CONNECTION_REFUSED`:
 1. Verify backend is running and reachable at `/health`.
+2. Verify `NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_SOCKET_URL` point to the live backend URL (recommended), or that `https://artcolab-1.onrender.com` is reachable when fallback is used.
+3. Verify backend `CLIENT_ORIGIN` includes the frontend origin (exact origin or a wildcard such as `*.vercel.app`).
 2. Verify `NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_SOCKET_URL` point to the live backend URL.
 3. Verify backend `CLIENT_ORIGIN` exactly matches the frontend origin.
 4. Check backend startup logs for effective `port`, `node_env`, and `allowed_client_origins`.
