@@ -1,36 +1,50 @@
-import type { CanvasPoint, Stroke } from './canvas.js';
-import type { Participant, RoomState } from './room.js';
+import type { CanvasPoint, Stroke } from "./canvas.js";
+import type { Participant, RoomState } from "./room.js";
 
 export const SOCKET_EVENTS = {
-  ROOM_JOIN: 'room:join',
-  ROOM_LEAVE: 'room:leave',
-  ROOM_STATE_REQUEST: 'room:state:request',
-  ROOM_JOINED: 'room:joined',
-  ROOM_EXPIRED: 'room:expired',
-  ROOM_ERROR: 'room:error',
-  ROOM_STATE: 'room:state',
-  ROOM_PARTICIPANTS_UPDATED: 'room:participants:updated',
-  ROOM_PARTICIPANT_JOINED: 'room:participant:joined',
-  ROOM_PARTICIPANT_LEFT: 'room:participant:left',
-  STROKE_START: 'stroke:start',
-  STROKE_APPEND: 'stroke:append',
-  STROKE_END: 'stroke:end',
-  STROKE_EVENT: 'stroke:event',
-  BOARD_CLEAR: 'board:clear',
-  BOARD_CLEARED: 'board:cleared',
-  STROKE_UNDO: 'stroke:undo',
-  STROKE_UNDONE: 'stroke:undone'
+  ROOM_JOIN: "room:join",
+  ROOM_LEAVE: "room:leave",
+  ROOM_STATE_REQUEST: "room:state:request",
+  ROOM_JOINED: "room:joined",
+  ROOM_EXPIRED: "room:expired",
+  ROOM_ERROR: "room:error",
+  ROOM_STATE: "room:state",
+  ROOM_PARTICIPANTS_UPDATED: "room:participants:updated",
+  ROOM_PARTICIPANT_JOINED: "room:participant:joined",
+  ROOM_PARTICIPANT_LEFT: "room:participant:left",
+  STROKE_START: "stroke:start",
+  STROKE_APPEND: "stroke:append",
+  STROKE_END: "stroke:end",
+  STROKE_EVENT: "stroke:event",
+  BOARD_CLEAR: "board:clear",
+  BOARD_CLEARED: "board:cleared",
+  STROKE_UNDO: "stroke:undo",
+  STROKE_UNDONE: "stroke:undone",
+  CURSOR_UPDATE: "cursor:update",
+  CURSOR_PRESENCE: "cursor:presence",
 } as const;
 
 export interface JoinRoomPayload {
   roomId: string;
   userId: string;
   displayName: string;
+  avatarUrl?: string;
+}
+
+export interface CursorPayload {
+  roomId: string;
+  userId: string;
+  displayName: string;
+  avatarUrl?: string;
+  x: number;
+  y: number;
+  drawing: boolean;
+  updatedAt: number;
 }
 
 export interface DrawStartPayload {
   roomId: string;
-  stroke: Omit<Stroke, 'points' | 'timestamp'> & { points: CanvasPoint[] };
+  stroke: Omit<Stroke, "points" | "timestamp"> & { points: CanvasPoint[] };
 }
 
 export interface DrawMovePayload {
