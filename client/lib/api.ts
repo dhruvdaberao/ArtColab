@@ -41,22 +41,29 @@ export interface RoomResponse {
   };
 }
 
-const getErrorMessage = async (response: Response, fallback: string) => {
-  try {
-    const body = (await response.json()) as { message?: string };
-    return body.message || fallback;
-  } catch {
-    return fallback;
+class ApiError extends Error {
+  constructor(
+    message: string,
+    public readonly status?: number,
+    public readonly code?: string
+  ) {
+    super(message);
+    this.name = 'ApiError';
   }
-};
+}
 
-const withNetworkErrorHandling = async <T>(request: () => Promise<T>, fallback: string): Promise<T> => {
+const withNetworkErrorHandling = async <T>(requestFn: () => Promise<T>, fallback: string): Promise<T> => {
   try {
-    return await request();
+    return await requestFn();
   } catch (error) {
-    if (error instanceof TypeError) {
-      throw new Error(`${fallback} Backend is unreachable. Please check server URL and deployment status.`);
+    if (error instanceof ApiError) {
+      throw error;
     }
+
+    if (error instanceof TypeError) {
+      throw new ApiError(`${fallback} Backend is unreachable. Please check deployment status and API URL.`);
+    }
+
     throw error;
   }
 };
@@ -80,11 +87,15 @@ const request = async <T>(path: string, options: RequestInit = {}, fallback = 'R
       credentials: 'include'
     });
 
+    const contentType = response.headers.get('content-type') || '';
+    const body = contentType.includes('application/json') ? await response.json() : null;
+
     if (!response.ok) {
-      throw new Error(await getErrorMessage(response, fallback));
+      const message = (body as { message?: string } | null)?.message || fallback;
+      throw new ApiError(message, response.status);
     }
 
-    return response.json();
+    return body as T;
   }, fallback);
 };
 
