@@ -27,34 +27,15 @@ const PRESET_COLORS = [
   "#111827",
 ];
 
-const PenIcon = () => (
-  <svg
-    viewBox="0 0 24 24"
-    className="h-4 w-4"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="1.8"
-  >
-    <path d="m3 21 3-.5L19.5 7a2.1 2.1 0 0 0-3-3L3 17.5 3 21Z" />
-  </svg>
-);
-
-const EraserIcon = () => (
-  <svg
-    viewBox="0 0 24 24"
-    className="h-4 w-4"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="1.8"
-  >
-    <path d="m7 19 9.5-9.5a2.2 2.2 0 0 0 0-3.1l-1.9-1.9a2.2 2.2 0 0 0-3.1 0L2 14l5 5Z" />
-    <path d="M22 19H7" />
-  </svg>
-);
+const PenIcon = () => <span>🖌️</span>;
+const EraserIcon = () => <span>🧽</span>;
+const UndoIcon = () => <span>↶</span>;
+const ClearIcon = () => <span>🗑️</span>;
+const DownloadIcon = () => <span>⬇️</span>;
 
 const toolButtonClass = (active: boolean) =>
   active
-    ? "border-slate-900 bg-slate-900 text-white shadow-sm ring-2 ring-slate-900/10 hover:bg-slate-800"
+    ? "border-indigo-600 bg-indigo-600 text-white shadow-sm ring-2 ring-indigo-500/30 hover:bg-indigo-500"
     : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50";
 
 export function Toolbar({
@@ -72,36 +53,30 @@ export function Toolbar({
   const brushPreviewSize = Math.max(6, Math.min(size, 24));
 
   return (
-    <div className="flex flex-col gap-3 rounded-2xl border border-slate-200/90 bg-white p-3.5 shadow-sm transition-all lg:flex-row lg:items-center lg:justify-between">
+    <div className="flex flex-col gap-3 rounded-2xl border border-slate-200/90 bg-white p-4 shadow-sm transition-all lg:flex-row lg:items-center lg:justify-between">
       <div className="flex min-w-0 flex-col gap-3">
         <div className="flex flex-wrap items-center gap-2">
           <Button
-            className={`gap-2 border ${toolButtonClass(tool === "pen")}`}
+            className={`min-h-11 gap-2 border ${toolButtonClass(tool === "pen")}`}
             onClick={() => setTool("pen")}
             disabled={disabled}
             aria-pressed={tool === "pen"}
           >
-            <PenIcon /> Pen (B)
+            <PenIcon /> Brush (B)
           </Button>
           <Button
-            className={`gap-2 border ${toolButtonClass(tool === "eraser")}`}
+            className={`min-h-11 gap-2 border ${toolButtonClass(tool === "eraser")}`}
             onClick={() => setTool("eraser")}
             disabled={disabled}
             aria-pressed={tool === "eraser"}
           >
             <EraserIcon /> Eraser (E)
           </Button>
-          <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-600">
-            Active tool:{" "}
-            <span className="font-semibold text-slate-900">
-              {tool === "pen" ? "Pen" : "Eraser"}
-            </span>
-          </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-          <label className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50/70 px-2.5 py-1.5 text-xs font-medium text-slate-600">
-            <span>Color</span>
+          <label className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-slate-50/70 px-2.5 py-1.5 text-xs font-medium text-slate-600">
+            <span>🎨</span>
             <input
               type="color"
               value={color}
@@ -110,9 +85,6 @@ export function Toolbar({
               className="h-8 w-8 cursor-pointer rounded border border-slate-300 bg-white disabled:cursor-not-allowed"
               aria-label="Pick drawing color"
             />
-            <span className="rounded-md border border-slate-200 bg-white px-1.5 py-0.5 font-mono text-[10px] uppercase text-slate-500">
-              {color}
-            </span>
           </label>
 
           <div
@@ -129,14 +101,14 @@ export function Toolbar({
                   disabled={disabled || tool === "eraser"}
                   aria-label={`Select color ${preset}`}
                   aria-pressed={selected}
-                  className={`h-6 w-6 rounded-full border transition-transform ${selected ? "scale-110 border-slate-900 ring-2 ring-slate-900/20" : "border-slate-300"} disabled:cursor-not-allowed disabled:opacity-50`}
+                  className={`h-7 w-7 rounded-full border transition-transform ${selected ? "scale-110 border-slate-900 ring-2 ring-slate-900/20" : "border-slate-300"} disabled:cursor-not-allowed disabled:opacity-50`}
                   style={{ backgroundColor: preset }}
                 />
               );
             })}
           </div>
 
-          <label className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50/70 px-2.5 py-2 text-xs font-medium text-slate-600">
+          <label className="flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-slate-50/70 px-2.5 py-2 text-xs font-medium text-slate-600">
             <span>Size</span>
             <input
               type="range"
@@ -151,7 +123,7 @@ export function Toolbar({
               {size}
             </span>
             <span
-              className="inline-block rounded-full border border-slate-300 bg-slate-800 transition-all"
+              className="inline-block rounded-full border border-slate-300 transition-all"
               style={{
                 width: brushPreviewSize,
                 height: brushPreviewSize,
@@ -164,14 +136,26 @@ export function Toolbar({
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        <SecondaryButton onClick={onUndo} disabled={disabled}>
-          Undo (⌘/Ctrl+Z)
+        <SecondaryButton
+          onClick={onUndo}
+          disabled={disabled}
+          className="min-h-11 gap-2"
+        >
+          <UndoIcon /> Undo
         </SecondaryButton>
-        <SecondaryButton onClick={onClear} disabled={disabled}>
-          Clear
+        <SecondaryButton
+          onClick={onClear}
+          disabled={disabled}
+          className="min-h-11 gap-2"
+        >
+          <ClearIcon /> Clear
         </SecondaryButton>
-        <Button onClick={onDownload} disabled={disabled}>
-          Download
+        <Button
+          onClick={onDownload}
+          disabled={disabled}
+          className="min-h-11 gap-2"
+        >
+          <DownloadIcon /> Download
         </Button>
       </div>
     </div>

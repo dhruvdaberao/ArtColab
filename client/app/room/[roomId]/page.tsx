@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { nanoid } from "nanoid";
 import { SOCKET_EVENTS } from "@cloudcanvas/shared";
@@ -32,6 +32,7 @@ export default function RoomPage() {
   const [isClearModalOpen, setIsClearModalOpen] = useState(false);
   const [isExitModalOpen, setIsExitModalOpen] = useState(false);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
+  const joinedToastShownRef = useRef(false);
   const { user } = useAuth();
 
   const pushToast = useCallback((message: string) => {
@@ -40,7 +41,7 @@ export default function RoomPage() {
     window.setTimeout(() => {
       setToasts((prev) => prev.filter((toast) => toast.id !== id));
     }, 1800);
-  }, [user?.username]);
+  }, []);
 
   useEffect(() => {
     const existing = localStorage.getItem("cloudcanvas-user-id");
@@ -52,7 +53,9 @@ export default function RoomPage() {
       setUserId(next);
     }
     const fallback = user?.username ?? "Guest";
-    setDisplayName(localStorage.getItem("cloudcanvas-display-name") ?? fallback);
+    setDisplayName(
+      localStorage.getItem("cloudcanvas-display-name") ?? fallback,
+    );
   }, [user?.username]);
 
   useEffect(() => {
@@ -85,19 +88,24 @@ export default function RoomPage() {
     };
   }, [roomId, isValidRoomId]);
 
+  const avatarUrl = user?.profileImage;
+
   const {
     participants,
     strokes,
     setStrokes,
+    cursors,
     status,
     expired,
     error,
     hasJoined,
     setError,
+    leaveRoom: leaveSocketRoom,
   } = useRoomSocket(
     roomReady ? roomId : "",
     roomReady ? userId : "",
     displayName,
+    avatarUrl,
   );
 
   const clearBoard = () => {
@@ -140,8 +148,9 @@ export default function RoomPage() {
   };
 
   const leaveRoom = () => {
-    socket.emit(SOCKET_EVENTS.ROOM_LEAVE, { roomId });
+    leaveSocketRoom();
     setIsExitModalOpen(false);
+    pushToast("Left room.");
     router.push("/");
   };
 
@@ -182,6 +191,13 @@ export default function RoomPage() {
     };
   }, [pushToast]);
 
+  useEffect(() => {
+    if (hasJoined && !joinedToastShownRef.current) {
+      joinedToastShownRef.current = true;
+      pushToast("Joined room.");
+    }
+  }, [hasJoined, pushToast]);
+
   if (roomLoadError || expired) {
     return (
       <main className="flex min-h-screen items-center justify-center p-6">
@@ -199,7 +215,7 @@ export default function RoomPage() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-50/40 px-3 py-4 sm:px-5 sm:py-6">
+    <main className="min-h-screen overscroll-none bg-slate-50/40 px-3 py-4 sm:px-5 sm:py-6">
       <div className="mx-auto flex w-full max-w-[1520px] flex-col gap-4">
         <header className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200/90 bg-white px-4 py-3 shadow-sm sm:px-5">
           <div className="space-y-1">
@@ -213,13 +229,16 @@ export default function RoomPage() {
           <div className="flex flex-wrap items-center gap-2 text-sm">
             <UserAvatarMenu />
             <Badge className="capitalize">{status}</Badge>
-            <Badge>Signed in as {displayName}{user?.role === "guest" ? " (Guest)" : ""}</Badge>
+            <Badge>
+              Signed in as {displayName}
+              {user?.role === "guest" ? " (Guest)" : ""}
+            </Badge>
             <SecondaryButton onClick={copyLink}>Copy room link</SecondaryButton>
             <Button
-              className="min-h-11 bg-rose-600 px-5 hover:bg-rose-500 focus-visible:ring-rose-300"
+              className="min-h-11 gap-2 bg-rose-600 px-5 hover:bg-rose-500 focus-visible:ring-rose-300"
               onClick={() => setIsExitModalOpen(true)}
             >
-              Exit Room
+              🚪 Exit Room
             </Button>
           </div>
         </header>
@@ -262,10 +281,13 @@ export default function RoomPage() {
             <CanvasBoard
               roomId={roomId}
               userId={userId || "pending"}
+              displayName={displayName}
+              avatarUrl={avatarUrl}
               tool={tool}
               color={color}
               size={size}
               strokes={strokes}
+              cursors={cursors}
               setStrokes={setStrokes}
               disabled={!hasJoined}
             />

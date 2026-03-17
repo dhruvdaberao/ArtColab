@@ -2,9 +2,9 @@
 
 import { socket } from "@/lib/socket";
 import { SOCKET_EVENTS } from "@cloudcanvas/shared";
-import type { DrawingTool, Stroke } from "@cloudcanvas/shared";
+import type { CursorPayload, DrawingTool, Stroke } from "@cloudcanvas/shared";
 import { nanoid } from "nanoid";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 const LOGICAL_CANVAS_WIDTH = 1200;
 const LOGICAL_CANVAS_HEIGHT = 700;
@@ -45,13 +45,24 @@ const renderStroke = (ctx: CanvasRenderingContext2D, stroke: Stroke) => {
   ctx.restore();
 };
 
+const initialsFor = (name: string) =>
+  name
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? "")
+    .join("") || "G";
+
 interface CanvasBoardProps {
   roomId: string;
   userId: string;
+  displayName: string;
+  avatarUrl?: string;
   tool: DrawingTool;
   color: string;
   size: number;
   strokes: Stroke[];
+  cursors: Record<string, CursorPayload>;
   setStrokes: React.Dispatch<React.SetStateAction<Stroke[]>>;
   disabled?: boolean;
 }
@@ -59,10 +70,13 @@ interface CanvasBoardProps {
 export function CanvasBoard({
   roomId,
   userId,
+  displayName,
+  avatarUrl,
   tool,
   color,
   size,
   strokes,
+  cursors,
   setStrokes,
   disabled = false,
 }: CanvasBoardProps) {
@@ -72,7 +86,13 @@ export function CanvasBoard({
   const pendingPointsRef = useRef<Stroke["points"]>([]);
   const rafRef = useRef<number | null>(null);
   const activePointerIdRef = useRef<number | null>(null);
+  const lastCursorBroadcastRef = useRef(0);
   const [canvasVersion, setCanvasVersion] = useState(0);
+  const [cursorPreview, setCursorPreview] = useState<{
+    x: number;
+    y: number;
+    visible: boolean;
+  }>({ x: 0, y: 0, visible: false });
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -133,6 +153,21 @@ export function CanvasBoard({
     });
   };
 
+  const emitCursor = (point: { x: number; y: number }, drawing: boolean) => {
+    const now = performance.now();
+    if (!drawing && now - lastCursorBroadcastRef.current < 45) return;
+    lastCursorBroadcastRef.current = now;
+    socket.emit(SOCKET_EVENTS.CURSOR_UPDATE, {
+      roomId,
+      userId,
+      displayName,
+      avatarUrl,
+      x: point.x,
+      y: point.y,
+      drawing,
+    });
+  };
+
   const scheduleFlush = () => {
     if (rafRef.current) return;
     rafRef.current = requestAnimationFrame(() => {
@@ -161,6 +196,8 @@ export function CanvasBoard({
     activePointerIdRef.current = event.pointerId;
     event.currentTarget.setPointerCapture(event.pointerId);
     const point = position(event);
+    emitCursor(point, true);
+    setCursorPreview({ x: point.x, y: point.y, visible: true });
     const strokeId = nanoid();
     currentStrokeId.current = strokeId;
     const stroke: Stroke = {
@@ -181,6 +218,10 @@ export function CanvasBoard({
   };
 
   const onPointerMove = (event: React.PointerEvent<HTMLCanvasElement>) => {
+    const point = position(event);
+    setCursorPreview({ x: point.x, y: point.y, visible: true });
+    emitCursor(point, drawingRef.current);
+
     if (!drawingRef.current || activePointerIdRef.current !== event.pointerId)
       return;
 
@@ -237,24 +278,86 @@ export function CanvasBoard({
       roomId,
       strokeId: currentStrokeId.current,
     });
+    if (cursorPreview.visible) {
+      emitCursor({ x: cursorPreview.x, y: cursorPreview.y }, false);
+    }
     currentStrokeId.current = "";
     pendingPointsRef.current = [];
     activePointerIdRef.current = null;
   };
 
+  const otherCursors = useMemo(
+    () => Object.values(cursors).filter((cursor) => cursor.userId !== userId),
+    [cursors, userId],
+  );
+
   return (
-    <canvas
-      ref={canvasRef}
-      width={1200}
-      height={700}
-      className={`w-full rounded-2xl border border-slate-200 bg-white shadow-sm transition-opacity [touch-action:none] ${tool === "pen" ? "cursor-crosshair" : "cursor-cell"} ${disabled ? "opacity-70" : ""}`}
-      aria-label="Collaborative drawing canvas"
-      onPointerDown={onPointerDown}
-      onPointerMove={onPointerMove}
-      onPointerUp={onPointerUp}
-      onPointerLeave={onPointerUp}
-      onPointerCancel={onPointerUp}
-      onLostPointerCapture={onPointerUp}
-    />
+    <div className="relative">
+      <canvas
+        ref={canvasRef}
+        width={1200}
+        height={700}
+        className={`w-full rounded-2xl border border-slate-200 bg-white shadow-sm transition-opacity [touch-action:none] ${tool === "pen" ? "cursor-none" : "cursor-none"} ${disabled ? "opacity-70" : ""}`}
+        aria-label="Collaborative drawing canvas"
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerEnter={onPointerMove}
+        onPointerLeave={() =>
+          setCursorPreview((prev) => ({ ...prev, visible: false }))
+        }
+        onPointerCancel={onPointerUp}
+        onLostPointerCapture={onPointerUp}
+      />
+
+      {cursorPreview.visible && !disabled && (
+        <div
+          className="pointer-events-none absolute rounded-full border border-slate-900/45"
+          style={{
+            left: `${(cursorPreview.x / LOGICAL_CANVAS_WIDTH) * 100}%`,
+            top: `${(cursorPreview.y / LOGICAL_CANVAS_HEIGHT) * 100}%`,
+            width: Math.max(10, size * 1.8),
+            height: Math.max(10, size * 1.8),
+            transform: "translate(-50%, -50%)",
+            backgroundColor:
+              tool === "eraser" ? "rgba(255,255,255,0.75)" : `${color}1A`,
+          }}
+        />
+      )}
+
+      <div className="pointer-events-none absolute inset-0">
+        {otherCursors.map((cursor) => {
+          const idle = Date.now() - cursor.updatedAt > 3000;
+          return (
+            <div
+              key={cursor.userId}
+              className={`absolute transition-all duration-150 ${idle ? "opacity-30" : "opacity-100"}`}
+              style={{
+                left: `${(cursor.x / LOGICAL_CANVAS_WIDTH) * 100}%`,
+                top: `${(cursor.y / LOGICAL_CANVAS_HEIGHT) * 100}%`,
+                transform: "translate(-50%, -50%)",
+              }}
+            >
+              <div className="flex items-center gap-2">
+                <span className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full border-2 border-white bg-slate-800 text-[10px] font-semibold text-white shadow-lg">
+                  {cursor.avatarUrl ? (
+                    <img
+                      src={cursor.avatarUrl}
+                      alt={cursor.displayName}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    initialsFor(cursor.displayName)
+                  )}
+                </span>
+                <span className="rounded-md bg-slate-900/80 px-2 py-0.5 text-xs text-white">
+                  {cursor.displayName}
+                </span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 }
