@@ -1,4 +1,4 @@
-import type { CanvasPoint, Stroke } from "./canvas.js";
+import type { CanvasPoint, Sticker, Stroke } from "./canvas.js";
 import type { Participant, RoomState } from "./room.js";
 
 export const SOCKET_EVENTS = {
@@ -22,7 +22,17 @@ export const SOCKET_EVENTS = {
   STROKE_UNDONE: "stroke:undone",
   CURSOR_UPDATE: "cursor:update",
   CURSOR_PRESENCE: "cursor:presence",
+  CHAT_SEND: "chat:send",
+  CHAT_MESSAGE: "chat:message",
+  REACTION_SEND: "reaction:send",
+  REACTION_EVENT: "reaction:event",
+  STICKER_PLACE: "sticker:place",
+  STICKER_PLACED: "sticker:placed",
+  MODE_SET: "mode:set",
+  MODE_UPDATED: "mode:updated",
 } as const;
+
+export type RoomMode = "free-draw" | "guess-mode";
 
 export interface JoinRoomPayload {
   roomId: string;
@@ -70,6 +80,33 @@ export interface UndoStrokePayload {
 export interface RoomJoinedPayload {
   room: RoomState;
   participant: Participant;
+}
+
+export interface ChatMessagePayload {
+  roomId: string;
+  userId: string;
+  displayName: string;
+  avatarUrl?: string;
+  text: string;
+}
+
+export interface ReactionPayload {
+  roomId: string;
+  userId: string;
+  displayName: string;
+  emoji: "❤️" | "😂" | "😮" | "🔥" | "🎉";
+  x?: number;
+  y?: number;
+}
+
+export interface StickerPayload {
+  roomId: string;
+  sticker: Sticker;
+}
+
+export interface ModePayload {
+  roomId: string;
+  mode: RoomMode;
 }
 
 export interface ErrorPayload {

@@ -14,9 +14,24 @@ const strokeSchema = new Schema(
     roomId: { type: String, required: true },
     userId: { type: String, required: true },
     tool: { type: String, enum: ['pen', 'eraser'], required: true },
+    brushStyle: { type: String, enum: ['classic', 'rainbow', 'neon', 'dotted', 'spray'], default: 'classic' },
     color: { type: String, required: true },
     size: { type: Number, required: true },
     points: { type: [pointSchema], default: [] },
+    timestamp: { type: Number, required: true }
+  },
+  { _id: false }
+);
+
+const stickerSchema = new Schema(
+  {
+    stickerId: { type: String, required: true },
+    roomId: { type: String, required: true },
+    userId: { type: String, required: true },
+    value: { type: String, required: true },
+    x: { type: Number, required: true },
+    y: { type: Number, required: true },
+    size: { type: Number, required: true },
     timestamp: { type: Number, required: true }
   },
   { _id: false }
@@ -34,6 +49,7 @@ const roomSchema = new Schema(
     lastActiveAt: { type: Date, default: Date.now },
     canvasState: {
       strokes: { type: [strokeSchema], default: [] },
+      stickers: { type: [stickerSchema], default: [] },
       lastSavedAt: { type: Date, default: null },
       version: { type: Number, default: 1 }
     },
@@ -62,9 +78,20 @@ export interface RoomDoc {
       roomId: string;
       userId: string;
       tool: 'pen' | 'eraser';
+      brushStyle?: 'classic' | 'rainbow' | 'neon' | 'dotted' | 'spray';
       color: string;
       size: number;
       points: Array<{ x: number; y: number }>;
+      timestamp: number;
+    }>;
+    stickers: Array<{
+      stickerId: string;
+      roomId: string;
+      userId: string;
+      value: string;
+      x: number;
+      y: number;
+      size: number;
       timestamp: number;
     }>;
     lastSavedAt: Date | null;

@@ -94,6 +94,7 @@ export const drawStartSchema = z.object({
     roomId: roomIdSchema,
     userId: z.string().min(1).max(64),
     tool: z.enum(["pen", "eraser"]),
+    brushStyle: z.enum(["classic", "rainbow", "neon", "dotted", "spray"]).optional(),
     color: z.string().max(20),
     size: z.number().min(1).max(64),
     points: z.array(pointSchema).min(1).max(20),
@@ -128,4 +129,40 @@ export const roomActionSchema = z.object({
 export const undoSchema = z.object({
   roomId: roomIdSchema,
   userId: z.string().min(1).max(64),
+});
+
+export const chatSchema = z.object({
+  roomId: roomIdSchema,
+  userId: z.string().trim().min(1).max(64),
+  displayName: z.string().trim().min(1).max(32),
+  avatarUrl: z.string().url().max(2048).optional(),
+  text: z.string().trim().min(1).max(240),
+});
+
+export const reactionSchema = z.object({
+  roomId: roomIdSchema,
+  userId: z.string().trim().min(1).max(64),
+  displayName: z.string().trim().min(1).max(32),
+  emoji: z.enum(["❤️", "😂", "😮", "🔥", "🎉"]),
+  x: z.number().min(0).max(1200).optional(),
+  y: z.number().min(0).max(700).optional(),
+});
+
+export const stickerSchema = z.object({
+  roomId: roomIdSchema,
+  sticker: z.object({
+    stickerId: z.string().min(1).max(64),
+    roomId: roomIdSchema,
+    userId: z.string().trim().min(1).max(64),
+    value: z.string().trim().min(1).max(6),
+    x: z.number().min(0).max(1200),
+    y: z.number().min(0).max(700),
+    size: z.number().min(16).max(96),
+    timestamp: z.number().int().positive(),
+  }),
+});
+
+export const modeSchema = z.object({
+  roomId: roomIdSchema,
+  mode: z.enum(["free-draw", "guess-mode"]),
 });

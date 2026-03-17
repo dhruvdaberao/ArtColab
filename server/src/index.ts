@@ -12,10 +12,6 @@ import { profileRouter } from './routes/profile.js';
 import { roomsRouter } from './routes/rooms.js';
 import { registerSocketHandlers } from './socket/registerHandlers.js';
 
-type PersistedRoomRecord = {
-  passwordHash?: string | null;
-} & Record<string, unknown>;
-
 const app = express();
 const server = http.createServer(app);
 const roomManager = new RoomManager(async (roomId, state) => {
@@ -25,6 +21,7 @@ const roomManager = new RoomManager(async (roomId, state) => {
     {
       $set: {
         'canvasState.strokes': state.strokes,
+        'canvasState.stickers': state.stickers,
         'canvasState.lastSavedAt': state.lastSavedAt,
         updatedAt: state.updatedAt,
         lastActiveAt: state.lastActiveAt
@@ -114,7 +111,7 @@ const start = async () => {
   if (isMongoReady()) {
     const persistedRooms = await Room.find({}).lean();
     roomManager.hydrateFromStorage(
-      persistedRooms.map((room: PersistedRoomRecord) => ({
+      persistedRooms.map((room) => ({
         ...room,
         passwordHash: room.passwordHash ?? null
       }))

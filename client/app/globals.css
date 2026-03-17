@@ -72,3 +72,9 @@ body {
     transform: translateY(-2px);
   }
 }
+
+@keyframes float-up {
+  0% { opacity: 0; transform: translateY(14px) scale(0.8); }
+  15% { opacity: 1; }
+  100% { opacity: 0; transform: translateY(-140px) scale(1.15); }
+}
