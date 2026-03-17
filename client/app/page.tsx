@@ -1,38 +1,43 @@
 'use client';
 
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { FormEvent, useMemo, useState } from 'react';
+import { FormEvent, useState } from 'react';
 import { useAuth } from '@/components/auth-provider';
 import { UserAvatarMenu } from '@/components/user-avatar-menu';
 import { Button, Card, Input, SecondaryButton } from '@/components/ui';
-import { createRoom, requestResetCode, verifyResetCode } from '@/lib/api';
+import { createRoom, joinRoom, requestResetCode, verifyResetCode } from '@/lib/api';
 
 type EntryView = 'entry' | 'login' | 'register' | 'forgot-request' | 'forgot-verify';
 
 export default function HomePage() {
   const router = useRouter();
   const { user, loading, loginAsGuest, login, register } = useAuth();
-  const [roomCode, setRoomCode] = useState('');
   const [displayName, setDisplayName] = useState('');
+  const [createName, setCreateName] = useState('');
+  const [createVisibility, setCreateVisibility] = useState<'public' | 'private'>('public');
+  const [createPassword, setCreatePassword] = useState('');
+  const [joinName, setJoinName] = useState('');
+  const [joinVisibility, setJoinVisibility] = useState<'public' | 'private'>('public');
+  const [joinPassword, setJoinPassword] = useState('');
   const [isCreating, setIsCreating] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [view, setView] = useState<EntryView>('entry');
   const [emailForReset, setEmailForReset] = useState('');
 
-  const normalizedCode = useMemo(() => roomCode.replace(/[^a-zA-Z0-9]/g, '').slice(0, 6).toUpperCase(), [roomCode]);
-
   const saveDisplayName = (name: string) => {
     const fallback = user?.username || `Guest-${Math.floor(Math.random() * 9000) + 1000}`;
     localStorage.setItem('cloudcanvas-display-name', name.trim() || fallback);
   };
 
-  const onCreate = async () => {
+  const onCreate = async (event: FormEvent) => {
+    event.preventDefault();
     setIsCreating(true);
     setError(null);
     try {
       saveDisplayName(displayName);
-      const data = await createRoom();
+      const data = await createRoom({ name: createName.trim(), visibility: createVisibility, password: createVisibility === 'private' ? createPassword : undefined });
       router.push(`/room/${data.room.roomId}`);
     } catch (err) {
       setError((err as Error).message || 'Unable to create room. Please try again.');
@@ -43,11 +48,17 @@ export default function HomePage() {
 
   const onJoin = async (event: FormEvent) => {
     event.preventDefault();
-    if (!normalizedCode) return;
     setIsJoining(true);
     setError(null);
-    saveDisplayName(displayName);
-    router.push(`/room/${normalizedCode}`);
+    try {
+      saveDisplayName(displayName);
+      const data = await joinRoom({ name: joinName.trim(), visibility: joinVisibility, password: joinVisibility === 'private' ? joinPassword : undefined });
+      router.push(`/room/${data.roomId}`);
+    } catch (err) {
+      setError((err as Error).message || 'Unable to join room.');
+    } finally {
+      setIsJoining(false);
+    }
   };
 
   if (loading) return <main className="grid min-h-screen place-items-center">Loading…</main>;
@@ -84,9 +95,13 @@ export default function HomePage() {
   }
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col justify-center px-4 py-14 sm:px-8">
+    <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-4 py-10 sm:px-8">
       <div className="mb-4 flex justify-end"><UserAvatarMenu /></div>
-      <Card className="mx-auto w-full max-w-4xl space-y-6 p-5 sm:p-8">
+      <Card className="space-y-6 p-5 sm:p-8">
+        <div className="flex flex-wrap gap-2">
+          <Link href="/browse-rooms"><SecondaryButton>Browse Rooms</SecondaryButton></Link>
+          <Link href="/manage-rooms"><SecondaryButton>Manage Rooms</SecondaryButton></Link>
+        </div>
         <label className="block text-sm font-medium text-slate-700">
           Display name
           <Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder={user.username} maxLength={32} className="mt-2" />
@@ -94,13 +109,26 @@ export default function HomePage() {
         <div className="grid gap-4 md:grid-cols-2">
           <Card className="border-slate-200/90 bg-slate-50/65 p-5 shadow-none">
             <h2 className="mb-3 text-sm font-semibold text-slate-900">Create room</h2>
-            <Button onClick={onCreate} disabled={isCreating || isJoining} className="w-full">{isCreating ? 'Creating room…' : 'Create new room'}</Button>
+            <form onSubmit={onCreate} className="space-y-2">
+              <Input placeholder="Room name" value={createName} onChange={(e) => setCreateName(e.target.value)} maxLength={48} />
+              <select className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm" value={createVisibility} onChange={(e) => setCreateVisibility(e.target.value as 'public' | 'private')}>
+                <option value="public">Public</option>
+                <option value="private">Private</option>
+              </select>
+              {createVisibility === 'private' && <Input type="password" placeholder="Room password" value={createPassword} onChange={(e) => setCreatePassword(e.target.value)} />}
+              <Button disabled={isCreating || isJoining} className="w-full">{isCreating ? 'Creating room…' : 'Create and enter'}</Button>
+            </form>
           </Card>
           <Card className="border-slate-200/90 bg-slate-50/65 p-5 shadow-none">
             <h2 className="mb-3 text-sm font-semibold text-slate-900">Join room</h2>
-            <form onSubmit={onJoin} className="flex gap-2">
-              <Input value={normalizedCode} onChange={(e) => setRoomCode(e.target.value)} placeholder="ABC123" className="uppercase tracking-[0.14em]" maxLength={6} />
-              <SecondaryButton type="submit" disabled={!normalizedCode || isCreating || isJoining}>{isJoining ? 'Joining…' : 'Join'}</SecondaryButton>
+            <form onSubmit={onJoin} className="space-y-2">
+              <Input placeholder="Room name" value={joinName} onChange={(e) => setJoinName(e.target.value)} maxLength={48} />
+              <select className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm" value={joinVisibility} onChange={(e) => setJoinVisibility(e.target.value as 'public' | 'private')}>
+                <option value="public">Public</option>
+                <option value="private">Private</option>
+              </select>
+              {joinVisibility === 'private' && <Input type="password" placeholder="Room password" value={joinPassword} onChange={(e) => setJoinPassword(e.target.value)} />}
+              <SecondaryButton type="submit" disabled={isCreating || isJoining} className="w-full">{isJoining ? 'Joining…' : 'Join room'}</SecondaryButton>
             </form>
           </Card>
         </div>

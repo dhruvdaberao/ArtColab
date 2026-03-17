@@ -3,8 +3,29 @@ import type { Stroke } from '@cloudcanvas/shared';
 import { nanoid } from 'nanoid';
 import { env } from '../config/env.js';
 
+export type RoomVisibility = 'public' | 'private';
+
+export interface RoomOwnership {
+  ownerType: 'user' | 'guest';
+  ownerId: string;
+  ownerName: string;
+}
+
 interface RoomInternal extends RoomState {
   pendingExpiryAt: number | null;
+}
+
+interface RoomMeta {
+  roomId: string;
+  name: string;
+  visibility: RoomVisibility;
+  passwordHash: string | null;
+  createdAt: number;
+  updatedAt: number;
+  lastActiveAt: number;
+  ownerType: 'user' | 'guest';
+  ownerId: string;
+  ownerName: string;
 }
 
 const ROOM_CODE_REGEX = /[^A-Za-z0-9]/g;
@@ -12,21 +33,39 @@ const ROOM_CODE_REGEX = /[^A-Za-z0-9]/g;
 export class RoomManager {
   private rooms = new Map<string, RoomInternal>();
   private socketToRoom = new Map<string, string>();
+  private roomMeta = new Map<string, RoomMeta>();
 
-  createRoom(): RoomState {
+  createRoom(input: { name: string; visibility: RoomVisibility; passwordHash: string | null; owner: RoomOwnership }): RoomState {
     const roomId = this.generateUniqueRoomId();
     const now = Date.now();
     const room: RoomInternal = {
       roomId,
+      name: input.name,
+      visibility: input.visibility,
       createdAt: now,
       updatedAt: now,
+      lastActiveAt: now,
       expiresAt: null,
       pendingExpiryAt: null,
       participants: [],
       strokes: []
     };
     this.rooms.set(roomId, room);
+    this.roomMeta.set(roomId, {
+      roomId,
+      name: input.name,
+      visibility: input.visibility,
+      passwordHash: input.passwordHash,
+      createdAt: now,
+      updatedAt: now,
+      lastActiveAt: now,
+      ...input.owner
+    });
     return this.serialize(room);
+  }
+
+  getMeta(roomId: string): RoomMeta | null {
+    return this.roomMeta.get(roomId) ?? null;
   }
 
   getRoom(roomId: string): RoomState | null {
@@ -39,6 +78,10 @@ export class RoomManager {
     return this.serialize(room);
   }
 
+  listMeta(): RoomMeta[] {
+    return Array.from(this.roomMeta.values()).sort((a, b) => b.createdAt - a.createdAt);
+  }
+
   addParticipant(roomId: string, participant: Participant): RoomState | null {
     const room = this.rooms.get(roomId);
     if (!room) return null;
@@ -46,9 +89,17 @@ export class RoomManager {
     room.participants = room.participants.filter((p) => p.socketId !== participant.socketId);
     room.participants.push(participant);
     room.updatedAt = Date.now();
+    room.lastActiveAt = room.updatedAt;
     room.pendingExpiryAt = null;
     room.expiresAt = null;
     this.socketToRoom.set(participant.socketId, roomId);
+
+    const meta = this.roomMeta.get(roomId);
+    if (meta) {
+      meta.lastActiveAt = room.updatedAt;
+      meta.updatedAt = room.updatedAt;
+    }
+
     return this.serialize(room);
   }
 
@@ -94,6 +145,12 @@ export class RoomManager {
       room.strokes = room.strokes.slice(room.strokes.length - env.MAX_STROKES_PER_ROOM);
     }
     room.updatedAt = Date.now();
+    room.lastActiveAt = room.updatedAt;
+    const meta = this.roomMeta.get(roomId);
+    if (meta) {
+      meta.lastActiveAt = room.updatedAt;
+      meta.updatedAt = room.updatedAt;
+    }
     return this.serialize(room);
   }
 
@@ -140,7 +197,7 @@ export class RoomManager {
     return removed;
   }
 
-  private deleteRoom(roomId: string): void {
+  deleteRoom(roomId: string): void {
     const room = this.rooms.get(roomId);
     if (!room) return;
 
@@ -148,6 +205,7 @@ export class RoomManager {
       this.socketToRoom.delete(participant.socketId);
     });
     this.rooms.delete(roomId);
+    this.roomMeta.delete(roomId);
   }
 
   private isExpired(room: RoomInternal): boolean {
@@ -176,8 +234,11 @@ export class RoomManager {
   private serialize(room: RoomInternal): RoomState {
     return {
       roomId: room.roomId,
+      name: room.name,
+      visibility: room.visibility,
       createdAt: room.createdAt,
       updatedAt: room.updatedAt,
+      lastActiveAt: room.lastActiveAt,
       expiresAt: room.pendingExpiryAt,
       participants: [...room.participants],
       strokes: room.strokes.map((stroke) => ({ ...stroke, points: [...stroke.points] }))

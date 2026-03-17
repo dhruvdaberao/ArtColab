@@ -9,8 +9,11 @@ export interface Participant {
 
 export interface RoomState {
   roomId: string;
+  name?: string;
+  visibility?: 'public' | 'private';
   createdAt: number;
   updatedAt: number;
+  lastActiveAt?: number;
   expiresAt: number | null;
   participants: Participant[];
   strokes: Stroke[];
