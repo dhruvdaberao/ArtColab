@@ -14,6 +14,8 @@ import { Badge, Button, Card, SecondaryButton } from "@/components/ui";
 import { socket } from "@/lib/socket";
 import { useRoomSocket } from "@/hooks/use-room-socket";
 import { getRoom } from "@/lib/api";
+import { useAuth } from "@/components/auth-provider";
+import { UserAvatarMenu } from "@/components/user-avatar-menu";
 
 export default function RoomPage() {
   const params = useParams<{ roomId: string }>();
@@ -30,6 +32,7 @@ export default function RoomPage() {
   const [isClearModalOpen, setIsClearModalOpen] = useState(false);
   const [isExitModalOpen, setIsExitModalOpen] = useState(false);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
+  const { user } = useAuth();
 
   const pushToast = useCallback((message: string) => {
     const id = nanoid();
@@ -37,7 +40,7 @@ export default function RoomPage() {
     window.setTimeout(() => {
       setToasts((prev) => prev.filter((toast) => toast.id !== id));
     }, 1800);
-  }, []);
+  }, [user?.username]);
 
   useEffect(() => {
     const existing = localStorage.getItem("cloudcanvas-user-id");
@@ -48,8 +51,9 @@ export default function RoomPage() {
       localStorage.setItem("cloudcanvas-user-id", next);
       setUserId(next);
     }
-    setDisplayName(localStorage.getItem("cloudcanvas-display-name") ?? "Guest");
-  }, []);
+    const fallback = user?.username ?? "Guest";
+    setDisplayName(localStorage.getItem("cloudcanvas-display-name") ?? fallback);
+  }, [user?.username]);
 
   useEffect(() => {
     if (!isValidRoomId) {
@@ -207,8 +211,9 @@ export default function RoomPage() {
             </h1>
           </div>
           <div className="flex flex-wrap items-center gap-2 text-sm">
+            <UserAvatarMenu />
             <Badge className="capitalize">{status}</Badge>
-            <Badge>Signed in as {displayName}</Badge>
+            <Badge>Signed in as {displayName}{user?.role === "guest" ? " (Guest)" : ""}</Badge>
             <SecondaryButton onClick={copyLink}>Copy room link</SecondaryButton>
             <Button
               className="min-h-11 bg-rose-600 px-5 hover:bg-rose-500 focus-visible:ring-rose-300"

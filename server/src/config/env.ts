@@ -10,7 +10,14 @@ const envSchema = z.object({
   ROOM_IDLE_TIMEOUT_MS: z.coerce.number().default(15 * 60 * 1000),
   CLEANUP_INTERVAL_MS: z.coerce.number().default(60 * 1000),
   MAX_STROKES_PER_ROOM: z.coerce.number().default(1000),
-  REDIS_URL: z.string().optional()
+  REDIS_URL: z.string().optional(),
+  MONGODB_URI: z.string().optional(),
+  JWT_SECRET: z.string().default('development-cloudcanvas-jwt-secret'),
+  RESEND_API_KEY: z.string().optional(),
+  RESEND_FROM_EMAIL: z.string().optional(),
+  CLOUDINARY_CLOUD_NAME: z.string().optional(),
+  CLOUDINARY_API_KEY: z.string().optional(),
+  CLOUDINARY_API_SECRET: z.string().optional()
 });
 
 const normalizeOrigin = (origin: string): string => origin.trim().replace(/\/+$/, '');

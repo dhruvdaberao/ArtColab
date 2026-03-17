@@ -2,36 +2,29 @@
 
 import { useRouter } from 'next/navigation';
 import { FormEvent, useMemo, useState } from 'react';
+import { useAuth } from '@/components/auth-provider';
+import { UserAvatarMenu } from '@/components/user-avatar-menu';
 import { Button, Card, Input, SecondaryButton } from '@/components/ui';
-import { createRoom } from '@/lib/api';
+import { createRoom, requestResetCode, verifyResetCode } from '@/lib/api';
 
-const getDefaultName = () => `Guest-${Math.floor(Math.random() * 9000) + 1000}`;
-
-const SparkIcon = () => (
-  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
-    <path d="M12 3v4M12 17v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M3 12h4M17 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
-  </svg>
-);
-
-const ArrowIcon = () => (
-  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
-    <path d="M5 12h14" />
-    <path d="m12 5 7 7-7 7" />
-  </svg>
-);
+type EntryView = 'entry' | 'login' | 'register' | 'forgot-request' | 'forgot-verify';
 
 export default function HomePage() {
   const router = useRouter();
+  const { user, loading, loginAsGuest, login, register } = useAuth();
   const [roomCode, setRoomCode] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [isCreating, setIsCreating] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [view, setView] = useState<EntryView>('entry');
+  const [emailForReset, setEmailForReset] = useState('');
 
   const normalizedCode = useMemo(() => roomCode.replace(/[^a-zA-Z0-9]/g, '').slice(0, 6).toUpperCase(), [roomCode]);
 
   const saveDisplayName = (name: string) => {
-    localStorage.setItem('cloudcanvas-display-name', name.trim() || getDefaultName());
+    const fallback = user?.username || `Guest-${Math.floor(Math.random() * 9000) + 1000}`;
+    localStorage.setItem('cloudcanvas-display-name', name.trim() || fallback);
   };
 
   const onCreate = async () => {
@@ -57,66 +50,90 @@ export default function HomePage() {
     router.push(`/room/${normalizedCode}`);
   };
 
+  if (loading) return <main className="grid min-h-screen place-items-center">Loading…</main>;
+
+  if (!user) {
+    return (
+      <main className="mx-auto flex min-h-screen w-full max-w-md items-center px-4 py-10">
+        <Card className="w-full space-y-4">
+          <h1 className="text-2xl font-semibold">Welcome to CloudCanvas</h1>
+          {view === 'entry' && (
+            <div className="space-y-3">
+              <Button className="w-full" onClick={() => setView('register')}>Create Account</Button>
+              <SecondaryButton className="w-full" onClick={() => setView('login')}>Login</SecondaryButton>
+              <SecondaryButton className="w-full" onClick={() => loginAsGuest().catch((e) => setError((e as Error).message))}>Continue as Guest</SecondaryButton>
+            </div>
+          )}
+          {view === 'login' && <LoginForm onSubmit={login} onBack={() => setView('entry')} onForgot={() => setView('forgot-request')} setError={setError} />}
+          {view === 'register' && <RegisterForm onSubmit={register} onBack={() => setView('entry')} setError={setError} />}
+          {view === 'forgot-request' && (
+            <ForgotRequest
+              onBack={() => setView('login')}
+              setError={setError}
+              onSent={(email) => {
+                setEmailForReset(email);
+                setView('forgot-verify');
+              }}
+            />
+          )}
+          {view === 'forgot-verify' && <ForgotVerify email={emailForReset} onBack={() => setView('login')} setError={setError} />}
+          {error && <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>}
+        </Card>
+      </main>
+    );
+  }
+
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col justify-center px-4 py-14 sm:px-8">
-      <section className="mb-10 space-y-4 text-center sm:mb-12">
-        <p className="text-xs font-semibold uppercase tracking-[0.26em] text-slate-500">CloudCanvas</p>
-        <h1 className="text-3xl font-semibold tracking-tight text-slate-900 sm:text-5xl">A premium collaborative whiteboard</h1>
-        <p className="mx-auto max-w-2xl text-sm text-slate-600 sm:text-base">
-          Start a room in seconds, sketch with your team in real time, and keep every interaction calm, clear, and professional.
-        </p>
-      </section>
-
+      <div className="mb-4 flex justify-end"><UserAvatarMenu /></div>
       <Card className="mx-auto w-full max-w-4xl space-y-6 p-5 sm:p-8">
         <label className="block text-sm font-medium text-slate-700">
           Display name
-          <Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder={getDefaultName()} maxLength={32} className="mt-2" />
+          <Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder={user.username} maxLength={32} className="mt-2" />
         </label>
-
         <div className="grid gap-4 md:grid-cols-2">
           <Card className="border-slate-200/90 bg-slate-50/65 p-5 shadow-none">
-            <div className="mb-4 flex items-center gap-3">
-              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-slate-600 shadow-sm">
-                <SparkIcon />
-              </span>
-              <div>
-                <h2 className="text-sm font-semibold text-slate-900">Create room</h2>
-                <p className="text-xs text-slate-500">Generate a secure session instantly.</p>
-              </div>
-            </div>
-            <Button onClick={onCreate} disabled={isCreating || isJoining} className="w-full gap-2">
-              {isCreating ? 'Creating room…' : 'Create new room'}
-            </Button>
+            <h2 className="mb-3 text-sm font-semibold text-slate-900">Create room</h2>
+            <Button onClick={onCreate} disabled={isCreating || isJoining} className="w-full">{isCreating ? 'Creating room…' : 'Create new room'}</Button>
           </Card>
-
           <Card className="border-slate-200/90 bg-slate-50/65 p-5 shadow-none">
-            <div className="mb-4 flex items-center gap-3">
-              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-slate-600 shadow-sm">
-                <ArrowIcon />
-              </span>
-              <div>
-                <h2 className="text-sm font-semibold text-slate-900">Join room</h2>
-                <p className="text-xs text-slate-500">Enter a 6-character room code.</p>
-              </div>
-            </div>
+            <h2 className="mb-3 text-sm font-semibold text-slate-900">Join room</h2>
             <form onSubmit={onJoin} className="flex gap-2">
-              <Input
-                value={normalizedCode}
-                onChange={(e) => setRoomCode(e.target.value)}
-                placeholder="ABC123"
-                className="uppercase tracking-[0.14em]"
-                maxLength={6}
-              />
-              <SecondaryButton type="submit" disabled={!normalizedCode || isCreating || isJoining}>
-                {isJoining ? 'Joining…' : 'Join'}
-              </SecondaryButton>
+              <Input value={normalizedCode} onChange={(e) => setRoomCode(e.target.value)} placeholder="ABC123" className="uppercase tracking-[0.14em]" maxLength={6} />
+              <SecondaryButton type="submit" disabled={!normalizedCode || isCreating || isJoining}>{isJoining ? 'Joining…' : 'Join'}</SecondaryButton>
             </form>
           </Card>
         </div>
-
-        <p className="text-xs text-slate-500">Tip: after creating a room, share your invite link directly from the room header.</p>
         {error && <p className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>}
       </Card>
     </main>
   );
+}
+
+function LoginForm({ onSubmit, onBack, onForgot, setError }: { onSubmit: (i: string, p: string) => Promise<void>; onBack: () => void; onForgot: () => void; setError: (v: string | null) => void }) {
+  const [identifier, setIdentifier] = useState('');
+  const [password, setPassword] = useState('');
+  return <form className="space-y-3" onSubmit={(e) => { e.preventDefault(); setError(null); onSubmit(identifier, password).catch((err) => setError((err as Error).message)); }}><Input placeholder="Email or username" value={identifier} onChange={(e) => setIdentifier(e.target.value)} /><Input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} /><Button className="w-full">Login</Button><button type="button" onClick={onForgot} className="text-sm text-slate-600 underline">Forgot Password?</button><button type="button" onClick={onBack} className="block text-sm text-slate-600">Back</button></form>;
+}
+
+function RegisterForm({ onSubmit, onBack, setError }: { onSubmit: (e: string, u: string, p: string, c: string) => Promise<void>; onBack: () => void; setError: (v: string | null) => void }) {
+  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirm, setConfirm] = useState('');
+  return <form className="space-y-3" onSubmit={(e) => { e.preventDefault(); setError(null); onSubmit(email, username, password, confirm).catch((err) => setError((err as Error).message)); }}><Input placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} /><Input placeholder="Username" value={username} onChange={(e) => setUsername(e.target.value)} /><Input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} /><Input type="password" placeholder="Confirm Password" value={confirm} onChange={(e) => setConfirm(e.target.value)} /><Button className="w-full">Create account</Button><button type="button" onClick={onBack} className="block text-sm text-slate-600">Back</button></form>;
+}
+
+function ForgotRequest({ onBack, onSent, setError }: { onBack: () => void; onSent: (email: string) => void; setError: (v: string | null) => void }) {
+  const [email, setEmail] = useState('');
+  const [message, setMessage] = useState('');
+  return <form className="space-y-3" onSubmit={(e) => { e.preventDefault(); setError(null); requestResetCode(email).then((res) => { setMessage(res.message); onSent(email); }).catch((err) => setError((err as Error).message)); }}><Input placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} /><Button className="w-full">Send reset code</Button>{message && <p className="text-xs text-slate-500">{message}</p>}<button type="button" onClick={onBack} className="block text-sm text-slate-600">Back</button></form>;
+}
+
+function ForgotVerify({ email, onBack, setError }: { email: string; onBack: () => void; setError: (v: string | null) => void }) {
+  const [code, setCode] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [message, setMessage] = useState('');
+  return <form className="space-y-3" onSubmit={(e) => { e.preventDefault(); setError(null); verifyResetCode({ email, code, password, confirmPassword }).then((res) => setMessage(res.message)).catch((err) => setError((err as Error).message)); }}><Input value={email} disabled /><Input placeholder="6-digit code" value={code} onChange={(e) => setCode(e.target.value)} maxLength={6} /><Input type="password" placeholder="New password" value={password} onChange={(e) => setPassword(e.target.value)} /><Input type="password" placeholder="Confirm new password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} /><Button className="w-full">Reset password</Button>{message && <p className="text-xs text-emerald-600">{message}</p>}<button type="button" onClick={onBack} className="block text-sm text-slate-600">Back to login</button></form>;
 }
