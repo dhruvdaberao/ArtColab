@@ -1,4 +1,4 @@
-import type { Stroke } from './canvas';
+import type { Stroke } from './canvas.js';
 
 export interface Participant {
   socketId: string;

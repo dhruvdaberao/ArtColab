@@ -1,3 +1,3 @@
-export * from './types/canvas';
-export * from './types/room';
-export * from './types/socket';
+export * from './types/canvas.js';
+export * from './types/room.js';
+export * from './types/socket.js';
