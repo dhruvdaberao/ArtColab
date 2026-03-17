@@ -28,6 +28,7 @@ export default function RoomPage() {
   const [roomReady, setRoomReady] = useState(false);
   const [roomLoadError, setRoomLoadError] = useState<string | null>(null);
   const [isClearModalOpen, setIsClearModalOpen] = useState(false);
+  const [isExitModalOpen, setIsExitModalOpen] = useState(false);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
   const pushToast = useCallback((message: string) => {
@@ -134,6 +135,12 @@ export default function RoomPage() {
     }
   };
 
+  const leaveRoom = () => {
+    socket.emit(SOCKET_EVENTS.ROOM_LEAVE, { roomId });
+    setIsExitModalOpen(false);
+    router.push("/");
+  };
+
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null;
@@ -203,6 +210,12 @@ export default function RoomPage() {
             <Badge className="capitalize">{status}</Badge>
             <Badge>Signed in as {displayName}</Badge>
             <SecondaryButton onClick={copyLink}>Copy room link</SecondaryButton>
+            <Button
+              className="min-h-11 bg-rose-600 px-5 hover:bg-rose-500 focus-visible:ring-rose-300"
+              onClick={() => setIsExitModalOpen(true)}
+            >
+              Exit Room
+            </Button>
           </div>
         </header>
 
@@ -278,6 +291,16 @@ export default function RoomPage() {
         destructive
         onCancel={() => setIsClearModalOpen(false)}
         onConfirm={clearBoard}
+      />
+      <ConfirmModal
+        open={isExitModalOpen}
+        title="Leave room?"
+        description="Are you sure you want to leave this room?"
+        confirmLabel="Leave"
+        cancelLabel="Cancel"
+        destructive
+        onCancel={() => setIsExitModalOpen(false)}
+        onConfirm={leaveRoom}
       />
       <ToastStack toasts={toasts} />
     </main>
