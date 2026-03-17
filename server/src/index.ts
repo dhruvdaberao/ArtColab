@@ -4,7 +4,10 @@ import express, { type NextFunction, type Request, type Response } from 'express
 import { Server } from 'socket.io';
 import { SOCKET_EVENTS } from '@cloudcanvas/shared';
 import { allowedClientOrigins, env, isAllowedClientOrigin } from './config/env.js';
+import { connectMongo } from './db/mongo.js';
 import { RoomManager } from './rooms/roomManager.js';
+import { authRouter } from './routes/auth.js';
+import { profileRouter } from './routes/profile.js';
 import { roomsRouter } from './routes/rooms.js';
 import { registerSocketHandlers } from './socket/registerHandlers.js';
 
@@ -41,7 +44,7 @@ const io = new Server(server, {
 
 app.use(cors(corsOptions));
 app.options('*', cors(corsOptions));
-app.use(express.json({ limit: '1mb' }));
+app.use(express.json({ limit: '2mb' }));
 
 app.get('/health', (_req, res) => {
   res.status(200).json({
@@ -51,6 +54,8 @@ app.get('/health', (_req, res) => {
   });
 });
 
+app.use('/api/auth', authRouter());
+app.use('/api/profile', profileRouter());
 app.use('/api/rooms', roomsRouter(roomManager));
 
 registerSocketHandlers(io, roomManager);
@@ -84,12 +89,20 @@ const cleanupTimer = setInterval(() => {
 
 cleanupTimer.unref();
 
-server.listen(env.PORT, '0.0.0.0', () => {
-  console.log('[CloudCanvas] backend started');
-  console.log(`[CloudCanvas] port=${env.PORT}`);
-  console.log(`[CloudCanvas] node_env=${env.NODE_ENV}`);
-  console.log(`[CloudCanvas] allowed_client_origins=${allowedClientOrigins.join(',') || 'none'}`);
-  if (!process.env.CLIENT_ORIGIN) {
-    console.warn('[CloudCanvas] CLIENT_ORIGIN is not set; using safe defaults. Set CLIENT_ORIGIN in Render for strict production control.');
-  }
+const start = async () => {
+  await connectMongo();
+  server.listen(env.PORT, '0.0.0.0', () => {
+    console.log('[CloudCanvas] backend started');
+    console.log(`[CloudCanvas] port=${env.PORT}`);
+    console.log(`[CloudCanvas] node_env=${env.NODE_ENV}`);
+    console.log(`[CloudCanvas] allowed_client_origins=${allowedClientOrigins.join(',') || 'none'}`);
+    if (!process.env.CLIENT_ORIGIN) {
+      console.warn('[CloudCanvas] CLIENT_ORIGIN is not set; using safe defaults. Set CLIENT_ORIGIN in Render for strict production control.');
+    }
+  });
+};
+
+start().catch((error) => {
+  console.error('[CloudCanvas] failed to start server', error);
+  process.exit(1);
 });
