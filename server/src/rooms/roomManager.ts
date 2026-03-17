@@ -1,4 +1,4 @@
-import type { Participant, RoomState, Stroke } from '@cloudcanvas/shared';
+import type { ChatMessage, Participant, RoomMode, RoomState, Sticker, Stroke } from '@cloudcanvas/shared';
 import { nanoid } from 'nanoid';
 import { env } from '../config/env.js';
 
@@ -32,10 +32,14 @@ interface RoomMeta {
 
 interface PersistState {
   strokes: Stroke[];
+  stickers: Sticker[];
   updatedAt: Date;
   lastActiveAt: Date;
   lastSavedAt: Date;
 }
+
+const MAX_CHAT_MESSAGES = 80;
+const MAX_STICKERS_PER_ROOM = 400;
 
 const ROOM_CODE_REGEX = /[^A-Za-z0-9]/g;
 const SAVE_DEBOUNCE_MS = 1500;
@@ -60,7 +64,7 @@ export class RoomManager {
       createdAt: Date;
       updatedAt: Date;
       lastActiveAt: Date;
-      canvasState?: { strokes?: Stroke[] };
+      canvasState?: { strokes?: Stroke[]; stickers?: Sticker[] } | null;
     }>
   ): void {
     for (const item of rooms) {
@@ -74,7 +78,10 @@ export class RoomManager {
         expiresAt: null,
         pendingExpiryAt: null,
         participants: [],
-        strokes: (item.canvasState?.strokes ?? []).map((stroke) => ({ ...stroke, points: [...stroke.points] }))
+        strokes: (item.canvasState?.strokes ?? []).map((stroke) => ({ ...stroke, points: [...stroke.points] })),
+        stickers: (item.canvasState?.stickers ?? []).map((sticker) => ({ ...sticker })),
+        chatMessages: [],
+        mode: 'free-draw'
       };
       this.rooms.set(room.roomId, room);
       this.roomMeta.set(room.roomId, {
@@ -105,7 +112,10 @@ export class RoomManager {
       expiresAt: null,
       pendingExpiryAt: null,
       participants: [],
-      strokes: []
+      strokes: [],
+      stickers: [],
+      chatMessages: [],
+      mode: 'free-draw'
     };
     this.rooms.set(roomId, room);
     this.roomMeta.set(roomId, {
@@ -218,8 +228,42 @@ export class RoomManager {
     const room = this.rooms.get(roomId);
     if (!room) return null;
     room.strokes = [];
+    room.stickers = [];
     room.updatedAt = Date.now();
     this.schedulePersist(roomId, true);
+    return this.serialize(room);
+  }
+
+  addSticker(roomId: string, sticker: Sticker): RoomState | null {
+    const room = this.rooms.get(roomId);
+    if (!room) return null;
+    room.stickers.push(sticker);
+    if (room.stickers.length > MAX_STICKERS_PER_ROOM) {
+      room.stickers = room.stickers.slice(room.stickers.length - MAX_STICKERS_PER_ROOM);
+    }
+    room.updatedAt = Date.now();
+    room.lastActiveAt = room.updatedAt;
+    this.schedulePersist(roomId);
+    return this.serialize(room);
+  }
+
+  addChatMessage(roomId: string, message: ChatMessage): ChatMessage | null {
+    const room = this.rooms.get(roomId);
+    if (!room) return null;
+    room.chatMessages.push(message);
+    if (room.chatMessages.length > MAX_CHAT_MESSAGES) {
+      room.chatMessages = room.chatMessages.slice(room.chatMessages.length - MAX_CHAT_MESSAGES);
+    }
+    room.updatedAt = Date.now();
+    room.lastActiveAt = room.updatedAt;
+    return message;
+  }
+
+  setMode(roomId: string, mode: RoomMode): RoomState | null {
+    const room = this.rooms.get(roomId);
+    if (!room) return null;
+    room.mode = mode;
+    room.updatedAt = Date.now();
     return this.serialize(room);
   }
 
@@ -288,6 +332,7 @@ export class RoomManager {
 
     this.persistRoomState(roomId, {
       strokes: room.strokes.map((stroke) => ({ ...stroke, points: [...stroke.points] })),
+      stickers: room.stickers.map((sticker) => ({ ...sticker })),
       updatedAt: new Date(room.updatedAt),
       lastActiveAt: new Date(room.lastActiveAt),
       lastSavedAt: new Date()
@@ -325,7 +370,10 @@ export class RoomManager {
       lastActiveAt: room.lastActiveAt,
       expiresAt: null,
       participants: [...room.participants],
-      strokes: room.strokes.map((stroke) => ({ ...stroke, points: [...stroke.points] }))
+      strokes: room.strokes.map((stroke) => ({ ...stroke, points: [...stroke.points] })),
+      stickers: room.stickers.map((sticker) => ({ ...sticker })),
+      chatMessages: room.chatMessages.map((message) => ({ ...message })),
+      mode: room.mode
     };
   }
 }

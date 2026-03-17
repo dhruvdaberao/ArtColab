@@ -1,5 +1,6 @@
 import type { Server, Socket } from "socket.io";
 import type {
+  ChatMessage,
   CursorPayload,
   DrawMovePayload,
   DrawStartPayload,
@@ -8,15 +9,20 @@ import type {
   Stroke,
 } from "@cloudcanvas/shared";
 import { SOCKET_EVENTS } from "@cloudcanvas/shared";
+import { nanoid } from "nanoid";
 import { RoomManager } from "../rooms/roomManager.js";
 import {
+  chatSchema,
+  cursorSchema,
   drawEndSchema,
   drawMoveSchema,
   drawStartSchema,
   joinRoomSocketSchema,
+  modeSchema,
+  reactionSchema,
   roomActionSchema,
+  stickerSchema,
   undoSchema,
-  cursorSchema,
 } from "../utils/validation.js";
 
 const emitParticipants = (
@@ -211,6 +217,55 @@ export const registerSocketHandlers = (
       socket.to(parsed.data.roomId).emit(SOCKET_EVENTS.STROKE_EVENT, {
         type: SOCKET_EVENTS.STROKE_END,
         strokeId: parsed.data.strokeId,
+      });
+    });
+
+    socket.on(SOCKET_EVENTS.CHAT_SEND, (payload: unknown) => {
+      const parsed = chatSchema.safeParse(payload);
+      if (!parsed.success) return;
+      const message: ChatMessage = {
+        messageId: nanoid(),
+        roomId: parsed.data.roomId,
+        userId: parsed.data.userId,
+        displayName: parsed.data.displayName,
+        avatarUrl: parsed.data.avatarUrl,
+        text: parsed.data.text,
+        timestamp: Date.now(),
+      };
+      const stored = roomManager.addChatMessage(parsed.data.roomId, message);
+      if (!stored) return;
+      io.to(parsed.data.roomId).emit(SOCKET_EVENTS.CHAT_MESSAGE, { message });
+    });
+
+    socket.on(SOCKET_EVENTS.REACTION_SEND, (payload: unknown) => {
+      const parsed = reactionSchema.safeParse(payload);
+      if (!parsed.success) return;
+      io.to(parsed.data.roomId).emit(SOCKET_EVENTS.REACTION_EVENT, {
+        reactionId: nanoid(),
+        ...parsed.data,
+        timestamp: Date.now(),
+      });
+    });
+
+    socket.on(SOCKET_EVENTS.STICKER_PLACE, (payload: unknown) => {
+      const parsed = stickerSchema.safeParse(payload);
+      if (!parsed.success) return;
+      const room = roomManager.addSticker(parsed.data.roomId, parsed.data.sticker);
+      if (!room) return;
+      io.to(parsed.data.roomId).emit(SOCKET_EVENTS.STICKER_PLACED, {
+        roomId: parsed.data.roomId,
+        sticker: parsed.data.sticker,
+      });
+    });
+
+    socket.on(SOCKET_EVENTS.MODE_SET, (payload: unknown) => {
+      const parsed = modeSchema.safeParse(payload);
+      if (!parsed.success) return;
+      const room = roomManager.setMode(parsed.data.roomId, parsed.data.mode);
+      if (!room) return;
+      io.to(parsed.data.roomId).emit(SOCKET_EVENTS.MODE_UPDATED, {
+        roomId: parsed.data.roomId,
+        mode: room.mode,
       });
     });
 

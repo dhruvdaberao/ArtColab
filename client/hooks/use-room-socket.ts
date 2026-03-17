@@ -3,9 +3,12 @@
 import { socket } from "@/lib/socket";
 import { SOCKET_EVENTS } from "@cloudcanvas/shared";
 import type {
+  ChatMessage,
   CursorPayload,
   Participant,
+  RoomMode,
   RoomState,
+  Sticker,
   Stroke,
 } from "@cloudcanvas/shared";
 import { useCallback, useEffect, useState } from "react";
@@ -18,6 +21,9 @@ export function useRoomSocket(
 ) {
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [strokes, setStrokes] = useState<Stroke[]>([]);
+  const [stickers, setStickers] = useState<Sticker[]>([]);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [mode, setMode] = useState<RoomMode>("free-draw");
   const [cursors, setCursors] = useState<Record<string, CursorPayload>>({});
   const [status, setStatus] = useState<
     "connecting" | "connected" | "disconnected"
@@ -64,6 +70,9 @@ export function useRoomSocket(
     const onRoomJoined = ({ room }: { room: RoomState }) => {
       setParticipants(room.participants);
       setStrokes(room.strokes);
+      setStickers(room.stickers ?? []);
+      setChatMessages(room.chatMessages ?? []);
+      setMode(room.mode ?? "free-draw");
       setExpired(false);
       setHasJoined(true);
     };
@@ -71,6 +80,9 @@ export function useRoomSocket(
     const onRoomState = ({ room }: { room: RoomState }) => {
       setParticipants(room.participants);
       setStrokes(room.strokes);
+      setStickers(room.stickers ?? []);
+      setChatMessages(room.chatMessages ?? []);
+      setMode(room.mode ?? "free-draw");
     };
 
     const onCursorUpdate = (cursor: CursorPayload) => {
@@ -116,7 +128,20 @@ export function useRoomSocket(
       }
     });
 
-    socket.on(SOCKET_EVENTS.BOARD_CLEARED, () => setStrokes([]));
+    socket.on(SOCKET_EVENTS.STICKER_PLACED, ({ sticker }: { sticker: Sticker }) => {
+      setStickers((prev) => [...prev, sticker]);
+    });
+    socket.on(SOCKET_EVENTS.CHAT_MESSAGE, ({ message }: { message: ChatMessage }) => {
+      setChatMessages((prev) => [...prev, message].slice(-80));
+    });
+    socket.on(SOCKET_EVENTS.MODE_UPDATED, ({ mode: nextMode }: { roomId: string; mode: RoomMode }) => {
+      setMode(nextMode);
+    });
+
+    socket.on(SOCKET_EVENTS.BOARD_CLEARED, () => {
+      setStrokes([]);
+      setStickers([]);
+    });
     socket.on(
       SOCKET_EVENTS.STROKE_UNDONE,
       ({ strokeId }: { strokeId: string }) => {
@@ -143,6 +168,9 @@ export function useRoomSocket(
       socket.off(SOCKET_EVENTS.CURSOR_UPDATE, onCursorUpdate);
       socket.off(SOCKET_EVENTS.CURSOR_PRESENCE, onCursorPresence);
       socket.off(SOCKET_EVENTS.STROKE_EVENT);
+      socket.off(SOCKET_EVENTS.STICKER_PLACED);
+      socket.off(SOCKET_EVENTS.CHAT_MESSAGE);
+      socket.off(SOCKET_EVENTS.MODE_UPDATED);
       socket.off(SOCKET_EVENTS.BOARD_CLEARED);
       socket.off(SOCKET_EVENTS.STROKE_UNDONE);
       socket.off(SOCKET_EVENTS.ROOM_EXPIRED);
@@ -156,6 +184,12 @@ export function useRoomSocket(
     setParticipants,
     strokes,
     setStrokes,
+    stickers,
+    setStickers,
+    chatMessages,
+    setChatMessages,
+    mode,
+    setMode,
     cursors,
     status,
     expired,
