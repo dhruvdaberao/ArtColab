@@ -62,7 +62,6 @@ npm run dev
 - Root Directory: `server`
 - Build Command: `npm install && npm run build`
 - Start Command: `npm start`
-- Note: backend uses local package dependency `file:../shared`; keep `server` as Root Directory so Render can resolve the shared package from the same repo checkout.
 - Health Check Path: `/health`
 
 Required Render environment variables:
