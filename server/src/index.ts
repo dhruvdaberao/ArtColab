@@ -3,33 +3,50 @@ import cors from 'cors';
 import express from 'express';
 import { Server } from 'socket.io';
 import { SOCKET_EVENTS } from '@cloudcanvas/shared';
-import { env } from './config/env.js';
+import { allowedClientOrigins, env } from './config/env.js';
 import { RoomManager } from './rooms/roomManager.js';
 import { roomsRouter } from './routes/rooms.js';
 import { registerSocketHandlers } from './socket/registerHandlers.js';
 
 const app = express();
 const server = http.createServer(app);
+const roomManager = new RoomManager();
+
+const isOriginAllowed = (origin?: string) => {
+  if (!origin) return true;
+  return allowedClientOrigins.includes(origin);
+};
+
+const corsOrigin: cors.CorsOptions['origin'] = (origin, callback) => {
+  if (isOriginAllowed(origin)) {
+    callback(null, true);
+    return;
+  }
+  callback(new Error(`CORS blocked for origin: ${origin}`));
+};
+
 const io = new Server(server, {
   cors: {
-    origin: env.CLIENT_ORIGIN,
+    origin: corsOrigin,
     credentials: true
   },
   maxHttpBufferSize: 1e6
 });
 
-const roomManager = new RoomManager();
-
 app.use(
   cors({
-    origin: env.CLIENT_ORIGIN,
+    origin: corsOrigin,
     credentials: true
   })
 );
 app.use(express.json({ limit: '1mb' }));
 
 app.get('/health', (_req, res) => {
-  res.json({ status: 'ok', uptime: process.uptime() });
+  res.status(200).json({
+    status: 'ok',
+    uptime: process.uptime(),
+    nodeEnv: env.NODE_ENV
+  });
 });
 
 app.use('/api/rooms', roomsRouter(roomManager));
@@ -45,6 +62,9 @@ const cleanupTimer = setInterval(() => {
 
 cleanupTimer.unref();
 
-server.listen(env.PORT, () => {
-  console.log(`CloudCanvas server running on :${env.PORT}`);
+server.listen(env.PORT, '0.0.0.0', () => {
+  console.log('[CloudCanvas] backend started');
+  console.log(`[CloudCanvas] port=${env.PORT}`);
+  console.log(`[CloudCanvas] node_env=${env.NODE_ENV}`);
+  console.log(`[CloudCanvas] allowed_client_origins=${allowedClientOrigins.join(',') || 'none'}`);
 });

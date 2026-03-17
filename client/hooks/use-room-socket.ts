@@ -28,6 +28,11 @@ export function useRoomSocket(roomId: string, userId: string, displayName: strin
 
     const onDisconnect = () => setStatus('disconnected');
 
+    const onConnectError = (connectError: Error) => {
+      setStatus('disconnected');
+      setError(connectError.message || 'Unable to connect to collaboration server.');
+    };
+
     const onRoomJoined = ({ room }: { room: RoomState }) => {
       setParticipants(room.participants);
       setStrokes(room.strokes);
@@ -42,6 +47,7 @@ export function useRoomSocket(roomId: string, userId: string, displayName: strin
 
     socket.on('connect', onConnect);
     socket.on('disconnect', onDisconnect);
+    socket.on('connect_error', onConnectError);
     socket.on(SOCKET_EVENTS.ROOM_JOINED, onRoomJoined);
     socket.on(SOCKET_EVENTS.ROOM_STATE, onRoomState);
     socket.on(SOCKET_EVENTS.ROOM_PARTICIPANTS_UPDATED, ({ participants: next }: { participants: Participant[] }) => setParticipants(next));
@@ -70,6 +76,7 @@ export function useRoomSocket(roomId: string, userId: string, displayName: strin
       socket.emit(SOCKET_EVENTS.ROOM_LEAVE, { roomId });
       socket.off('connect', onConnect);
       socket.off('disconnect', onDisconnect);
+      socket.off('connect_error', onConnectError);
       socket.off(SOCKET_EVENTS.ROOM_JOINED, onRoomJoined);
       socket.off(SOCKET_EVENTS.ROOM_STATE, onRoomState);
       socket.off(SOCKET_EVENTS.ROOM_PARTICIPANTS_UPDATED);
