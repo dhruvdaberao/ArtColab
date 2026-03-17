@@ -32,13 +32,8 @@ npm run dev
 ## Environment variables
 
 ### Frontend (`client/.env.local`)
-- `NEXT_PUBLIC_API_URL` (recommended in production; local default is `http://localhost:4000`)
-- `NEXT_PUBLIC_SOCKET_URL` (recommended in production; local default is `http://localhost:4000`)
-
-
-Fallback behavior:
-- On localhost, frontend defaults to `http://localhost:4000` if env vars are missing.
-- On non-localhost hosts (for example Vercel), frontend falls back to `https://artcolab-1.onrender.com` to prevent accidental `localhost` calls in production.
+- `NEXT_PUBLIC_API_URL` (default: `http://localhost:4000`)
+- `NEXT_PUBLIC_SOCKET_URL` (default: `http://localhost:4000`)
 
 ### Backend (`server/.env`)
 - `PORT` (default: `4000`)
@@ -67,7 +62,6 @@ Fallback behavior:
 - Root Directory: `server`
 - Build Command: `npm install && npm run build`
 - Start Command: `npm start`
-- Note: backend uses local package dependency `file:../shared`; keep `server` as Root Directory so Render can resolve the shared package from the same repo checkout.
 - Health Check Path: `/health`
 
 Required Render environment variables:
@@ -92,6 +86,6 @@ Optional:
 
 If room creation fails with `Failed to fetch` or `ERR_CONNECTION_REFUSED`:
 1. Verify backend is running and reachable at `/health`.
-2. Verify `NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_SOCKET_URL` point to the live backend URL (recommended), or that `https://artcolab-1.onrender.com` is reachable when fallback is used.
+2. Verify `NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_SOCKET_URL` point to the live backend URL.
 3. Verify backend `CLIENT_ORIGIN` exactly matches the frontend origin.
 4. Check backend startup logs for effective `port`, `node_env`, and `allowed_client_origins`.
