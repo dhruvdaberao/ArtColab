@@ -1,4 +1,4 @@
-import { Schema, model } from 'mongoose';
+import { InferSchemaType, Schema, Types, model } from 'mongoose';
 
 const userSchema = new Schema(
   {
@@ -19,18 +19,13 @@ const userSchema = new Schema(
 userSchema.index({ email: 1 }, { unique: true });
 userSchema.index({ username: 1 }, { unique: true });
 
-export interface UserDoc {
-  _id: string;
-  username: string;
-  email: string;
-  password: string;
-  profileImage: string;
-  createdRooms: string[];
-  joinedRooms: string[];
-  resetCodeHash: string | null;
-  resetCodeExpiresAt: Date | null;
+export type UserSchema = InferSchemaType<typeof userSchema>;
+export type UserId = Types.ObjectId | string;
+
+export type UserDoc = UserSchema & {
+  _id: UserId;
   createdAt: Date;
   updatedAt: Date;
-}
+};
 
-export const User = model('User', userSchema);
+export const User = model<UserSchema>('User', userSchema);
