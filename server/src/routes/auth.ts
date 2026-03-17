@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { isMongoReady } from '../db/mongo.js';
 import { optionalAuth } from '../middleware/auth.js';
 import { User } from '../models/User.js';
+import { serializeSafeUser } from '../serializers/user.js';
 import { generateGuestUsername, generateResetCode, hashResetCode, signGuestToken, signUserToken } from '../utils/auth.js';
 import { sendPasswordResetCodeEmail } from '../utils/email.js';
 
@@ -34,29 +35,6 @@ const resetVerifySchema = z.object({
   code: z.string().trim().length(6),
   password: z.string().min(8).max(72),
   confirmPassword: z.string().min(8).max(72)
-});
-
-type SafeUserSource = {
-  _id: string;
-  username: string;
-  email: string;
-  profileImage?: string;
-  createdRooms: string[];
-  joinedRooms: string[];
-  createdAt: Date;
-  updatedAt: Date;
-};
-
-const safeUser = (user: SafeUserSource) => ({
-  id: String(user._id),
-  username: user.username,
-  email: user.email,
-  profileImage: user.profileImage || '',
-  createdRooms: user.createdRooms,
-  joinedRooms: user.joinedRooms,
-  createdAt: user.createdAt,
-  updatedAt: user.updatedAt,
-  role: 'user' as const
 });
 
 const ensureMongo = (res: Response): boolean => {
@@ -97,7 +75,7 @@ export const authRouter = () => {
 
     const token = signUserToken({ sub: String(user._id), username: user.username, email: user.email, role: 'user' });
 
-    return res.status(201).json({ success: true, token, user: safeUser(user) });
+    return res.status(201).json({ success: true, token, user: serializeSafeUser(user) });
   });
 
   router.post('/login', async (req: Request, res: Response) => {
@@ -122,7 +100,7 @@ export const authRouter = () => {
     }
 
     const token = signUserToken({ sub: String(user._id), username: user.username, email: user.email, role: 'user' });
-    return res.json({ success: true, token, user: safeUser(user) });
+    return res.json({ success: true, token, user: serializeSafeUser(user) });
   });
 
   router.post('/forgot-password/request', async (req: Request, res: Response) => {
@@ -186,7 +164,7 @@ export const authRouter = () => {
       return res.json({ success: true, user: null });
     }
 
-    return res.json({ success: true, user: safeUser(user) });
+    return res.json({ success: true, user: serializeSafeUser(user) });
   });
 
   router.post('/logout', (_req, res) => {

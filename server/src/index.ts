@@ -7,6 +7,7 @@ import { allowedClientOrigins, env, isAllowedClientOrigin } from './config/env.j
 import { connectMongo, isMongoReady } from './db/mongo.js';
 import { Room } from './models/Room.js';
 import { RoomManager } from './rooms/roomManager.js';
+import { toHydratedRoom } from './serializers/room.js';
 import { authRouter } from './routes/auth.js';
 import { profileRouter } from './routes/profile.js';
 import { roomsRouter } from './routes/rooms.js';
@@ -110,12 +111,7 @@ const start = async () => {
 
   if (isMongoReady()) {
     const persistedRooms = await Room.find({}).lean();
-    roomManager.hydrateFromStorage(
-      persistedRooms.map((room) => ({
-        ...room,
-        passwordHash: room.passwordHash ?? null
-      }))
-    );
+    roomManager.hydrateFromStorage(persistedRooms.map((room) => toHydratedRoom(room)));
   }
 
   server.listen(env.PORT, '0.0.0.0', () => {

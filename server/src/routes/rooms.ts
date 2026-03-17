@@ -6,33 +6,12 @@ import { optionalAuth } from '../middleware/auth.js';
 import { Room } from '../models/Room.js';
 import { User } from '../models/User.js';
 import { RoomManager } from '../rooms/roomManager.js';
+import { serializeRoomSummary, withNormalizedPasswordHash, type RoomJoinSource } from '../serializers/room.js';
 
 const toErrorMessage = (error: unknown): string => {
   if (error instanceof Error) return error.message;
   return String(error);
 };
-
-type RoomSummarySource = {
-  roomId: string;
-  name: string;
-  visibility: 'public' | 'private';
-  ownerType: 'user' | 'guest';
-  ownerName: string;
-  createdAt: number;
-  updatedAt: number;
-  lastActiveAt: number;
-};
-
-const roomSummary = (room: RoomSummarySource, participants = 0) => ({
-  roomId: room.roomId,
-  name: room.name,
-  visibility: room.visibility,
-  owner: room.ownerName ? { type: room.ownerType, name: room.ownerName } : null,
-  createdAt: room.createdAt,
-  updatedAt: room.updatedAt,
-  lastActiveAt: room.lastActiveAt,
-  participants
-});
 
 export const roomsRouter = (roomManager: RoomManager) => {
   const router = Router();
@@ -98,9 +77,10 @@ export const roomsRouter = (roomManager: RoomManager) => {
 
     const name = parsedBody.data.name.trim();
     try {
-      let roomMeta: (RoomSummarySource & { passwordHash: string | null }) | null = null;
+      let roomMeta: (RoomJoinSource & { passwordHash: string | null }) | null = null;
       if (isMongoReady()) {
-        roomMeta = await Room.findOne({ name: new RegExp(`^${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') }).lean();
+        const persistedRoom = await Room.findOne({ name: new RegExp(`^${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') }).lean();
+        roomMeta = persistedRoom ? withNormalizedPasswordHash(persistedRoom) : null;
       }
 
       if (!roomMeta) {
@@ -129,7 +109,7 @@ export const roomsRouter = (roomManager: RoomManager) => {
     try {
       let rooms = roomManager.listMeta();
       if (query) rooms = rooms.filter((room) => room.name.toLowerCase().includes(query));
-      return res.json({ success: true, rooms: rooms.map((room) => roomSummary(room, roomManager.getRoom(room.roomId)?.participants.length ?? 0)) });
+      return res.json({ success: true, rooms: rooms.map((room) => serializeRoomSummary(room, roomManager.getRoom(room.roomId)?.participants.length ?? 0)) });
     } catch (error) {
       return res.status(500).json({ success: false, message: 'Failed to browse rooms.', error: toErrorMessage(error) });
     }
@@ -140,10 +120,10 @@ export const roomsRouter = (roomManager: RoomManager) => {
     if (!myId) return res.json({ success: true, ownedRooms: [], joinedRooms: [], message: 'Guest management only shows rooms from this active session.' });
 
     const rooms = roomManager.listMeta();
-    const ownedRooms = rooms.filter((room) => room.ownerId === myId).map((room) => roomSummary(room, roomManager.getRoom(room.roomId)?.participants.length ?? 0));
+    const ownedRooms = rooms.filter((room) => room.ownerId === myId).map((room) => serializeRoomSummary(room, roomManager.getRoom(room.roomId)?.participants.length ?? 0));
     const user = req.auth && req.auth.role === 'user' && isMongoReady() ? await User.findById(req.auth.sub).lean() : null;
     const joinedRoomIds = new Set(user?.joinedRooms ?? []);
-    const joinedRooms = rooms.filter((room) => joinedRoomIds.has(room.roomId)).map((room) => roomSummary(room, roomManager.getRoom(room.roomId)?.participants.length ?? 0));
+    const joinedRooms = rooms.filter((room) => joinedRoomIds.has(room.roomId)).map((room) => serializeRoomSummary(room, roomManager.getRoom(room.roomId)?.participants.length ?? 0));
     return res.json({ success: true, ownedRooms, joinedRooms });
   });
 
@@ -156,7 +136,7 @@ export const roomsRouter = (roomManager: RoomManager) => {
     if (!meta) return res.status(404).json({ success: false, message: 'Room not found.' });
     if (!req.auth || meta.ownerId !== req.auth.sub) return res.status(403).json({ success: false, message: 'Only room owner can update room settings.' });
 
-    const updates: Partial<Pick<RoomSummarySource, 'name' | 'visibility'> & { passwordHash: string | null }> = {};
+    const updates: Partial<Pick<RoomJoinSource, 'name' | 'visibility'> & { passwordHash: string | null }> = {};
     if (parsedBody.data.name && parsedBody.data.name.trim().toLowerCase() !== meta.name.toLowerCase()) {
       const candidate = parsedBody.data.name.trim();
       const exists = roomManager.listMeta().some((item) => item.roomId !== meta.roomId && item.name.toLowerCase() === candidate.toLowerCase());
@@ -173,7 +153,7 @@ export const roomsRouter = (roomManager: RoomManager) => {
     if (isMongoReady()) {
       await Room.findOneAndUpdate({ roomId: meta.roomId }, { $set: updates });
     }
-    return res.json({ success: true, room: roomSummary(meta, roomManager.getRoom(meta.roomId)?.participants.length ?? 0) });
+    return res.json({ success: true, room: serializeRoomSummary(meta, roomManager.getRoom(meta.roomId)?.participants.length ?? 0) });
   });
 
   router.delete('/:roomId', optionalAuth, async (req: Request, res: Response) => {

@@ -2,35 +2,13 @@ import { Router, type Request, type Response } from 'express';
 import { z } from 'zod';
 import { requireAuth } from '../middleware/auth.js';
 import { User } from '../models/User.js';
+import { serializeSafeUser } from '../serializers/user.js';
 import { uploadProfileImage } from '../utils/cloudinary.js';
 
 const profileSchema = z.object({
   username: z.string().trim().min(3).max(32).optional(),
   email: z.string().trim().email().optional(),
   profileImageDataUri: z.string().trim().optional()
-});
-
-type SafeUserSource = {
-  _id: string;
-  username: string;
-  email: string;
-  profileImage?: string;
-  createdRooms: string[];
-  joinedRooms: string[];
-  createdAt: Date;
-  updatedAt: Date;
-};
-
-const safeUser = (user: SafeUserSource) => ({
-  id: String(user._id),
-  username: user.username,
-  email: user.email,
-  profileImage: user.profileImage || '',
-  createdRooms: user.createdRooms,
-  joinedRooms: user.joinedRooms,
-  createdAt: user.createdAt,
-  updatedAt: user.updatedAt,
-  role: 'user' as const
 });
 
 export const profileRouter = () => {
@@ -42,7 +20,7 @@ export const profileRouter = () => {
       return res.status(404).json({ success: false, message: 'User not found.' });
     }
 
-    return res.json({ success: true, user: safeUser(user) });
+    return res.json({ success: true, user: serializeSafeUser(user) });
   });
 
   router.patch('/', requireAuth, async (req: Request, res: Response) => {
@@ -78,7 +56,7 @@ export const profileRouter = () => {
 
     await user.save();
 
-    return res.json({ success: true, user: safeUser(user), message: 'Changes saved' });
+    return res.json({ success: true, user: serializeSafeUser(user), message: 'Changes saved' });
   });
 
   return router;

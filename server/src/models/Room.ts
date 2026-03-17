@@ -1,4 +1,4 @@
-import { Schema, model } from 'mongoose';
+import { InferSchemaType, Schema, Types, model } from 'mongoose';
 
 const pointSchema = new Schema(
   {
@@ -62,44 +62,12 @@ roomSchema.index({ name: 1 }, { unique: true });
 roomSchema.index({ createdAt: -1 });
 roomSchema.index({ ownerId: 1, ownerType: 1 });
 
-export interface RoomDoc {
-  _id: string;
-  roomId: string;
-  name: string;
-  visibility: 'public' | 'private';
-  passwordHash: string | null;
-  ownerType: 'user' | 'guest';
-  ownerId: string;
-  ownerName: string;
-  lastActiveAt: Date;
-  canvasState?: {
-    strokes: Array<{
-      strokeId: string;
-      roomId: string;
-      userId: string;
-      tool: 'pen' | 'eraser';
-      brushStyle?: 'classic' | 'rainbow' | 'neon' | 'dotted' | 'spray';
-      color: string;
-      size: number;
-      points: Array<{ x: number; y: number }>;
-      timestamp: number;
-    }>;
-    stickers: Array<{
-      stickerId: string;
-      roomId: string;
-      userId: string;
-      value: string;
-      x: number;
-      y: number;
-      size: number;
-      timestamp: number;
-    }>;
-    lastSavedAt: Date | null;
-    version: number;
-  };
-  previewImageUrl?: string | null;
+export type RoomSchema = InferSchemaType<typeof roomSchema>;
+
+export type RoomDoc = RoomSchema & {
+  _id: Types.ObjectId | string;
   createdAt: Date;
   updatedAt: Date;
-}
+};
 
-export const Room = model('Room', roomSchema);
+export const Room = model<RoomSchema>('Room', roomSchema);
