@@ -32,18 +32,13 @@ npm run dev
 ## Environment variables
 
 ### Frontend (`client/.env.local`)
-- `NEXT_PUBLIC_API_URL` (recommended in production; local default is `http://localhost:4000`)
-- `NEXT_PUBLIC_SOCKET_URL` (recommended in production; local default is `http://localhost:4000`)
-
-
-Fallback behavior:
-- On localhost, frontend defaults to `http://localhost:4000` if env vars are missing.
-- On non-localhost hosts (for example Vercel), frontend falls back to `https://artcolab-1.onrender.com` to prevent accidental `localhost` calls in production.
+- `NEXT_PUBLIC_API_URL` (default: `http://localhost:4000`)
+- `NEXT_PUBLIC_SOCKET_URL` (default: `http://localhost:4000`)
 
 ### Backend (`server/.env`)
 - `PORT` (default: `4000`)
 - `NODE_ENV` (`development` | `test` | `production`)
-- `CLIENT_ORIGIN` (comma-separated allowed frontend origins; supports wildcard entries like `*.vercel.app`)
+- `CLIENT_ORIGIN` (comma-separated allowed frontend origins)
 - `ROOM_IDLE_TIMEOUT_MS` (default: `900000`)
 - `CLEANUP_INTERVAL_MS` (default: `60000`)
 - `MAX_STROKES_PER_ROOM` (default: `1000`)
@@ -73,6 +68,7 @@ Fallback behavior:
 Required Render environment variables:
 - `NODE_ENV=production`
 - `CLIENT_ORIGIN=https://<your-vercel-domain>` (or comma-separated list, e.g. `https://art-colab-client.vercel.app,https://your-preview.vercel.app`)
+- `CLIENT_ORIGIN=https://<your-vercel-domain>`
 - `PORT=4000` (Render may inject one automatically; app supports `process.env.PORT || 4000`)
 
 Optional:
@@ -94,4 +90,6 @@ If room creation fails with `Failed to fetch` or `ERR_CONNECTION_REFUSED`:
 1. Verify backend is running and reachable at `/health`.
 2. Verify `NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_SOCKET_URL` point to the live backend URL (recommended), or that `https://artcolab-1.onrender.com` is reachable when fallback is used.
 3. Verify backend `CLIENT_ORIGIN` includes the frontend origin (exact origin or a wildcard such as `*.vercel.app`).
+2. Verify `NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_SOCKET_URL` point to the live backend URL.
+3. Verify backend `CLIENT_ORIGIN` exactly matches the frontend origin.
 4. Check backend startup logs for effective `port`, `node_env`, and `allowed_client_origins`.
