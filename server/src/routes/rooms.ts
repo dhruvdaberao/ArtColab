@@ -63,7 +63,9 @@ export const roomsRouter = (roomManager: RoomManager) => {
           ownerType: owner.ownerType,
           ownerId: owner.ownerId,
           ownerName: owner.ownerName,
-          lastActiveAt: new Date()
+          lastActiveAt: new Date(),
+          canvasState: { strokes: [], lastSavedAt: null, version: 1 },
+          previewImageUrl: null
         });
         if (req.auth?.role === 'user') {
           await User.findByIdAndUpdate(req.auth.sub, { $addToSet: { createdRooms: room.roomId } });
