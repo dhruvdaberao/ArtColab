@@ -15,15 +15,15 @@ export function UserAvatarMenu() {
 
   return (
     <div className="relative">
-      <button onClick={() => setOpen((prev) => !prev)} className="h-10 w-10 overflow-hidden rounded-full border border-slate-300 bg-slate-100">
-        {user.profileImage ? <img src={user.profileImage} alt={user.username} className="h-full w-full object-cover" /> : <span className="text-xs font-semibold">{initials}</span>}
+      <button onClick={() => setOpen((prev) => !prev)} className="h-11 w-11 overflow-hidden rounded-full border-2 border-pink-200 bg-pink-50 shadow-sm transition hover:scale-105">
+        {user.profileImage ? <img src={user.profileImage} alt={user.username} className="h-full w-full object-cover" /> : <span className="text-xs font-bold text-purple-800">{initials}</span>}
       </button>
       {open && (
-        <div className="absolute right-0 z-20 mt-2 w-56 space-y-2 rounded-xl border border-slate-200 bg-white p-3 shadow-lg">
-          <p className="text-sm font-medium text-slate-800">{user.username}</p>
+        <div className="absolute right-0 z-20 mt-2 w-56 space-y-2 rounded-2xl border border-fuchsia-100 bg-white p-3 shadow-lg animate-[pop-in_0.2s_ease-out]">
+          <p className="text-sm font-semibold text-purple-800">{user.username}</p>
           {user.role === 'guest' ? (
             <>
-              <p className="text-xs text-slate-500">You are using guest access.</p>
+              <p className="text-xs text-purple-500">You are doodling in guest mode.</p>
               <Link href="/" className="block">
                 <SecondaryButton className="w-full">Login / Create Account</SecondaryButton>
               </Link>
@@ -33,7 +33,7 @@ export function UserAvatarMenu() {
               <Link href="/profile" className="block">
                 <SecondaryButton className="w-full">Profile</SecondaryButton>
               </Link>
-              <Button onClick={() => logout()} className="w-full bg-rose-600 hover:bg-rose-500">
+              <Button onClick={() => logout()} className="w-full bg-rose-500 hover:bg-rose-400">
                 Logout
               </Button>
             </>

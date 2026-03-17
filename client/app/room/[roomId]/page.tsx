@@ -130,16 +130,16 @@ export default function RoomPage() {
     const canvas = document.querySelector("canvas");
     if (!canvas) return;
     const link = document.createElement("a");
-    link.download = `cloudcanvas-${roomId}.png`;
+    link.download = `sprinklesketch-${roomId}.png`;
     link.href = canvas.toDataURL("image/png");
     link.click();
-    pushToast("Download started.");
+    pushToast("Sprinkle download started.");
   };
 
   const copyLink = async () => {
     try {
       await navigator.clipboard.writeText(window.location.href);
-      pushToast("Room link copied.");
+      pushToast("Room link copied to clipboard.");
     } catch {
       setError(
         "Unable to copy. Please copy the URL manually from your browser.",
@@ -194,7 +194,7 @@ export default function RoomPage() {
   useEffect(() => {
     if (hasJoined && !joinedToastShownRef.current) {
       joinedToastShownRef.current = true;
-      pushToast("Joined room.");
+      pushToast("You joined the doodle party!");
     }
   }, [hasJoined, pushToast]);
 
@@ -215,27 +215,27 @@ export default function RoomPage() {
   }
 
   return (
-    <main className="min-h-screen overscroll-none bg-slate-50/40 px-3 py-4 sm:px-5 sm:py-6">
+    <main className="min-h-screen overscroll-none px-3 py-4 sm:px-5 sm:py-6">
       <div className="mx-auto flex w-full max-w-[1520px] flex-col gap-4">
-        <header className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200/90 bg-white px-4 py-3 shadow-sm sm:px-5">
+        <header className="flex flex-wrap items-center justify-between gap-3 rounded-3xl border border-fuchsia-100 bg-white/95 px-4 py-3 shadow-sm sm:px-5">
           <div className="space-y-1">
-            <p className="text-[11px] uppercase tracking-[0.18em] text-slate-500">
-              CloudCanvas Room
+            <p className="text-[11px] uppercase tracking-[0.18em] text-purple-500">
+              SprinkleSketch Room
             </p>
-            <h1 className="text-lg font-semibold text-slate-900 sm:text-xl">
+            <h1 className="text-lg font-extrabold text-purple-900 sm:text-xl">
               {roomId}
             </h1>
           </div>
           <div className="flex flex-wrap items-center gap-2 text-sm">
             <UserAvatarMenu />
-            <Badge className="capitalize">{status}</Badge>
-            <Badge>
+            <Badge className="capitalize bg-sky-50 text-sky-700 border-sky-100">{status}</Badge>
+            <Badge className="bg-violet-50 text-violet-700 border-violet-100">
               Signed in as {displayName}
               {user?.role === "guest" ? " (Guest)" : ""}
             </Badge>
             <SecondaryButton onClick={copyLink}>Copy room link</SecondaryButton>
             <Button
-              className="min-h-11 gap-2 bg-rose-600 px-5 hover:bg-rose-500 focus-visible:ring-rose-300"
+              className="min-h-11 gap-2 bg-rose-500 px-5 hover:bg-rose-400 focus-visible:ring-rose-300"
               onClick={() => setIsExitModalOpen(true)}
             >
               🚪 Exit Room
@@ -245,7 +245,7 @@ export default function RoomPage() {
 
         {error && (
           <div
-            className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-sm text-rose-700"
+            className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-2 text-sm text-rose-700"
             role="alert"
             aria-live="polite"
           >
@@ -268,7 +268,7 @@ export default function RoomPage() {
 
         {!hasJoined && (
           <div
-            className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600 shadow-sm"
+            className="rounded-2xl border border-fuchsia-100 bg-white px-4 py-3 text-sm text-purple-600 shadow-sm"
             role="status"
             aria-live="polite"
           >
@@ -293,13 +293,12 @@ export default function RoomPage() {
             />
             {strokes.length === 0 && (
               <div className="pointer-events-none absolute inset-0 grid place-items-center p-8">
-                <div className="rounded-2xl border border-slate-200/80 bg-white/90 px-6 py-5 text-center shadow-sm backdrop-blur-sm">
-                  <p className="text-sm font-medium text-slate-700">
-                    Start sketching
+                <div className="rounded-3xl border border-fuchsia-100 bg-white/95 px-6 py-5 text-center shadow-sm backdrop-blur-sm">
+                  <p className="text-sm font-semibold text-purple-700">
+                    Start sketching the candy chaos
                   </p>
-                  <p className="mt-1 text-xs text-slate-500">
-                    Your first stroke appears instantly for everyone in this
-                    room.
+                  <p className="mt-1 text-xs text-purple-500">
+                    Your first stroke appears instantly for everyone in this room.
                   </p>
                 </div>
               </div>
