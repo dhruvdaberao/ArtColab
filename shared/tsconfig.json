@@ -6,7 +6,11 @@
     "outDir": "dist",
     "strict": true,
     "moduleResolution": "NodeNext",
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "types": []
   },
-  "include": ["types/**/*.ts", "index.ts"]
+  "include": [
+    "types/**/*.ts",
+    "index.ts"
+  ]
 }
