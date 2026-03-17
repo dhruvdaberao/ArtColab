@@ -3,7 +3,7 @@ import cors from 'cors';
 import express from 'express';
 import { Server } from 'socket.io';
 import { SOCKET_EVENTS } from '@cloudcanvas/shared';
-import { allowedClientOrigins, env } from './config/env.js';
+import { allowedClientOrigins, env, isAllowedClientOrigin } from './config/env.js';
 import { RoomManager } from './rooms/roomManager.js';
 import { roomsRouter } from './routes/rooms.js';
 import { registerSocketHandlers } from './socket/registerHandlers.js';
@@ -12,13 +12,8 @@ const app = express();
 const server = http.createServer(app);
 const roomManager = new RoomManager();
 
-const isOriginAllowed = (origin?: string) => {
-  if (!origin) return true;
-  return allowedClientOrigins.includes(origin);
-};
-
 const corsOrigin: cors.CorsOptions['origin'] = (origin, callback) => {
-  if (isOriginAllowed(origin)) {
+  if (isAllowedClientOrigin(origin)) {
     callback(null, true);
     return;
   }

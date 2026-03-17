@@ -15,8 +15,41 @@ const envSchema = z.object({
 
 const normalizeOrigin = (origin: string): string => origin.trim().replace(/\/+$/, '');
 
+const escapeRegExp = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+const wildcardToRegExp = (pattern: string): RegExp => {
+  const normalized = normalizeOrigin(pattern);
+  const escaped = escapeRegExp(normalized).replace(/\\\*/g, '.*');
+  return new RegExp(`^${escaped}$`, 'i');
+};
+
 export const env = envSchema.parse(process.env);
 
-export const allowedClientOrigins = env.CLIENT_ORIGIN.split(',')
-  .map((origin) => origin.trim())
+const configuredClientOrigins = env.CLIENT_ORIGIN.split(',')
+  .map((origin) => normalizeOrigin(origin))
   .filter(Boolean);
+
+const uniqueClientOrigins = [...new Set(configuredClientOrigins)];
+
+const wildcardOriginPatterns = uniqueClientOrigins
+  .filter((origin) => origin.includes('*'))
+  .map((origin) => ({
+    origin,
+    matcher: wildcardToRegExp(origin)
+  }));
+
+const exactOrigins = new Set(uniqueClientOrigins.filter((origin) => !origin.includes('*')));
+
+export const allowedClientOrigins = uniqueClientOrigins;
+
+export const isAllowedClientOrigin = (origin?: string): boolean => {
+  if (!origin) return true;
+
+  const normalizedOrigin = normalizeOrigin(origin);
+
+  if (exactOrigins.has(normalizedOrigin)) {
+    return true;
+  }
+
+  return wildcardOriginPatterns.some(({ matcher }) => matcher.test(normalizedOrigin));
+};
