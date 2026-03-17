@@ -1,6 +1,6 @@
 import http from 'node:http';
 import cors from 'cors';
-import express from 'express';
+import express, { type NextFunction, type Request, type Response } from 'express';
 import { Server } from 'socket.io';
 import { SOCKET_EVENTS } from '@cloudcanvas/shared';
 import { allowedClientOrigins, env, isAllowedClientOrigin } from './config/env.js';
@@ -17,7 +17,18 @@ const corsOrigin: cors.CorsOptions['origin'] = (origin, callback) => {
     callback(null, true);
     return;
   }
-  callback(new Error(`CORS blocked for origin: ${origin}`));
+
+  const error = new Error(`CORS blocked for origin: ${origin ?? 'unknown'}`);
+  console.warn('[cors] blocked request', { origin: origin ?? null });
+  callback(error);
+};
+
+const corsOptions: cors.CorsOptions = {
+  origin: corsOrigin,
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  optionsSuccessStatus: 204
 };
 
 const io = new Server(server, {
@@ -28,12 +39,8 @@ const io = new Server(server, {
   maxHttpBufferSize: 1e6
 });
 
-app.use(
-  cors({
-    origin: corsOrigin,
-    credentials: true
-  })
-);
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
 app.use(express.json({ limit: '1mb' }));
 
 app.get('/health', (_req, res) => {
@@ -47,6 +54,26 @@ app.get('/health', (_req, res) => {
 app.use('/api/rooms', roomsRouter(roomManager));
 
 registerSocketHandlers(io, roomManager);
+
+app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
+  const error = err instanceof Error ? err : new Error('Unknown server error');
+  const isCorsError = /CORS blocked/i.test(error.message);
+
+  if (isCorsError) {
+    return res.status(403).json({
+      success: false,
+      message: 'Request blocked by CORS policy.',
+      error: error.message
+    });
+  }
+
+  console.error('[http:error] unhandled exception', error);
+  return res.status(500).json({
+    success: false,
+    message: 'Internal server error.',
+    error: env.NODE_ENV === 'production' ? 'INTERNAL_SERVER_ERROR' : error.message
+  });
+});
 
 const cleanupTimer = setInterval(() => {
   const removed = roomManager.cleanupExpiredRooms();
@@ -62,4 +89,7 @@ server.listen(env.PORT, '0.0.0.0', () => {
   console.log(`[CloudCanvas] port=${env.PORT}`);
   console.log(`[CloudCanvas] node_env=${env.NODE_ENV}`);
   console.log(`[CloudCanvas] allowed_client_origins=${allowedClientOrigins.join(',') || 'none'}`);
+  if (!process.env.CLIENT_ORIGIN) {
+    console.warn('[CloudCanvas] CLIENT_ORIGIN is not set; using safe defaults. Set CLIENT_ORIGIN in Render for strict production control.');
+  }
 });
