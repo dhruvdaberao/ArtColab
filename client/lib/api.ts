@@ -1,4 +1,6 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
+import { resolvePublicUrl } from './runtime-config';
+
+const API_URL = resolvePublicUrl(process.env.NEXT_PUBLIC_API_URL);
 
 export interface CreateRoomResponse {
   room: { roomId: string };
