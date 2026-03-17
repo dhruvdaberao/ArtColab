@@ -1,164 +1,97 @@
 # CloudCanvas
 
-CloudCanvas is a production-oriented real-time collaborative whiteboard built with **Next.js + Express + Socket.IO + TypeScript**.
-It is intentionally minimal, but engineered with clean architecture boundaries so it can be extended for portfolio demos, interview walkthroughs, and production hardening.
+CloudCanvas is a real-time collaborative whiteboard built with **Next.js + Express + Socket.IO + TypeScript**.
 
-## What this project demonstrates
-- Temporary room creation and join flow with shareable links.
-- Real-time collaborative drawing with low-latency stroke streaming.
-- Presence updates and participant awareness.
-- Idle-room cleanup lifecycle for memory safety.
-- Monorepo structure with a shared contracts package.
-- Deployment-ready setup for **Vercel (client)** + **Render (server)**.
-
----
-
-## Tech stack
-- **Frontend (`client`)**: Next.js 14 (App Router), React, TypeScript, Tailwind CSS
-- **Backend (`server`)**: Express, Socket.IO, TypeScript, Zod
-- **Shared contracts (`shared`)**: shared room/canvas/socket types + socket event constants
-
----
-
-## Monorepo layout
-```text
-cloud-canvas/
-  client/
-    app/
-    components/
-    hooks/
-    lib/
-  server/
-    src/
-      config/
-      rooms/
-      routes/
-      socket/
-      utils/
-  shared/
-    types/
-```
-
----
+## Architecture
+- **Frontend** (`client`): Next.js (Vercel)
+- **Backend** (`server`): Node.js + Express + Socket.IO (Render Web Service)
+- **Shared contracts** (`shared`): room/canvas/socket TypeScript types and constants
 
 ## Local development
+
 ### 1) Install dependencies
 ```bash
 npm install
 ```
 
-### 2) Configure environment
+### 2) Configure environment files
 ```bash
 cp server/.env.example server/.env
 cp client/.env.example client/.env.local
 ```
 
-### 3) Run both applications
+### 3) Start both frontend and backend
 ```bash
 npm run dev
 ```
 
-- Client: `http://localhost:3000`
-- Server: `http://localhost:4000`
-
----
+- Frontend: `http://localhost:3000`
+- Backend: `http://localhost:4000`
+- Backend health: `http://localhost:4000/health`
 
 ## Environment variables
 
-### Client (`client/.env.local`)
-- `NEXT_PUBLIC_API_URL` — HTTP origin of the backend (e.g. `http://localhost:4000`)
-- `NEXT_PUBLIC_SOCKET_URL` — Socket.IO origin of the backend (e.g. `http://localhost:4000`)
+### Frontend (`client/.env.local`)
+- `NEXT_PUBLIC_API_URL` (recommended in production; local default is `http://localhost:4000`)
+- `NEXT_PUBLIC_SOCKET_URL` (recommended in production; local default is `http://localhost:4000`)
 
-### Server (`server/.env`)
-- `PORT` — default `4000`
-- `CLIENT_ORIGIN` — frontend origin used by CORS (e.g. `http://localhost:3000`)
-- `ROOM_IDLE_TIMEOUT_MS` — inactivity TTL before room expiration
-- `CLEANUP_INTERVAL_MS` — cleanup poll interval
-- `MAX_STROKES_PER_ROOM` — memory bound for stored strokes
-- `REDIS_URL` — optional future persistence adapter placeholder
 
----
+Fallback behavior:
+- On localhost, frontend defaults to `http://localhost:4000` if env vars are missing.
+- On non-localhost hosts (for example Vercel), frontend falls back to `https://artcolab-1.onrender.com` to prevent accidental `localhost` calls in production.
 
-## Socket event model
-Event naming follows a namespaced convention:
-- Room lifecycle: `room:*`
-- Stroke actions: `stroke:*`
-- Board actions: `board:*`
+### Backend (`server/.env`)
+- `PORT` (default: `4000`)
+- `NODE_ENV` (`development` | `test` | `production`)
+- `CLIENT_ORIGIN` (comma-separated allowed frontend origins; supports wildcard entries like `*.vercel.app`)
+- `ROOM_IDLE_TIMEOUT_MS` (default: `900000`)
+- `CLEANUP_INTERVAL_MS` (default: `60000`)
+- `MAX_STROKES_PER_ROOM` (default: `1000`)
+- `REDIS_URL` (optional)
 
-Examples:
-- `room:join`, `room:joined`, `room:participants:updated`, `room:expired`, `room:error`
-- `stroke:start`, `stroke:append`, `stroke:end`, `stroke:undone`
-- `board:clear`, `board:cleared`
+## Build and start scripts
 
-Shared constants live in `shared/types/socket.ts` to keep client/server naming aligned.
+### Monorepo root
+- `npm run dev` → runs frontend + backend dev servers
+- `npm run build` → builds shared, server, client
 
----
+### Backend (`server/package.json`)
+- `npm run dev` → `tsx watch src/index.ts`
+- `npm run build` → `tsc -p tsconfig.json`
+- `npm start` → `node dist/index.js`
 
-## Architecture notes
-### Drawing synchronization
-- Local user draws optimistically for responsive UX.
-- Stroke points are batched and sent on animation frames (`stroke:append`) for smoother streams.
-- New participants receive full room state (`room:joined`/`room:state`) and replay strokes.
+## Deployment (production-ready)
 
-### Room lifecycle and cleanup
-- Rooms are in-memory and temporary.
-- When the last participant leaves, the room is marked for delayed expiry.
-- Periodic cleanup removes expired rooms and emits `room:expired`.
-- Participant/socket mapping is tracked for robust disconnect handling.
+### Render backend (Web Service)
+- Runtime: **Node**
+- Root Directory: `server`
+- Build Command: `npm install && npm run build`
+- Start Command: `npm start`
+- Note: backend uses local package dependency `file:../shared`; keep `server` as Root Directory so Render can resolve the shared package from the same repo checkout.
+- Health Check Path: `/health`
 
----
+Required Render environment variables:
+- `NODE_ENV=production`
+- `CLIENT_ORIGIN=https://<your-vercel-domain>` (or comma-separated list, e.g. `https://art-colab-client.vercel.app,https://your-preview.vercel.app`)
+- `PORT=4000` (Render may inject one automatically; app supports `process.env.PORT || 4000`)
 
-## Deployment readiness
+Optional:
+- `ROOM_IDLE_TIMEOUT_MS=900000`
+- `CLEANUP_INTERVAL_MS=60000`
+- `MAX_STROKES_PER_ROOM=1000`
+- `REDIS_URL=<optional>`
 
-## Deploy frontend on Vercel
-1. Import this repository into Vercel.
-2. Set **Root Directory** to `client`.
-3. Add environment variables:
-   - `NEXT_PUBLIC_API_URL=https://<your-render-service>.onrender.com`
-   - `NEXT_PUBLIC_SOCKET_URL=https://<your-render-service>.onrender.com`
-4. Build command: default (`next build`)
-5. Output: default Next.js output
-6. Deploy.
+### Vercel frontend
+- Root Directory: `client`
+- Framework: Next.js
+- Environment variables:
+  - `NEXT_PUBLIC_API_URL=https://<render-backend-url>`
+  - `NEXT_PUBLIC_SOCKET_URL=https://<render-backend-url>`
 
-## Deploy backend on Render
-1. Create a new **Web Service** from this repository.
-2. Set **Root Directory** to `server`.
-3. Build command:
-   ```bash
-   npm install && npm run build
-   ```
-4. Start command:
-   ```bash
-   npm start
-   ```
-5. Add environment variables:
-   - `PORT=4000` (Render may inject its own; keep app compatible)
-   - `CLIENT_ORIGIN=https://<your-vercel-domain>`
-   - `ROOM_IDLE_TIMEOUT_MS=900000`
-   - `CLEANUP_INTERVAL_MS=60000`
-   - `MAX_STROKES_PER_ROOM=1000`
-6. Deploy and verify `GET /health`.
+## Troubleshooting frontend-backend connection issues
 
-### Post-deploy checklist
-- Confirm CORS origin exactly matches Vercel domain.
-- Confirm both `NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_SOCKET_URL` use HTTPS backend URL.
-- Open two browsers and verify:
-  - room creation/join works
-  - drawing sync works
-  - participant updates work
-  - room expiration UX works
-
----
-
-## Current tradeoffs
-- State is intentionally in-memory; restarting the backend clears active rooms.
-- Undo is last stroke by current user only.
-- No authentication/authorization in this version.
-
----
-
-## Suggested next upgrades
-- Redis room adapter for horizontal scaling.
-- Presence heartbeat and stale socket pruning.
-- Optional host controls (read-only mode / room lock).
-- Canvas snapshotting for faster late-join hydration.
+If room creation fails with `Failed to fetch` or `ERR_CONNECTION_REFUSED`:
+1. Verify backend is running and reachable at `/health`.
+2. Verify `NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_SOCKET_URL` point to the live backend URL (recommended), or that `https://artcolab-1.onrender.com` is reachable when fallback is used.
+3. Verify backend `CLIENT_ORIGIN` includes the frontend origin (exact origin or a wildcard such as `*.vercel.app`). The server always keeps localhost + `https://art-colab-client.vercel.app` as safe defaults.
+4. Check backend startup logs for effective `port`, `node_env`, and `allowed_client_origins`.
