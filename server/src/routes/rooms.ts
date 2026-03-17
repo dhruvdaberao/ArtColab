@@ -1,5 +1,5 @@
 import bcrypt from 'bcryptjs';
-import { Router } from 'express';
+import { Router, type Request, type Response } from 'express';
 import { createRoomSchema, joinRoomHttpSchema, roomIdSchema, updateRoomSchema } from '../utils/validation.js';
 import { isMongoReady } from '../db/mongo.js';
 import { optionalAuth } from '../middleware/auth.js';
@@ -12,7 +12,18 @@ const toErrorMessage = (error: unknown): string => {
   return String(error);
 };
 
-const roomSummary = (room: any, participants = 0) => ({
+type RoomSummarySource = {
+  roomId: string;
+  name: string;
+  visibility: 'public' | 'private';
+  ownerType: 'user' | 'guest';
+  ownerName: string;
+  createdAt: number;
+  updatedAt: number;
+  lastActiveAt: number;
+};
+
+const roomSummary = (room: RoomSummarySource, participants = 0) => ({
   roomId: room.roomId,
   name: room.name,
   visibility: room.visibility,
@@ -26,7 +37,7 @@ const roomSummary = (room: any, participants = 0) => ({
 export const roomsRouter = (roomManager: RoomManager) => {
   const router = Router();
 
-  router.post('/create', optionalAuth, async (req, res) => {
+  router.post('/create', optionalAuth, async (req: Request, res: Response) => {
     const parsedBody = createRoomSchema.safeParse(req.body ?? {});
     if (!parsedBody.success) {
       return res.status(400).json({ success: false, message: parsedBody.error.issues[0]?.message ?? 'Invalid create room payload.' });
@@ -79,7 +90,7 @@ export const roomsRouter = (roomManager: RoomManager) => {
     }
   });
 
-  router.post('/join', optionalAuth, async (req, res) => {
+  router.post('/join', optionalAuth, async (req: Request, res: Response) => {
     const parsedBody = joinRoomHttpSchema.safeParse(req.body ?? {});
     if (!parsedBody.success) {
       return res.status(400).json({ success: false, message: parsedBody.error.issues[0]?.message ?? 'Invalid join room payload.' });
@@ -87,7 +98,7 @@ export const roomsRouter = (roomManager: RoomManager) => {
 
     const name = parsedBody.data.name.trim();
     try {
-      let roomMeta: any = null;
+      let roomMeta: (RoomSummarySource & { passwordHash: string | null }) | null = null;
       if (isMongoReady()) {
         roomMeta = await Room.findOne({ name: new RegExp(`^${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') }).lean();
       }
@@ -113,7 +124,7 @@ export const roomsRouter = (roomManager: RoomManager) => {
     }
   });
 
-  router.get('/browse', optionalAuth, async (req, res) => {
+  router.get('/browse', optionalAuth, async (req: Request, res: Response) => {
     const query = String(req.query.q ?? '').trim().toLowerCase();
     try {
       let rooms = roomManager.listMeta();
@@ -124,7 +135,7 @@ export const roomsRouter = (roomManager: RoomManager) => {
     }
   });
 
-  router.get('/manage', optionalAuth, async (req, res) => {
+  router.get('/manage', optionalAuth, async (req: Request, res: Response) => {
     const myId = req.auth?.sub;
     if (!myId) return res.json({ success: true, ownedRooms: [], joinedRooms: [], message: 'Guest management only shows rooms from this active session.' });
 
@@ -136,7 +147,7 @@ export const roomsRouter = (roomManager: RoomManager) => {
     return res.json({ success: true, ownedRooms, joinedRooms });
   });
 
-  router.patch('/:roomId/settings', optionalAuth, async (req, res) => {
+  router.patch('/:roomId/settings', optionalAuth, async (req: Request, res: Response) => {
     const parsedId = roomIdSchema.safeParse(req.params.roomId);
     const parsedBody = updateRoomSchema.safeParse(req.body ?? {});
     if (!parsedId.success || !parsedBody.success) return res.status(400).json({ success: false, message: 'Invalid room settings payload.' });
@@ -145,7 +156,7 @@ export const roomsRouter = (roomManager: RoomManager) => {
     if (!meta) return res.status(404).json({ success: false, message: 'Room not found.' });
     if (!req.auth || meta.ownerId !== req.auth.sub) return res.status(403).json({ success: false, message: 'Only room owner can update room settings.' });
 
-    const updates: any = {};
+    const updates: Partial<Pick<RoomSummarySource, 'name' | 'visibility'> & { passwordHash: string | null }> = {};
     if (parsedBody.data.name && parsedBody.data.name.trim().toLowerCase() !== meta.name.toLowerCase()) {
       const candidate = parsedBody.data.name.trim();
       const exists = roomManager.listMeta().some((item) => item.roomId !== meta.roomId && item.name.toLowerCase() === candidate.toLowerCase());
@@ -165,7 +176,7 @@ export const roomsRouter = (roomManager: RoomManager) => {
     return res.json({ success: true, room: roomSummary(meta, roomManager.getRoom(meta.roomId)?.participants.length ?? 0) });
   });
 
-  router.delete('/:roomId', optionalAuth, async (req, res) => {
+  router.delete('/:roomId', optionalAuth, async (req: Request, res: Response) => {
     const parsedId = roomIdSchema.safeParse(req.params.roomId);
     if (!parsedId.success) return res.status(400).json({ success: false, message: 'Invalid room ID format.' });
     const meta = roomManager.getMeta(parsedId.data);
@@ -176,7 +187,7 @@ export const roomsRouter = (roomManager: RoomManager) => {
     return res.json({ success: true });
   });
 
-  router.post('/:roomId/leave', optionalAuth, async (req, res) => {
+  router.post('/:roomId/leave', optionalAuth, async (req: Request, res: Response) => {
     const parsedId = roomIdSchema.safeParse(req.params.roomId);
     if (!parsedId.success) return res.status(400).json({ success: false, message: 'Invalid room ID format.' });
     if (req.auth?.role === 'user' && isMongoReady()) {
@@ -185,7 +196,7 @@ export const roomsRouter = (roomManager: RoomManager) => {
     return res.json({ success: true });
   });
 
-  router.get('/:roomId', optionalAuth, async (req, res) => {
+  router.get('/:roomId', optionalAuth, async (req: Request, res: Response) => {
     const parsedId = roomIdSchema.safeParse(req.params.roomId);
     if (!parsedId.success) {
       return res.status(400).json({ success: false, message: 'Invalid room ID format.', error: 'INVALID_ROOM_ID' });

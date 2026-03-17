@@ -12,6 +12,10 @@ import { profileRouter } from './routes/profile.js';
 import { roomsRouter } from './routes/rooms.js';
 import { registerSocketHandlers } from './socket/registerHandlers.js';
 
+type PersistedRoomRecord = {
+  passwordHash?: string | null;
+} & Record<string, unknown>;
+
 const app = express();
 const server = http.createServer(app);
 const roomManager = new RoomManager(async (roomId, state) => {
@@ -109,7 +113,12 @@ const start = async () => {
 
   if (isMongoReady()) {
     const persistedRooms = await Room.find({}).lean();
-    roomManager.hydrateFromStorage(persistedRooms);
+    roomManager.hydrateFromStorage(
+      persistedRooms.map((room: PersistedRoomRecord) => ({
+        ...room,
+        passwordHash: room.passwordHash ?? null
+      }))
+    );
   }
 
   server.listen(env.PORT, '0.0.0.0', () => {

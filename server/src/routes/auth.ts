@@ -1,6 +1,6 @@
 import crypto from 'node:crypto';
 import bcrypt from 'bcryptjs';
-import { Router } from 'express';
+import { Router, type Request, type Response } from 'express';
 import { z } from 'zod';
 import { isMongoReady } from '../db/mongo.js';
 import { optionalAuth } from '../middleware/auth.js';
@@ -36,7 +36,18 @@ const resetVerifySchema = z.object({
   confirmPassword: z.string().min(8).max(72)
 });
 
-const safeUser = (user: any) => ({
+type SafeUserSource = {
+  _id: string;
+  username: string;
+  email: string;
+  profileImage?: string;
+  createdRooms: string[];
+  joinedRooms: string[];
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+const safeUser = (user: SafeUserSource) => ({
   id: String(user._id),
   username: user.username,
   email: user.email,
@@ -48,7 +59,7 @@ const safeUser = (user: any) => ({
   role: 'user' as const
 });
 
-const ensureMongo = (res: any): boolean => {
+const ensureMongo = (res: Response): boolean => {
   if (isMongoReady()) return true;
   res.status(503).json({ success: false, message: 'Authentication service unavailable.' });
   return false;
@@ -57,13 +68,13 @@ const ensureMongo = (res: any): boolean => {
 export const authRouter = () => {
   const router = Router();
 
-  router.post('/guest', optionalAuth, async (_req, res) => {
+  router.post('/guest', optionalAuth, async (_req: Request, res: Response) => {
     const username = generateGuestUsername();
     const token = signGuestToken({ sub: crypto.randomUUID(), username, role: 'guest' });
     res.status(201).json({ success: true, token, user: { username, role: 'guest' as const } });
   });
 
-  router.post('/register', async (req, res) => {
+  router.post('/register', async (req: Request, res: Response) => {
     if (!ensureMongo(res)) return;
     const parsed = registerSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -89,7 +100,7 @@ export const authRouter = () => {
     return res.status(201).json({ success: true, token, user: safeUser(user) });
   });
 
-  router.post('/login', async (req, res) => {
+  router.post('/login', async (req: Request, res: Response) => {
     if (!ensureMongo(res)) return;
     const parsed = loginSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -114,7 +125,7 @@ export const authRouter = () => {
     return res.json({ success: true, token, user: safeUser(user) });
   });
 
-  router.post('/forgot-password/request', async (req, res) => {
+  router.post('/forgot-password/request', async (req: Request, res: Response) => {
     if (!ensureMongo(res)) return;
     const parsed = resetRequestSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -133,7 +144,7 @@ export const authRouter = () => {
     return res.status(200).json({ success: true, message: 'If an account exists, a reset code has been sent.' });
   });
 
-  router.post('/forgot-password/verify', async (req, res) => {
+  router.post('/forgot-password/verify', async (req: Request, res: Response) => {
     if (!ensureMongo(res)) return;
     const parsed = resetVerifySchema.safeParse(req.body);
     if (!parsed.success || parsed.data.password !== parsed.data.confirmPassword) {
@@ -160,7 +171,7 @@ export const authRouter = () => {
     return res.json({ success: true, message: 'Password updated successfully.' });
   });
 
-  router.get('/me', optionalAuth, async (req, res) => {
+  router.get('/me', optionalAuth, async (req: Request, res: Response) => {
     if (!req.auth) {
       return res.json({ success: true, user: null });
     }
