@@ -297,7 +297,7 @@ export function CanvasBoard({
         ref={canvasRef}
         width={1200}
         height={700}
-        className={`w-full rounded-2xl border border-slate-200 bg-white shadow-sm transition-opacity [touch-action:none] ${tool === "pen" ? "cursor-none" : "cursor-none"} ${disabled ? "opacity-70" : ""}`}
+        className={`w-full rounded-3xl border border-fuchsia-100 bg-white shadow-sm transition-opacity [touch-action:none] ${tool === "pen" ? "cursor-none" : "cursor-none"} ${disabled ? "opacity-70" : ""}`}
         aria-label="Collaborative drawing canvas"
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
@@ -312,7 +312,7 @@ export function CanvasBoard({
 
       {cursorPreview.visible && !disabled && (
         <div
-          className="pointer-events-none absolute rounded-full border border-slate-900/45"
+          className="pointer-events-none absolute rounded-full border border-purple-900/45"
           style={{
             left: `${(cursorPreview.x / LOGICAL_CANVAS_WIDTH) * 100}%`,
             top: `${(cursorPreview.y / LOGICAL_CANVAS_HEIGHT) * 100}%`,
@@ -331,7 +331,7 @@ export function CanvasBoard({
           return (
             <div
               key={cursor.userId}
-              className={`absolute transition-all duration-150 ${idle ? "opacity-30" : "opacity-100"}`}
+              className={`absolute transition-all duration-150 ${idle ? "opacity-30" : "opacity-100"} ${cursor.drawing ? "scale-105" : "scale-100"}`}
               style={{
                 left: `${(cursor.x / LOGICAL_CANVAS_WIDTH) * 100}%`,
                 top: `${(cursor.y / LOGICAL_CANVAS_HEIGHT) * 100}%`,
@@ -339,7 +339,7 @@ export function CanvasBoard({
               }}
             >
               <div className="flex items-center gap-2">
-                <span className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full border-2 border-white bg-slate-800 text-[10px] font-semibold text-white shadow-lg">
+                <span className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full border-2 border-white bg-gradient-to-br from-pink-500 to-violet-500 text-[10px] font-semibold text-white shadow-lg">
                   {cursor.avatarUrl ? (
                     <img
                       src={cursor.avatarUrl}
@@ -350,7 +350,7 @@ export function CanvasBoard({
                     initialsFor(cursor.displayName)
                   )}
                 </span>
-                <span className="rounded-md bg-slate-900/80 px-2 py-0.5 text-xs text-white">
+                <span className="rounded-full bg-purple-900/80 px-2 py-0.5 text-xs text-white">
                   {cursor.displayName}
                 </span>
               </div>

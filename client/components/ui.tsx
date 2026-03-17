@@ -9,7 +9,7 @@ export const Button = forwardRef<
     <button
       ref={ref}
       className={cn(
-        "inline-flex items-center justify-center rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white transition-all duration-150 hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
+        "inline-flex items-center justify-center gap-1.5 rounded-2xl border border-transparent bg-pink-500 px-4 py-2 text-sm font-semibold text-white shadow-[0_12px_24px_-18px_rgba(236,72,153,0.95)] transition duration-150 hover:-translate-y-0.5 hover:bg-pink-400 active:translate-y-0 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pink-300 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
         className,
       )}
       {...props}
@@ -25,7 +25,7 @@ export const SecondaryButton = forwardRef<
     <button
       ref={ref}
       className={cn(
-        "inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-all duration-150 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
+        "inline-flex items-center justify-center gap-1.5 rounded-2xl border border-fuchsia-100 bg-white/90 px-4 py-2 text-sm font-semibold text-purple-700 transition duration-150 hover:-translate-y-0.5 hover:bg-fuchsia-50 active:translate-y-0 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fuchsia-200 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
         className,
       )}
       {...props}
@@ -40,10 +40,7 @@ export const Input = forwardRef<
   return (
     <input
       ref={ref}
-      className={cn(
-        "w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm outline-none ring-slate-200 transition placeholder:text-slate-400 focus:border-slate-400 focus:ring focus-visible:outline-none",
-        className,
-      )}
+      className={cn("candy-input", className)}
       {...props}
     />
   );
@@ -56,7 +53,7 @@ export function Badge({
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-600",
+        "inline-flex items-center rounded-full border border-fuchsia-100 bg-fuchsia-50 px-2.5 py-1 text-xs font-semibold text-purple-700",
         className,
       )}
       {...props}
@@ -68,13 +65,5 @@ export function Card({
   className,
   ...props
 }: React.HTMLAttributes<HTMLDivElement>) {
-  return (
-    <div
-      className={cn(
-        "rounded-2xl border border-slate-200 bg-white p-6 shadow-sm",
-        className,
-      )}
-      {...props}
-    />
-  );
+  return <div className={cn("candy-card", className)} {...props} />;
 }
