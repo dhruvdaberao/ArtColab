@@ -6,7 +6,7 @@ dotenv.config();
 const envSchema = z.object({
   PORT: z.coerce.number().default(4000),
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
-  CLIENT_ORIGIN: z.string().default('http://localhost:3000,https://art-colab-client.vercel.app'),
+  CLIENT_ORIGIN: z.string().default('http://localhost:3000'),
   ROOM_IDLE_TIMEOUT_MS: z.coerce.number().default(15 * 60 * 1000),
   CLEANUP_INTERVAL_MS: z.coerce.number().default(60 * 1000),
   MAX_STROKES_PER_ROOM: z.coerce.number().default(1000),
@@ -17,8 +17,6 @@ const normalizeOrigin = (origin: string): string => origin.trim().replace(/\/+$/
 
 export const env = envSchema.parse(process.env);
 
-export const defaultClientOrigins = ['http://localhost:3000', 'https://art-colab-client.vercel.app'];
-
-const configuredClientOrigins = env.CLIENT_ORIGIN.split(',').map(normalizeOrigin).filter(Boolean);
-
-export const allowedClientOrigins = [...new Set([...configuredClientOrigins, ...defaultClientOrigins])];
+export const allowedClientOrigins = env.CLIENT_ORIGIN.split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);

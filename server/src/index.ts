@@ -3,7 +3,7 @@ import cors from 'cors';
 import express from 'express';
 import { Server } from 'socket.io';
 import { SOCKET_EVENTS } from '@cloudcanvas/shared';
-import { allowedClientOrigins, defaultClientOrigins, env } from './config/env.js';
+import { allowedClientOrigins, env } from './config/env.js';
 import { RoomManager } from './rooms/roomManager.js';
 import { roomsRouter } from './routes/rooms.js';
 import { registerSocketHandlers } from './socket/registerHandlers.js';
@@ -12,18 +12,9 @@ const app = express();
 const server = http.createServer(app);
 const roomManager = new RoomManager();
 
-const matchesAllowedOrigin = (origin: string, allowedOrigin: string) => {
-  if (allowedOrigin.startsWith('*.')) {
-    const suffix = allowedOrigin.slice(1);
-    return origin.endsWith(suffix);
-  }
-
-  return origin === allowedOrigin;
-};
-
 const isOriginAllowed = (origin?: string) => {
   if (!origin) return true;
-  return allowedClientOrigins.some((allowedOrigin) => matchesAllowedOrigin(origin, allowedOrigin));
+  return allowedClientOrigins.includes(origin);
 };
 
 const corsOrigin: cors.CorsOptions['origin'] = (origin, callback) => {
@@ -70,12 +61,6 @@ const cleanupTimer = setInterval(() => {
 }, env.CLEANUP_INTERVAL_MS);
 
 cleanupTimer.unref();
-
-if (env.NODE_ENV === 'production' && env.CLIENT_ORIGIN === defaultClientOrigins.join(',')) {
-  console.warn(
-    '[CloudCanvas] warning: using default CLIENT_ORIGIN in production. Set CLIENT_ORIGIN to your exact Vercel domain.'
-  );
-}
 
 server.listen(env.PORT, '0.0.0.0', () => {
   console.log('[CloudCanvas] backend started');
