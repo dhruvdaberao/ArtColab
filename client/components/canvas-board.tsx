@@ -339,6 +339,11 @@ export function CanvasBoard({
     offsetY: 0,
   });
   const [previewStroke, setPreviewStroke] = useState<Stroke | null>(null);
+  const zoomPercent = Math.round(viewport.scale * 100);
+  const panHint = compact
+    ? "Pan: Shift-drag or two fingers"
+    : "Pan with Shift-drag or two fingers";
+  const zoomHint = compact ? "Pinch or Ctrl/Cmd + wheel to zoom" : "Zoom with pinch or Ctrl/Cmd + wheel";
 
   const viewportStyle = useMemo<React.CSSProperties>(
     () => ({
@@ -736,18 +741,21 @@ export function CanvasBoard({
   return (
     <div className="space-y-2 sm:space-y-3">
       <div
-        className={`flex flex-wrap items-center justify-between gap-2 rounded-[1.4rem] border-2 border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 text-[11px] text-[color:var(--text-muted)] shadow-[var(--shadow)] sm:text-xs ${compact ? "px-2.5 py-1.5" : ""}`}
+        className={`grid gap-2 rounded-[1.4rem] border-2 border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 text-[11px] text-[color:var(--text-muted)] shadow-[var(--shadow)] sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:gap-3 sm:text-xs ${compact ? "px-2.5 py-2" : ""}`}
       >
-        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-[color:var(--border)] bg-[color:var(--accent)] px-2.5 py-1 font-semibold text-[color:var(--text-main)]">
-            <Move size={compact ? 12 : 14} /> Pan with Shift-drag or two fingers
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <span className="inline-flex min-h-9 max-w-full items-center gap-1.5 rounded-full border border-[color:var(--border)] bg-[color:var(--accent)] px-3 py-1.5 font-semibold leading-tight text-[color:var(--text-main)]">
+            <Move size={compact ? 12 : 14} className="shrink-0" />
+            <span className="break-words">{panHint}</span>
           </span>
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-[color:var(--border)] bg-[#91d7ff] px-2.5 py-1 font-semibold text-[color:var(--text-main)]">
-            <ZoomIn size={compact ? 12 : 14} /> {Math.round(viewport.scale * 100)}%
+          <span className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-full border border-[color:var(--border)] bg-[#91d7ff] px-3 py-1.5 font-semibold text-[color:var(--text-main)]">
+            <ZoomIn size={compact ? 12 : 14} className="shrink-0" />
+            {zoomPercent}%
           </span>
         </div>
-        <div className="flex items-center gap-1.5 text-[color:var(--text-muted)]">
-          <ZoomOut size={compact ? 12 : 14} /> Pinch or Ctrl/Cmd + wheel
+        <div className="flex min-w-0 items-start gap-1.5 rounded-2xl border border-dashed border-[color:var(--border)]/25 bg-white/70 px-3 py-2 leading-tight text-[color:var(--text-muted)] sm:max-w-[20rem] sm:justify-self-end">
+          <ZoomOut size={compact ? 12 : 14} className="mt-0.5 shrink-0" />
+          <span className="break-words">{zoomHint}</span>
         </div>
       </div>
       <div
