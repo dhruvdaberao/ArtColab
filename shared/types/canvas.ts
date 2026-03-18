@@ -1,5 +1,5 @@
 export type ShapeKind = "line" | "rectangle" | "square" | "circle" | "ellipse" | "triangle" | "star";
-export type DrawingTool = "pen" | "eraser" | ShapeKind;
+export type DrawingTool = "pen" | "eraser" | "fill" | ShapeKind;
 export type BrushStyle = "classic" | "rainbow" | "neon" | "dotted" | "spray";
 
 export interface CanvasPoint {

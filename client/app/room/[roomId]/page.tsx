@@ -3,17 +3,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
-  ChevronDown,
-  ChevronUp,
   CircleAlert,
-  DoorOpen,
   Flame,
   Heart,
-  Info,
   Link as LinkIcon,
-  Maximize,
-  Minimize,
   PartyPopper,
+  RefreshCw,
   Smile,
 } from "lucide-react";
 import { nanoid } from "nanoid";
@@ -47,10 +42,10 @@ export default function RoomPage() {
   const isValidRoomId = /^[A-Z0-9]{6}$/.test(roomId);
   const [tool, setTool] = useState<DrawingTool>("pen");
   const [brushStyle, setBrushStyle] = useState<BrushStyle>("classic");
-  const [strokeColor, setStrokeColor] = useState("#0f172a");
-  const [fillColor, setFillColor] = useState("#bfdbfe");
+  const [strokeColor, setStrokeColor] = useState("#111111");
+  const [fillColor, setFillColor] = useState("#7dd3fc");
   const [fillEnabled, setFillEnabled] = useState(false);
-  const [recentColors, setRecentColors] = useState<string[]>(["#0f172a"]);
+  const [recentColors, setRecentColors] = useState<string[]>(["#111111"]);
   const [size, setSize] = useState(4);
   const [userId, setUserId] = useState("");
   const [displayName, setDisplayName] = useState("Guest");
@@ -67,8 +62,6 @@ export default function RoomPage() {
   const [isMobile, setIsMobile] = useState(false);
   const [isPortrait, setIsPortrait] = useState(false);
   const [isWorkspaceMode, setIsWorkspaceMode] = useState(false);
-  const [mobileToolsOpen, setMobileToolsOpen] = useState(false);
-  const [mobileInfoOpen, setMobileInfoOpen] = useState(false);
   const chatEndRef = useRef<HTMLDivElement | null>(null);
   const joinedToastShownRef = useRef(false);
   const { user } = useAuth();
@@ -137,11 +130,7 @@ export default function RoomPage() {
   }, []);
 
   useEffect(() => {
-    if (!isMobile) {
-      setIsWorkspaceMode(false);
-      setMobileToolsOpen(false);
-      setMobileInfoOpen(false);
-    }
+    if (!isMobile) setIsWorkspaceMode(false);
   }, [isMobile]);
 
   const avatarUrl = user?.profileImage;
@@ -302,8 +291,6 @@ export default function RoomPage() {
 
   const enterWorkspaceMode = async () => {
     setIsWorkspaceMode(true);
-    setMobileToolsOpen(false);
-    setMobileInfoOpen(false);
 
     try {
       if (document.fullscreenElement == null)
@@ -367,9 +354,7 @@ export default function RoomPage() {
       <div
         className={`mx-auto flex w-full max-w-[1520px] flex-col ${isWorkspaceMode ? "gap-3" : "gap-4"}`}
       >
-        <header
-          className={`flex flex-col gap-3 rounded-[24px] border-2 border-[color:var(--border)] bg-[color:var(--surface)]/95 px-3 py-3 shadow-[var(--shadow)] sm:rounded-[28px] sm:px-5 sm:py-4 ${isWorkspaceMode ? "sm:px-4 sm:py-3" : ""} lg:flex-row lg:items-center lg:justify-between`}
-        >
+        <header className="flex flex-col gap-3 rounded-[24px] border-2 border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-3 shadow-[var(--shadow)] sm:rounded-[28px] sm:px-5 sm:py-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-start justify-between gap-3">
             <div>
               <p className="text-[10px] uppercase tracking-[0.22em] text-[color:var(--text-muted)] sm:text-[11px]">
@@ -379,23 +364,15 @@ export default function RoomPage() {
                 {roomId}
               </h1>
             </div>
-            {showMobileLayout && isWorkspaceMode && (
-              <SecondaryButton
-                className="min-h-9 px-3 text-xs sm:hidden"
-                onClick={exitWorkspaceMode}
-              >
-                <Minimize size={14} /> Normal view
-              </SecondaryButton>
-            )}
           </div>
           <div className="flex flex-wrap items-center gap-2 text-sm">
             <UserAvatarMenu />
-            <Badge className="capitalize border-[color:var(--border)] bg-[color:var(--accent)]/55 text-[color:var(--text-main)]">
+            <Badge className="capitalize border-[color:var(--border)] bg-[color:var(--accent)] text-[color:var(--text-main)]">
               {status}
             </Badge>
-            {!showMobileLayout && (
-              <Badge className="border-[color:var(--border)] bg-[color:var(--surface-soft)] text-[color:var(--text-main)]">
-                {mode === "guess-mode" ? "Guess mode active" : "Free draw"}
+            {mode === "guess-mode" && (
+              <Badge className="border-[color:var(--border)] bg-[#91d7ff] text-[color:var(--text-main)]">
+                Guess mode active
               </Badge>
             )}
             <SecondaryButton
@@ -407,112 +384,65 @@ export default function RoomPage() {
             >
               <LinkIcon size={16} /> Copy room link
             </SecondaryButton>
-            {!showMobileLayout && isWorkspaceMode && (
+            {showRotatePrompt && (
               <SecondaryButton
-                className="min-h-11"
-                onClick={exitWorkspaceMode}
+                className="min-h-10 border-[color:var(--border)] bg-[#91d7ff] px-3 text-xs text-[color:var(--text-main)] hover:bg-[#6fcdfd] sm:min-h-11 sm:text-sm"
+                onClick={isWorkspaceMode ? exitWorkspaceMode : enterWorkspaceMode}
               >
-                <Minimize size={16} /> Normal view
+                <RefreshCw size={16} /> {isWorkspaceMode
+                  ? "Back to normal view"
+                  : "Rotate for better drawing"}
               </SecondaryButton>
             )}
             <Button
-              className="min-h-10 gap-2 bg-[color:var(--danger)] px-4 text-xs text-[color:var(--surface)] hover:bg-[#834145] sm:min-h-11 sm:px-5 sm:text-sm"
+              className="min-h-10 bg-[#ff4d4f] px-4 text-xs text-white hover:bg-[#e0383b] sm:min-h-11 sm:px-5 sm:text-sm"
               onClick={() => setIsExitModalOpen(true)}
             >
-              <DoorOpen size={16} /> Exit room
+              Exit room
             </Button>
           </div>
         </header>
 
-        {error && (
-          <div className="status-banner status-danger">
-            {error}
-          </div>
-        )}
+        {error && <div className="status-banner status-danger">{error}</div>}
 
-        {showMobileLayout && (
-          <div className="flex flex-wrap gap-2">
-            <Button
-              className="min-h-10 flex-1 gap-2 px-3 text-xs sm:text-sm"
-              onClick={() => setMobileToolsOpen((value) => !value)}
-            >
-              {mobileToolsOpen ? (
-                <ChevronUp size={16} />
-              ) : (
-                <ChevronDown size={16} />
-              )}{" "}
-              {mobileToolsOpen ? "Hide tools" : "Show tools"}
-            </Button>
-            {showRotatePrompt && (
-              <SecondaryButton
-                className="min-h-10 flex-1 gap-2 px-3 text-xs sm:text-sm"
-                onClick={
-                  isWorkspaceMode ? exitWorkspaceMode : enterWorkspaceMode
-                }
-              >
-                {isWorkspaceMode ? (
-                  <Minimize size={16} />
-                ) : (
-                  <Maximize size={16} />
-                )}{" "}
-                {isWorkspaceMode
-                  ? "Exit landscape workspace"
-                  : "Rotate for better drawing"}
-              </SecondaryButton>
-            )}
-            <SecondaryButton
-              className="min-h-10 flex-1 gap-2 px-3 text-xs sm:text-sm"
-              onClick={() => setMobileInfoOpen((value) => !value)}
-            >
-              <Info size={16} /> {mobileInfoOpen ? "Hide room info" : "Room info & chat"}
-            </SecondaryButton>
-          </div>
-        )}
-
-        {(!showMobileLayout || mobileToolsOpen || isWorkspaceMode) && (
-          <Toolbar
-            tool={tool}
-            setTool={setTool}
-            brushStyle={brushStyle}
-            setBrushStyle={setBrushStyle}
-            strokeColor={strokeColor}
-            setStrokeColor={updateStrokeColor}
-            fillColor={fillColor}
-            setFillColor={updateFillColor}
-            fillEnabled={fillEnabled}
-            setFillEnabled={setFillEnabled}
-            size={size}
-            setSize={setSize}
-            recentColors={recentColors}
-            onClear={() => setIsClearModalOpen(true)}
-            onUndo={() =>
-              socket.emit(SOCKET_EVENTS.STROKE_UNDO, { roomId, userId })
-            }
-            onRedo={() =>
-              socket.emit(SOCKET_EVENTS.STROKE_REDO, { roomId, userId })
-            }
-            onDownload={download}
-            onCopyImage={copyImage}
-            onResetView={() => setResetViewSignal((value) => value + 1)}
-            canUndo={canUndo}
-            canRedo={canRedo}
-            disabled={!hasJoined}
-            compact={showMobileLayout}
-          />
-        )}
+        <Toolbar
+          tool={tool}
+          setTool={setTool}
+          brushStyle={brushStyle}
+          setBrushStyle={setBrushStyle}
+          strokeColor={strokeColor}
+          setStrokeColor={updateStrokeColor}
+          fillColor={fillColor}
+          setFillColor={updateFillColor}
+          fillEnabled={fillEnabled}
+          setFillEnabled={setFillEnabled}
+          size={size}
+          setSize={setSize}
+          recentColors={recentColors}
+          onClear={() => setIsClearModalOpen(true)}
+          onUndo={() => socket.emit(SOCKET_EVENTS.STROKE_UNDO, { roomId, userId })}
+          onRedo={() => socket.emit(SOCKET_EVENTS.STROKE_REDO, { roomId, userId })}
+          onDownload={download}
+          onCopyImage={copyImage}
+          onResetView={() => setResetViewSignal((value) => value + 1)}
+          canUndo={canUndo}
+          canRedo={canRedo}
+          disabled={!hasJoined}
+          compact={showMobileLayout}
+        />
 
         <section
-          className={`grid gap-4 ${isWorkspaceMode ? "xl:grid-cols-1" : "xl:grid-cols-[minmax(0,1fr)_320px]"}`}
+          className={`grid gap-4 ${isWorkspaceMode ? "lg:grid-cols-[minmax(0,1.2fr)_340px]" : "xl:grid-cols-[minmax(0,1fr)_320px]"}`}
         >
-          <div className="relative min-w-0">
+          <div className={`relative min-w-0 ${isWorkspaceMode ? "lg:order-1" : ""}`}>
             {showWorkspaceBanner && (
-              <div className="mb-2 flex items-start justify-between gap-3 rounded-2xl border border-[color:var(--border)] bg-[color:var(--accent)]/35 px-3 py-2 text-xs text-[color:var(--text-main)] shadow-sm">
+              <div className="mb-2 flex items-start justify-between gap-3 rounded-2xl border border-[color:var(--border)] bg-[#fff08a] px-3 py-2 text-xs text-[color:var(--text-main)] shadow-sm">
                 <div>
                   <p className="font-semibold">Landscape workspace is on</p>
                   <p className="mt-0.5">
-                    Rotate your phone sideways for a larger canvas. If the
-                    browser does not rotate automatically, the board still stays
-                    in a cleaner full-focus layout.
+                    Rotate your phone sideways for a larger canvas. If the browser
+                    does not rotate automatically, the board still moves into a
+                    landscape-style layout inside the app.
                   </p>
                 </div>
                 <button
@@ -520,7 +450,7 @@ export default function RoomPage() {
                   className="rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] px-2 py-1 font-semibold"
                   onClick={exitWorkspaceMode}
                 >
-                  Close
+                  Back to normal view
                 </button>
               </div>
             )}
@@ -581,49 +511,47 @@ export default function RoomPage() {
             </div>
           </div>
 
-          {(!showMobileLayout || (!isWorkspaceMode && mobileInfoOpen)) && (
-            <div className="space-y-4">
-              <ParticipantsPanel participants={participants} userId={userId} />
-              <Card className="space-y-3 p-4 bg-[color:var(--surface)]">
-                <p className="text-xs font-semibold uppercase tracking-wide text-[color:var(--text-muted)]">
-                  Room chat
-                </p>
-                <div className="max-h-56 space-y-2 overflow-y-auto rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-elevated)] p-3 text-sm text-[color:var(--text-main)]">
-                  {chatMessages.length === 0 ? (
-                    <p className="text-xs text-[color:var(--text-muted)]">
-                      No messages yet. Introduce the sketch or share feedback.
-                    </p>
-                  ) : (
-                    chatMessages.map((message) => (
-                      <div key={message.messageId}>
-                        <span className="font-semibold text-[color:var(--text-main)]">
-                          {message.displayName}
-                        </span>
-                        : <span>{message.text}</span>
-                      </div>
-                    ))
-                  )}
-                  <div ref={chatEndRef} />
-                </div>
-                <div className="flex flex-col gap-2 sm:flex-row">
-                  <input
-                    value={chatDraft}
-                    onChange={(e) => setChatDraft(e.target.value.slice(0, 240))}
-                    onKeyDown={(e) => e.key === "Enter" && sendChat()}
-                    className="flex-1 rounded-2xl border-2 border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2.5 text-sm outline-none ring-0 transition focus:border-[color:var(--primary)] focus:shadow-[0_0_0_3px_rgba(47,35,69,0.16)]"
-                    placeholder={
-                      mode === "guess-mode"
-                        ? "Guess the drawing..."
-                        : "Send a message"
-                    }
-                  />
-                  <Button onClick={sendChat} className="min-h-10">
-                    Send
-                  </Button>
-                </div>
-              </Card>
-            </div>
-          )}
+          <div className={`space-y-4 ${isWorkspaceMode ? "lg:order-2" : ""}`}>
+            <ParticipantsPanel participants={participants} userId={userId} />
+            <Card className="space-y-3 bg-[color:var(--surface)] p-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-[color:var(--text-muted)]">
+                Room chat
+              </p>
+              <div className="max-h-56 space-y-2 overflow-y-auto rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-elevated)] p-3 text-sm text-[color:var(--text-main)]">
+                {chatMessages.length === 0 ? (
+                  <p className="text-xs text-[color:var(--text-muted)]">
+                    No messages yet. Introduce the sketch or share feedback.
+                  </p>
+                ) : (
+                  chatMessages.map((message) => (
+                    <div key={message.messageId}>
+                      <span className="font-semibold text-[color:var(--text-main)]">
+                        {message.displayName}
+                      </span>
+                      : <span>{message.text}</span>
+                    </div>
+                  ))
+                )}
+                <div ref={chatEndRef} />
+              </div>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <input
+                  value={chatDraft}
+                  onChange={(e) => setChatDraft(e.target.value.slice(0, 240))}
+                  onKeyDown={(e) => e.key === "Enter" && sendChat()}
+                  className="flex-1 rounded-2xl border-2 border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2.5 text-sm outline-none ring-0 transition focus:border-[color:var(--primary)] focus:shadow-[0_0_0_3px_rgba(28,117,188,0.16)]"
+                  placeholder={
+                    mode === "guess-mode"
+                      ? "Guess the drawing..."
+                      : "Send a message"
+                  }
+                />
+                <Button onClick={sendChat} className="min-h-10">
+                  Send
+                </Button>
+              </div>
+            </Card>
+          </div>
         </section>
       </div>
       <ConfirmModal
