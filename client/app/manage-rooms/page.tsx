@@ -36,10 +36,10 @@ export default function ManageRoomsPage() {
   };
 
   const roomRow = (room: RoomListItem, owned: boolean) => (
-    <div key={room.roomId} className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-fuchsia-100 bg-white p-3 transition hover:shadow-sm">
+    <div key={room.roomId} className="flex flex-wrap items-center justify-between gap-2 rounded-[1.5rem] border-2 border-[color:var(--border)] bg-[color:var(--surface)] p-3 transition hover:-translate-y-0.5">
       <div>
-        <p className="font-semibold text-purple-900">{room.name}</p>
-        <p className="text-xs text-purple-500">Code: {room.roomId} · {room.participants} active</p>
+        <p className="font-semibold text-[color:var(--primary)]">{room.name}</p>
+        <p className="text-xs text-[color:var(--text-muted)]">Code: {room.roomId} · {room.participants} active</p>
       </div>
       <div className="flex flex-wrap gap-2">
         <Badge className="capitalize">{room.visibility}</Badge>
@@ -52,18 +52,18 @@ export default function ManageRoomsPage() {
   return (
     <main className="mx-auto min-h-screen w-full max-w-5xl space-y-4 px-4 py-10">
       <Link href="/"><SecondaryButton>Back</SecondaryButton></Link>
-      <Card>
-        <h2 className="text-lg font-extrabold text-purple-900">Owned Rooms</h2>
-        {ownedRooms.length === 0 && <p className="mt-2 text-sm text-purple-500">No owned rooms yet.</p>}
+      <Card className="bg-[color:var(--surface)]">
+        <h2 className="text-lg font-extrabold text-[color:var(--primary)]">Owned Rooms</h2>
+        {ownedRooms.length === 0 && <p className="mt-2 text-sm text-[color:var(--text-muted)]">No owned rooms yet.</p>}
         <div className="mt-3 space-y-2">{ownedRooms.map((room) => roomRow(room, true))}</div>
       </Card>
-      <Card>
-        <h2 className="text-lg font-extrabold text-purple-900">Joined Rooms</h2>
-        {joinedRooms.length === 0 && <p className="mt-2 text-sm text-purple-500">No joined rooms yet.</p>}
+      <Card className="bg-[color:var(--surface)]">
+        <h2 className="text-lg font-extrabold text-[color:var(--primary)]">Joined Rooms</h2>
+        {joinedRooms.length === 0 && <p className="mt-2 text-sm text-[color:var(--text-muted)]">No joined rooms yet.</p>}
         <div className="mt-3 space-y-2">{joinedRooms.map((room) => roomRow(room, false))}</div>
       </Card>
-      {editing && <Card><h3 className="font-bold text-purple-900">Edit Room</h3><form onSubmit={save} className="mt-2 space-y-2"><Input value={name} onChange={(e) => setName(e.target.value)} /><select className="candy-input" value={visibility} onChange={(e) => setVisibility(e.target.value as 'public' | 'private')}><option value="public">Public</option><option value="private">Private</option></select>{visibility === 'private' && <Input type="password" placeholder="New password" value={password} onChange={(e) => setPassword(e.target.value)} />}<div className="flex gap-2"><Button>Save</Button><SecondaryButton type="button" onClick={() => setEditing(null)}>Cancel</SecondaryButton></div></form></Card>}
-      {error && <p className="rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>}
+      {editing && <Card className="bg-[color:var(--surface)]"><h3 className="font-bold text-[color:var(--primary)]">Edit Room</h3><form onSubmit={save} className="mt-2 space-y-2"><Input value={name} onChange={(e) => setName(e.target.value)} /><select className="comic-select" value={visibility} onChange={(e) => setVisibility(e.target.value as 'public' | 'private')}><option value="public">Public</option><option value="private">Private</option></select>{visibility === 'private' && <Input type="password" placeholder="New password" value={password} onChange={(e) => setPassword(e.target.value)} />}<div className="flex gap-2"><Button>Save</Button><SecondaryButton type="button" onClick={() => setEditing(null)}>Cancel</SecondaryButton></div></form></Card>}
+      {error && <p className="status-banner status-danger">{error}</p>}
     </main>
   );
 }

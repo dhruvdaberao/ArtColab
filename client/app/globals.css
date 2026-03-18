@@ -4,42 +4,78 @@
 
 :root {
   color-scheme: light;
-  --bg: #f4f0e3;
-  --surface: #fffdf7;
-  --surface-soft: #ece7d7;
-  --primary: #141414;
-  --accent: #f3e49a;
-  --muted-blue: #d9e9f4;
-  --text-main: #141414;
-  --text-muted: #4b5563;
-  --border: #141414;
+  --bg: #f5f0e2;
+  --bg-elevated: #fbf7ee;
+  --surface: #fffbf2;
+  --surface-soft: #f0e8d2;
+  --surface-muted: #e5ddc4;
+  --primary: #2f2345;
+  --primary-strong: #231731;
+  --accent: #e5c86f;
+  --accent-strong: #d9b74c;
+  --text-main: #191713;
+  --text-muted: #60584a;
+  --border: #1f1a17;
+  --danger: #9a4d52;
+  --danger-soft: #f4d9d8;
+  --success: #2f6b53;
+  --success-soft: #dcefe5;
+  --shadow: 8px 8px 0 rgba(31, 26, 23, 0.12);
 }
 
 body {
   min-height: 100vh;
-  background: radial-gradient(circle at top left, #f8f5eb, #f4f0e3 48%, #efe8d2);
+  background: radial-gradient(circle at top left, #fbf6ea, #f5f0e2 48%, #ece3cb);
   color: var(--text-main);
   @apply antialiased;
 }
 
 @layer components {
   .comic-card {
-    @apply rounded-2xl border-2 p-6 transition-all duration-150;
+    @apply rounded-[1.75rem] border-2 p-6 transition-all duration-150;
     border-color: var(--border);
     background: var(--surface);
-    box-shadow: 8px 8px 0 #141414;
+    box-shadow: var(--shadow);
   }
 
   .comic-input {
-    @apply w-full rounded-xl border-2 px-3 py-2 text-sm outline-none transition-all placeholder:text-slate-500;
+    @apply w-full rounded-2xl border-2 px-3 py-2.5 text-sm outline-none transition-all placeholder:text-stone-400;
     border-color: var(--border);
-    background: #fff;
+    background: #fffef9;
     color: var(--text-main);
   }
 
   .comic-input:focus {
-    background: #fffef9;
-    box-shadow: 0 0 0 2px #141414;
+    background: #fffdf7;
+    box-shadow: 0 0 0 3px rgba(47, 35, 69, 0.16);
+  }
+
+  .comic-select {
+    @apply comic-input appearance-none;
+    background-image: linear-gradient(45deg, transparent 50%, var(--primary) 50%), linear-gradient(135deg, var(--primary) 50%, transparent 50%);
+    background-position: calc(100% - 18px) calc(50% - 2px), calc(100% - 12px) calc(50% - 2px);
+    background-size: 6px 6px, 6px 6px;
+    background-repeat: no-repeat;
+    padding-right: 2.75rem;
+  }
+
+  .status-banner {
+    @apply rounded-2xl border px-4 py-2 text-sm;
+    border-color: color-mix(in srgb, var(--primary) 24%, white 76%);
+    background: color-mix(in srgb, var(--surface-soft) 55%, white 45%);
+    color: var(--text-muted);
+  }
+
+  .status-danger {
+    border-color: color-mix(in srgb, var(--danger) 32%, white 68%);
+    background: var(--danger-soft);
+    color: #7c2d2f;
+  }
+
+  .status-success {
+    border-color: color-mix(in srgb, var(--success) 28%, white 72%);
+    background: var(--success-soft);
+    color: #21533e;
   }
 }
 

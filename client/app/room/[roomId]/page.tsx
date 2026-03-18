@@ -5,11 +5,16 @@ import { useParams, useRouter } from "next/navigation";
 import {
   ChevronDown,
   ChevronUp,
+  CircleAlert,
   DoorOpen,
+  Flame,
+  Heart,
+  Info,
   Link as LinkIcon,
   Maximize,
   Minimize,
-  Smartphone,
+  PartyPopper,
+  Smile,
 } from "lucide-react";
 import { nanoid } from "nanoid";
 import { SOCKET_EVENTS } from "@cloudcanvas/shared";
@@ -27,7 +32,13 @@ import { resolveSessionDisplayName } from "@/lib/guest";
 import { useAuth } from "@/components/auth-provider";
 import { UserAvatarMenu } from "@/components/user-avatar-menu";
 
-const REACTIONS = ["❤️", "😂", "😮", "🔥", "🎉"] as const;
+const REACTIONS = [
+  { emoji: "❤️", label: "Appreciate", Icon: Heart },
+  { emoji: "😂", label: "Laugh", Icon: Smile },
+  { emoji: "😮", label: "Surprised", Icon: CircleAlert },
+  { emoji: "🔥", label: "Fire", Icon: Flame },
+  { emoji: "🎉", label: "Celebrate", Icon: PartyPopper },
+] as const;
 
 export default function RoomPage() {
   const params = useParams<{ roomId: string }>();
@@ -216,7 +227,7 @@ export default function RoomPage() {
     setChatDraft("");
   };
 
-  const sendReaction = (emoji: (typeof REACTIONS)[number]) => {
+  const sendReaction = (emoji: (typeof REACTIONS)[number]["emoji"]) => {
     socket.emit(SOCKET_EVENTS.REACTION_SEND, {
       roomId,
       userId,
@@ -351,20 +362,20 @@ export default function RoomPage() {
 
   return (
     <main
-      className={`overscroll-none px-3 py-3 sm:px-5 sm:py-6 ${isWorkspaceMode ? "min-h-dvh bg-slate-100 pb-4" : "min-h-screen"}`}
+      className={`overscroll-none px-3 py-3 sm:px-5 sm:py-6 ${isWorkspaceMode ? "min-h-dvh bg-[color:var(--bg)] pb-4" : "min-h-screen"}`}
     >
       <div
         className={`mx-auto flex w-full max-w-[1520px] flex-col ${isWorkspaceMode ? "gap-3" : "gap-4"}`}
       >
         <header
-          className={`flex flex-col gap-3 rounded-[24px] border border-slate-200 bg-white/95 px-3 py-3 shadow-sm sm:rounded-[28px] sm:px-5 sm:py-4 ${isWorkspaceMode ? "sm:px-4 sm:py-3" : ""} lg:flex-row lg:items-center lg:justify-between`}
+          className={`flex flex-col gap-3 rounded-[24px] border-2 border-[color:var(--border)] bg-[color:var(--surface)]/95 px-3 py-3 shadow-[var(--shadow)] sm:rounded-[28px] sm:px-5 sm:py-4 ${isWorkspaceMode ? "sm:px-4 sm:py-3" : ""} lg:flex-row lg:items-center lg:justify-between`}
         >
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="text-[10px] uppercase tracking-[0.22em] text-slate-500 sm:text-[11px]">
+              <p className="text-[10px] uppercase tracking-[0.22em] text-[color:var(--text-muted)] sm:text-[11px]">
                 Art Colab Room
               </p>
-              <h1 className="text-lg font-semibold text-slate-900 sm:text-2xl">
+              <h1 className="text-lg font-semibold text-[color:var(--text-main)] sm:text-2xl">
                 {roomId}
               </h1>
             </div>
@@ -379,16 +390,16 @@ export default function RoomPage() {
           </div>
           <div className="flex flex-wrap items-center gap-2 text-sm">
             <UserAvatarMenu />
-            <Badge className="capitalize border-slate-200 bg-slate-50 text-slate-700">
+            <Badge className="capitalize border-[color:var(--border)] bg-[color:var(--accent)]/55 text-[color:var(--text-main)]">
               {status}
             </Badge>
             {!showMobileLayout && (
-              <Badge className="border-slate-200 bg-slate-50 text-slate-700">
+              <Badge className="border-[color:var(--border)] bg-[color:var(--surface-soft)] text-[color:var(--text-main)]">
                 {mode === "guess-mode" ? "Guess mode active" : "Free draw"}
               </Badge>
             )}
             <SecondaryButton
-              className="min-h-10 border-slate-200 px-3 text-xs sm:min-h-11 sm:text-sm"
+              className="min-h-10 px-3 text-xs sm:min-h-11 sm:text-sm"
               onClick={() => {
                 navigator.clipboard.writeText(window.location.href);
                 pushToast("Room link copied.");
@@ -398,14 +409,14 @@ export default function RoomPage() {
             </SecondaryButton>
             {!showMobileLayout && isWorkspaceMode && (
               <SecondaryButton
-                className="min-h-11 border-slate-200"
+                className="min-h-11"
                 onClick={exitWorkspaceMode}
               >
                 <Minimize size={16} /> Normal view
               </SecondaryButton>
             )}
             <Button
-              className="min-h-10 gap-2 bg-rose-500 px-4 text-xs hover:bg-rose-600 sm:min-h-11 sm:px-5 sm:text-sm"
+              className="min-h-10 gap-2 bg-[color:var(--danger)] px-4 text-xs text-[color:var(--surface)] hover:bg-[#834145] sm:min-h-11 sm:px-5 sm:text-sm"
               onClick={() => setIsExitModalOpen(true)}
             >
               <DoorOpen size={16} /> Exit room
@@ -414,7 +425,7 @@ export default function RoomPage() {
         </header>
 
         {error && (
-          <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-2 text-sm text-rose-700">
+          <div className="status-banner status-danger">
             {error}
           </div>
         )}
@@ -434,7 +445,7 @@ export default function RoomPage() {
             </Button>
             {showRotatePrompt && (
               <SecondaryButton
-                className="min-h-10 flex-1 gap-2 border-slate-200 px-3 text-xs sm:text-sm"
+                className="min-h-10 flex-1 gap-2 px-3 text-xs sm:text-sm"
                 onClick={
                   isWorkspaceMode ? exitWorkspaceMode : enterWorkspaceMode
                 }
@@ -450,11 +461,10 @@ export default function RoomPage() {
               </SecondaryButton>
             )}
             <SecondaryButton
-              className="min-h-10 flex-1 gap-2 border-slate-200 px-3 text-xs sm:text-sm"
+              className="min-h-10 flex-1 gap-2 px-3 text-xs sm:text-sm"
               onClick={() => setMobileInfoOpen((value) => !value)}
             >
-              <Smartphone size={16} />{" "}
-              {mobileInfoOpen ? "Hide room info" : "Room info & chat"}
+              <Info size={16} /> {mobileInfoOpen ? "Hide room info" : "Room info & chat"}
             </SecondaryButton>
           </div>
         )}
@@ -496,7 +506,7 @@ export default function RoomPage() {
         >
           <div className="relative min-w-0">
             {showWorkspaceBanner && (
-              <div className="mb-2 flex items-start justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 shadow-sm">
+              <div className="mb-2 flex items-start justify-between gap-3 rounded-2xl border border-[color:var(--border)] bg-[color:var(--accent)]/35 px-3 py-2 text-xs text-[color:var(--text-main)] shadow-sm">
                 <div>
                   <p className="font-semibold">Landscape workspace is on</p>
                   <p className="mt-0.5">
@@ -507,7 +517,7 @@ export default function RoomPage() {
                 </div>
                 <button
                   type="button"
-                  className="rounded-full border border-amber-300 px-2 py-1 font-semibold"
+                  className="rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] px-2 py-1 font-semibold"
                   onClick={exitWorkspaceMode}
                 >
                   Close
@@ -534,11 +544,11 @@ export default function RoomPage() {
             />
             {strokes.length === 0 && (
               <div className="pointer-events-none absolute inset-0 grid place-items-center p-4 sm:p-8">
-                <div className="max-w-xs rounded-[24px] border border-slate-200 bg-white/95 px-5 py-4 text-center shadow-sm sm:rounded-[28px] sm:px-6 sm:py-5">
-                  <p className="text-sm font-semibold text-slate-700">
+                <div className="max-w-xs rounded-[24px] border-2 border-[color:var(--border)] bg-[color:var(--surface)]/95 px-5 py-4 text-center shadow-[var(--shadow)] sm:rounded-[28px] sm:px-6 sm:py-5">
+                  <p className="text-sm font-semibold text-[color:var(--text-main)]">
                     Start drawing together
                   </p>
-                  <p className="mt-1 text-xs text-slate-500">
+                  <p className="mt-1 text-xs text-[color:var(--text-muted)]">
                     Brush, erase, sketch shapes, fill them, and zoom the board
                     without losing precision.
                   </p>
@@ -556,14 +566,16 @@ export default function RoomPage() {
                 </div>
               ))}
             </div>
-            <div className="absolute right-2 top-12 flex flex-wrap gap-1 rounded-full bg-white/90 p-1 shadow-sm sm:right-3 sm:top-3">
-              {REACTIONS.map((emoji) => (
+            <div className="absolute right-2 top-12 flex flex-wrap gap-1 rounded-full border border-[color:var(--border)] bg-[color:var(--surface)]/95 p-1 shadow-sm sm:right-3 sm:top-3">
+              {REACTIONS.map(({ emoji, label, Icon }) => (
                 <button
                   key={emoji}
-                  className="rounded-full px-1.5 py-1 text-base hover:bg-slate-100 sm:px-2 sm:text-lg"
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-transparent text-[color:var(--primary)] transition hover:border-[color:var(--border)] hover:bg-[color:var(--surface-soft)] sm:h-10 sm:w-10"
                   onClick={() => sendReaction(emoji)}
+                  aria-label={label}
+                  title={label}
                 >
-                  {emoji}
+                  <Icon className="h-4 w-4" />
                 </button>
               ))}
             </div>
@@ -572,19 +584,19 @@ export default function RoomPage() {
           {(!showMobileLayout || (!isWorkspaceMode && mobileInfoOpen)) && (
             <div className="space-y-4">
               <ParticipantsPanel participants={participants} userId={userId} />
-              <Card className="space-y-3 p-4">
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              <Card className="space-y-3 p-4 bg-[color:var(--surface)]">
+                <p className="text-xs font-semibold uppercase tracking-wide text-[color:var(--text-muted)]">
                   Room chat
                 </p>
-                <div className="max-h-56 space-y-2 overflow-y-auto rounded-2xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
+                <div className="max-h-56 space-y-2 overflow-y-auto rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-elevated)] p-3 text-sm text-[color:var(--text-main)]">
                   {chatMessages.length === 0 ? (
-                    <p className="text-xs text-slate-500">
+                    <p className="text-xs text-[color:var(--text-muted)]">
                       No messages yet. Introduce the sketch or share feedback.
                     </p>
                   ) : (
                     chatMessages.map((message) => (
                       <div key={message.messageId}>
-                        <span className="font-semibold text-slate-900">
+                        <span className="font-semibold text-[color:var(--text-main)]">
                           {message.displayName}
                         </span>
                         : <span>{message.text}</span>
@@ -598,7 +610,7 @@ export default function RoomPage() {
                     value={chatDraft}
                     onChange={(e) => setChatDraft(e.target.value.slice(0, 240))}
                     onKeyDown={(e) => e.key === "Enter" && sendChat()}
-                    className="flex-1 rounded-2xl border border-slate-200 px-3 py-2.5 text-sm outline-none ring-0 transition focus:border-slate-400"
+                    className="flex-1 rounded-2xl border-2 border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2.5 text-sm outline-none ring-0 transition focus:border-[color:var(--primary)] focus:shadow-[0_0_0_3px_rgba(47,35,69,0.16)]"
                     placeholder={
                       mode === "guess-mode"
                         ? "Guess the drawing..."
