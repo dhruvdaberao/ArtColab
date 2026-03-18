@@ -231,6 +231,11 @@ const renderStroke = (
   ctx.lineWidth = stroke.size;
   if (activeBrushStyle === "dotted")
     ctx.setLineDash([1, Math.max(6, stroke.size * 1.35)]);
+  if (activeBrushStyle === "crayon") {
+    ctx.globalAlpha = 0.82;
+    ctx.lineWidth = stroke.size * 1.15;
+    ctx.setLineDash([0.75, Math.max(1.5, stroke.size * 0.65)]);
+  }
   if (activeBrushStyle === "neon") {
     ctx.shadowColor = strokeColor;
     ctx.shadowBlur = Math.max(4, stroke.size * 1.5);
@@ -251,8 +256,6 @@ const renderStroke = (
     const next = stroke.points[i + 1];
     const midX = (current.x + next.x) / 2;
     const midY = (current.y + next.y) / 2;
-    if (activeBrushStyle === "rainbow" && stroke.tool !== "eraser")
-      ctx.strokeStyle = `hsl(${(i * 18) % 360} 95% 60%)`;
     ctx.quadraticCurveTo(current.x, current.y, midX, midY);
   }
   const last = stroke.points[stroke.points.length - 1];
@@ -341,9 +344,9 @@ export function CanvasBoard({
   const [previewStroke, setPreviewStroke] = useState<Stroke | null>(null);
   const zoomPercent = Math.round(viewport.scale * 100);
   const panHint = compact
-    ? "Pan: Shift-drag or two fingers"
-    : "Pan with Shift-drag or two fingers";
-  const zoomHint = compact ? "Pinch or Ctrl/Cmd + wheel to zoom" : "Zoom with pinch or Ctrl/Cmd + wheel";
+    ? "🫳 Pan: Shift-drag or two fingers"
+    : "🫳 Pan with Shift-drag or two fingers";
+  const zoomHint = compact ? "🔎 Pinch or Ctrl/Cmd + wheel to zoom" : "🔎 Zoom with pinch or Ctrl/Cmd + wheel";
 
   const viewportStyle = useMemo<React.CSSProperties>(
     () => ({
@@ -642,10 +645,12 @@ export function CanvasBoard({
           ),
           offsetX:
             gestureRef.current.startOffsetX +
-            (center.x - gestureRef.current.startCenterX),
+            (center.x - gestureRef.current.startCenterX) +
+            ((center.x - gestureRef.current.startCenterX) * (nextDistance / gestureRef.current.startDistance - 1)),
           offsetY:
             gestureRef.current.startOffsetY +
-            (center.y - gestureRef.current.startCenterY),
+            (center.y - gestureRef.current.startCenterY) +
+            ((center.y - gestureRef.current.startCenterY) * (nextDistance / gestureRef.current.startDistance - 1)),
         }),
       );
       return;
@@ -744,11 +749,11 @@ export function CanvasBoard({
         className={`grid gap-2 rounded-[1.4rem] border-2 border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 text-[11px] text-[color:var(--text-muted)] shadow-[var(--shadow)] sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:gap-3 sm:text-xs ${compact ? "px-2.5 py-2" : ""}`}
       >
         <div className="flex min-w-0 flex-wrap items-center gap-2">
-          <span className="inline-flex min-h-9 max-w-full items-center gap-1.5 rounded-full border border-[color:var(--border)] bg-[color:var(--accent)] px-3 py-1.5 font-semibold leading-tight text-[color:var(--text-main)]">
+          <span className="inline-flex min-h-9 max-w-full flex-wrap items-center gap-1.5 rounded-full border border-[color:var(--border)] bg-[color:var(--accent)] px-3 py-1.5 font-semibold leading-tight text-[color:var(--text-main)]">
             <Move size={compact ? 12 : 14} className="shrink-0" />
             <span className="break-words">{panHint}</span>
           </span>
-          <span className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-full border border-[color:var(--border)] bg-[#91d7ff] px-3 py-1.5 font-semibold text-[color:var(--text-main)]">
+          <span className="inline-flex min-h-9 items-center gap-1.5 rounded-full border border-[color:var(--border)] bg-[#91d7ff] px-3 py-1.5 font-semibold text-[color:var(--text-main)]">
             <ZoomIn size={compact ? 12 : 14} className="shrink-0" />
             {zoomPercent}%
           </span>
@@ -768,7 +773,7 @@ export function CanvasBoard({
         onWheel={handleWheel}
         style={{ touchAction: "none" }}
       >
-        <div style={viewportStyle} className="relative aspect-[12/7] w-full">
+        <div style={viewportStyle} className="relative aspect-[12/7] w-full transition-transform duration-75 ease-out">
           <canvas
             ref={canvasRef}
             className="h-full w-full rounded-[26px] bg-white sm:rounded-[30px]"
@@ -783,15 +788,16 @@ export function CanvasBoard({
               .map((cursor) => (
                 <div
                   key={cursor.userId}
-                  className="absolute -translate-x-1/2 -translate-y-1/2"
+                  className="absolute -translate-x-1/2 -translate-y-1/2 transition-all duration-150 ease-out"
                   style={{
                     left: `${(cursor.x / LOGICAL_CANVAS_WIDTH) * 100}%`,
                     top: `${(cursor.y / LOGICAL_CANVAS_HEIGHT) * 100}%`,
                   }}
                 >
-                  <div
-                    className={`flex items-center justify-center overflow-hidden rounded-full border border-white bg-slate-900 text-white shadow-md ring-1 ring-slate-200 ${compact ? "h-6 w-6 text-[10px]" : "h-7 w-7 text-[11px] sm:h-8 sm:w-8"}`}
-                  >
+                  <div className="flex flex-col items-center gap-1">
+                    <div
+                      className={`flex items-center justify-center overflow-hidden rounded-full border-2 border-white bg-slate-900 text-white shadow-md ring-1 ring-slate-200 ${compact ? "h-7 w-7 text-[10px]" : "h-8 w-8 text-[11px] sm:h-9 sm:w-9"}`}
+                    >
                     {cursor.avatarUrl ? (
                       <img
                         src={cursor.avatarUrl}
@@ -803,6 +809,8 @@ export function CanvasBoard({
                         {getAvatarInitials(cursor.displayName)}
                       </span>
                     )}
+                    </div>
+                    <span className="max-w-[92px] rounded-full bg-white/95 px-2 py-0.5 text-center text-[10px] font-black leading-none text-[color:var(--text-main)] shadow-sm">{cursor.displayName}</span>
                   </div>
                 </div>
               ))}

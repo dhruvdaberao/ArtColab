@@ -102,7 +102,7 @@ export const drawStartSchema = z.object({
     roomId: roomIdSchema,
     userId: z.string().min(1).max(64),
     tool: toolSchema,
-    brushStyle: z.enum(["classic", "rainbow", "neon", "dotted", "spray"]).optional(),
+    brushStyle: z.enum(["classic", "crayon", "neon", "dotted", "spray", "rainbow"]).optional(),
     color: z.string().max(20),
     fillColor: z.string().max(20).nullable().optional(),
     size: z.number().min(1).max(64),

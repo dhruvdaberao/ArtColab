@@ -2,13 +2,23 @@ import { io } from 'socket.io-client';
 
 import { resolvePublicUrl } from './runtime-config';
 
-const SOCKET_URL = resolvePublicUrl(process.env.NEXT_PUBLIC_SOCKET_URL);
+const resolveSocketUrl = () => {
+  const explicit = resolvePublicUrl(process.env.NEXT_PUBLIC_SOCKET_URL);
+  if (explicit) return explicit;
 
-export const socket = io(SOCKET_URL, {
+  if (typeof window === 'undefined') return resolvePublicUrl(undefined);
+
+  const protocol = window.location.protocol === 'https:' ? 'https:' : 'http:';
+  return `${protocol}//${window.location.hostname}:4000`;
+};
+
+export const socket = io(resolveSocketUrl(), {
   autoConnect: false,
   withCredentials: true,
   transports: ['websocket', 'polling'],
   reconnection: true,
-  reconnectionAttempts: 5,
-  timeout: 10000
+  reconnectionAttempts: Infinity,
+  reconnectionDelay: 800,
+  reconnectionDelayMax: 4000,
+  timeout: 10000,
 });

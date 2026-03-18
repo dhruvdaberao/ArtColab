@@ -56,21 +56,27 @@ const PRESET_COLORS = [
   "#ec4899",
   "#fff7df",
 ];
-const BRUSHES: BrushStyle[] = ["classic", "rainbow", "neon", "dotted", "spray"];
-const SHAPES: Array<{ tool: ShapeKind; label: string; icon: typeof Minus }> = [
-  { tool: "line", label: "Line", icon: Slash },
-  { tool: "rectangle", label: "Rectangle", icon: Square },
-  { tool: "square", label: "Square", icon: Square },
-  { tool: "circle", label: "Circle", icon: Circle },
-  { tool: "ellipse", label: "Ellipse", icon: Circle },
-  { tool: "triangle", label: "Triangle", icon: Triangle },
-  { tool: "star", label: "Star", icon: Star },
+const BRUSHES: Array<{ id: BrushStyle; label: string; emoji: string }> = [
+  { id: "classic", label: "Classic", emoji: "✏️" },
+  { id: "crayon", label: "Crayon", emoji: "🖍️" },
+  { id: "neon", label: "Neon", emoji: "🌈" },
+  { id: "spray", label: "Spray", emoji: "💨" },
+  { id: "dotted", label: "Dotted", emoji: "⚪" },
+];
+const SHAPES: Array<{ tool: ShapeKind; label: string; icon: typeof Minus; emoji: string }> = [
+  { tool: "line", label: "Line", icon: Slash, emoji: "📏" },
+  { tool: "rectangle", label: "Rectangle", icon: Square, emoji: "▭" },
+  { tool: "square", label: "Square", icon: Square, emoji: "◻️" },
+  { tool: "circle", label: "Circle", icon: Circle, emoji: "⚪" },
+  { tool: "ellipse", label: "Ellipse", icon: Circle, emoji: "🥚" },
+  { tool: "triangle", label: "Triangle", icon: Triangle, emoji: "🔺" },
+  { tool: "star", label: "Star", icon: Star, emoji: "⭐" },
 ];
 
 const toolButton =
-  "inline-flex min-h-10 items-center justify-center gap-2 rounded-2xl border-2 border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 text-xs font-semibold text-[color:var(--text-main)] transition hover:-translate-y-0.5 hover:bg-[color:var(--surface-soft)] disabled:cursor-not-allowed disabled:opacity-40 sm:text-sm";
+  "inline-flex min-h-10 items-center justify-center gap-2 rounded-2xl border-2 border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 text-xs font-black text-[color:var(--text-main)] transition hover:-translate-y-0.5 hover:bg-[color:var(--surface-soft)] disabled:cursor-not-allowed disabled:opacity-40 sm:text-sm";
 const selectedToolButton =
-  "bg-[color:var(--brand-blue)] text-[color:var(--surface)] shadow-[0_4px_0_rgba(26,26,26,0.14)] hover:bg-[color:var(--primary-strong)]";
+  "bg-[linear-gradient(180deg,#3ea5ff_0%,#1c7dd7_100%)] text-[color:var(--surface)] shadow-[0_5px_0_rgba(26,26,26,0.14)]";
 const sectionClass =
   "flex flex-wrap items-center gap-2 rounded-[1.5rem] border border-[color:var(--border)] bg-[color:var(--bg-elevated)] p-2.5";
 const labelClass =
@@ -107,9 +113,9 @@ export function Toolbar({
   const isShapeTool = SHAPES.some((shape) => shape.tool === tool);
   const commonToolButtons = useMemo(
     () => [
-      { id: "pen", label: "Brush", Icon: Pencil },
-      { id: "eraser", label: "Eraser", Icon: Eraser },
-      { id: "fill", label: "Fill", Icon: PaintBucket },
+      { id: "pen", label: "Brush", Icon: Pencil, emoji: "🖌️" },
+      { id: "eraser", label: "Eraser", Icon: Eraser, emoji: "🧽" },
+      { id: "fill", label: "Fill", Icon: PaintBucket, emoji: "🪣" },
     ] as const,
     [],
   );
@@ -129,11 +135,11 @@ export function Toolbar({
     setStrokeColor(value);
   };
 
-  const mobileUtilityButtons = (
+  const utilityButtons = (
     <div className="grid gap-2 min-[480px]:grid-cols-2 xl:grid-cols-1">
-      <button type="button" className={toolButton} onClick={onUndo} disabled={disabled || !canUndo}><Undo2 size={16} /> Undo</button>
-      <button type="button" className={toolButton} onClick={onRedo} disabled={disabled || !canRedo}><Redo2 size={16} /> Redo</button>
-      <button type="button" className={toolButton} onClick={onDownload} disabled={disabled}><Download size={16} /> Export</button>
+      <button type="button" className={toolButton} onClick={onUndo} disabled={disabled || !canUndo}>↩️ Undo</button>
+      <button type="button" className={toolButton} onClick={onRedo} disabled={disabled || !canRedo}>↪️ Redo</button>
+      <button type="button" className={toolButton} onClick={onDownload} disabled={disabled}>📦 Export</button>
       <button type="button" className={toolButton} onClick={onResetView} disabled={disabled}><ZoomIn size={16} /> Reset view</button>
       <button type="button" className={toolButton} onClick={onCopyImage} disabled={disabled}><Copy size={16} /> Copy</button>
       <button type="button" className={`${toolButton} bg-[color:var(--danger-soft)] text-[color:var(--danger)] hover:bg-[#ffd0d0]`} onClick={onClear} disabled={disabled}><Trash2 size={16} /> Clear</button>
@@ -141,13 +147,11 @@ export function Toolbar({
   );
 
   return (
-    <div
-      className={`flex flex-col gap-2 rounded-[24px] border-2 border-[color:var(--border)] bg-[color:var(--surface)] p-2.5 shadow-[var(--shadow)] sm:gap-3 sm:rounded-[28px] sm:p-4 ${compact ? "sm:p-3" : ""}`}
-    >
-      <div className={`grid gap-2 sm:gap-3 ${compact ? "xl:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]" : "2xl:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_minmax(0,0.8fr)]"}`}>
+    <div className={`flex flex-col gap-2 rounded-[24px] border-2 border-[color:var(--border)] bg-[color:var(--surface)] p-2.5 shadow-[var(--shadow)] sm:gap-3 sm:rounded-[28px] sm:p-4 ${compact ? "sm:p-3" : ""}`}>
+      <div className={`grid gap-2 sm:gap-3 ${compact ? "xl:grid-cols-[minmax(0,1.25fr)_minmax(0,0.75fr)]" : "2xl:grid-cols-[minmax(0,1.45fr)_minmax(0,1fr)_minmax(0,0.8fr)]"}`}>
         <div className={`${sectionClass} min-w-0 flex-col items-stretch`}>
           <div className="flex flex-wrap items-center gap-2">
-            {commonToolButtons.map(({ id, label, Icon }) => (
+            {commonToolButtons.map(({ id, label, Icon, emoji }) => (
               <button
                 key={id}
                 type="button"
@@ -158,7 +162,7 @@ export function Toolbar({
                 }}
                 disabled={disabled}
               >
-                <Icon size={16} /> {label}
+                <span aria-hidden="true">{emoji}</span> <Icon size={16} /> {label}
               </button>
             ))}
             <button
@@ -167,57 +171,65 @@ export function Toolbar({
               onClick={() => setShapePanelOpen((value) => !value)}
               disabled={disabled}
             >
-              <Shapes size={16} /> Shape
+              <span aria-hidden="true">📐</span> <Shapes size={16} /> Shapes
             </button>
           </div>
 
-          {(!compact || shapePanelOpen) && (
-            <div className="rounded-[1.25rem] border border-[color:var(--border)] bg-[color:var(--surface)] p-2.5">
-              <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                <span className={labelClass}>Shapes</span>
-                {compact && <span className="text-[11px] text-[color:var(--text-muted)]">Pick one shape</span>}
+          <div className={`grid gap-2 ${!compact || shapePanelOpen ? 'lg:grid-cols-2' : ''}`}>
+            {(!compact || shapePanelOpen) && (
+              <div className="rounded-[1.25rem] border border-[color:var(--border)] bg-[color:var(--surface)] p-2.5">
+                <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                  <span className={labelClass}>Shapes</span>
+                  {compact && <span className="text-[11px] text-[color:var(--text-muted)]">Pick one shape</span>}
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {SHAPES.map(({ tool: shapeTool, label, icon: Icon, emoji }) => (
+                    <button
+                      key={shapeTool}
+                      type="button"
+                      className={`${toolButton} min-h-9 px-2.5 py-1.5 text-[11px] sm:text-xs ${tool === shapeTool ? selectedToolButton : "bg-transparent hover:bg-[color:var(--surface-soft)]"}`}
+                      onClick={() => {
+                        setTool(shapeTool);
+                        if (compact) setShapePanelOpen(false);
+                      }}
+                      disabled={disabled}
+                    >
+                      <span aria-hidden="true">{emoji}</span> <Icon size={15} /> {label}
+                    </button>
+                  ))}
+                </div>
               </div>
-              <div className="flex flex-wrap gap-2">
-                {SHAPES.map(({ tool: shapeTool, label, icon: Icon }) => (
-                  <button
-                    key={shapeTool}
-                    type="button"
-                    className={`${toolButton} min-h-9 px-2.5 py-1.5 text-[11px] sm:text-xs ${tool === shapeTool ? selectedToolButton : "bg-transparent hover:bg-[color:var(--surface-soft)]"}`}
-                    onClick={() => {
-                      setTool(shapeTool);
-                      if (compact) setShapePanelOpen(false);
-                    }}
-                    disabled={disabled}
-                  >
-                    <Icon size={15} /> {label}
-                  </button>
-                ))}
+            )}
+
+            {isBrushTool && tool !== 'eraser' && (
+              <div className="rounded-[1.25rem] border border-[color:var(--border)] bg-[color:var(--surface)] p-2.5">
+                <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                  <span className={labelClass}>Brush types</span>
+                  <span className="text-[11px] text-[color:var(--text-muted)]">Affects stroke texture</span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {BRUSHES.map((b) => (
+                    <button key={b.id} type="button" className={`${toolButton} min-h-9 px-2.5 py-1.5 text-[11px] sm:text-xs ${brushStyle === b.id ? selectedToolButton : ''}`} onClick={() => setBrushStyle(b.id)} disabled={disabled}>
+                      <span aria-hidden="true">{b.emoji}</span> {b.label}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
 
           <div className="flex min-w-0 flex-wrap items-center gap-3 rounded-[1.25rem] border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2.5 sm:flex-nowrap">
             <span className={labelClass}>Size</span>
             <input type="range" min={1} max={24} value={size} onChange={(e) => setSize(Number(e.target.value))} disabled={disabled} className="min-w-[120px] flex-1 accent-[color:var(--brand-green)]" />
-            <span className="w-8 text-right text-sm font-semibold text-[color:var(--text-main)]">{size}</span>
+            <span className="w-12 rounded-full border border-[color:var(--border)] bg-[color:var(--accent)] px-2 py-1 text-center text-sm font-black text-[color:var(--text-main)]">{size}</span>
           </div>
-
-          {isBrushTool && tool !== "eraser" && !compact && (
-            <div className="flex flex-wrap gap-2">
-              {BRUSHES.map((b) => (
-                <button key={b} type="button" className={`${toolButton} min-h-9 px-2.5 py-1.5 text-[11px] capitalize sm:text-xs ${brushStyle === b ? selectedToolButton : ""}`} onClick={() => setBrushStyle(b)} disabled={disabled}>
-                  {b}
-                </button>
-              ))}
-            </div>
-          )}
         </div>
 
         <div className={`${sectionClass} min-w-0 flex-col items-stretch`}>
           <div className="flex items-center justify-between gap-2 rounded-[1.25rem] border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2.5">
             <div className="min-w-0">
               <p className={labelClass}>{tool === "fill" ? "Fill color" : "Selected color"}</p>
-              <p className="mt-1 truncate text-sm font-semibold text-[color:var(--text-main)]">{colorTarget.toUpperCase()}</p>
+              <p className="mt-1 truncate text-sm font-black text-[color:var(--text-main)]">{colorTarget.toUpperCase()}</p>
             </div>
             <button
               type="button"
@@ -245,7 +257,7 @@ export function Toolbar({
             })}
             <button
               type="button"
-              className="inline-flex min-h-10 items-center justify-center rounded-full border-2 border-[color:var(--border)] bg-[color:var(--accent)] px-3 text-[11px] font-semibold text-[color:var(--text-main)]"
+              className="inline-flex min-h-10 items-center justify-center rounded-full border-2 border-[color:var(--border)] bg-[color:var(--accent)] px-3 text-[11px] font-black text-[color:var(--text-main)]"
               onClick={() => customColorInputRef.current?.click()}
               disabled={disabled || tool === "eraser"}
             >
@@ -275,7 +287,7 @@ export function Toolbar({
           <div className="rounded-[1.25rem] border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2.5 text-sm text-[color:var(--text-main)]">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <p className="font-semibold">Shape fill</p>
+                <p className="font-black">🪄 Shape fill</p>
                 <p className="text-xs text-[color:var(--text-muted)]">Closed shapes can use the current fill color.</p>
               </div>
               <label className="inline-flex items-center gap-2 text-sm font-medium text-[color:var(--text-main)]">
@@ -287,10 +299,10 @@ export function Toolbar({
         </div>
 
         <div className={`${sectionClass} min-w-0 flex-col items-stretch justify-between`}>
-          {mobileUtilityButtons}
+          {utilityButtons}
           {!compact && (
             <div className="rounded-[1.25rem] border border-[color:var(--border)] bg-[color:var(--surface)] p-2.5 text-xs leading-5 text-[color:var(--text-muted)]">
-              Froddle keeps the toolbar roomy on smaller screens so chips and controls do not overlap the canvas.
+              Froddle keeps the toolbar roomy on smaller screens so buttons, emojis, and utility controls do not overlap the canvas.
             </div>
           )}
         </div>
