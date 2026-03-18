@@ -4,19 +4,20 @@
 
 :root {
   color-scheme: light;
-  --bg: #f8f5eb;
+  --bg: #f4f0e3;
   --surface: #fffdf7;
-  --surface-soft: #f2efe6;
-  --primary: #111827;
-  --accent: #fef3c7;
-  --text-main: #111827;
+  --surface-soft: #ece7d7;
+  --primary: #141414;
+  --accent: #f3e49a;
+  --muted-blue: #d9e9f4;
+  --text-main: #141414;
   --text-muted: #4b5563;
-  --border: #111827;
+  --border: #141414;
 }
 
 body {
   min-height: 100vh;
-  background: var(--bg);
+  background: radial-gradient(circle at top left, #f8f5eb, #f4f0e3 48%, #efe8d2);
   color: var(--text-main);
   @apply antialiased;
 }
@@ -26,7 +27,7 @@ body {
     @apply rounded-2xl border-2 p-6 transition-all duration-150;
     border-color: var(--border);
     background: var(--surface);
-    box-shadow: 6px 6px 0 #111827;
+    box-shadow: 8px 8px 0 #141414;
   }
 
   .comic-input {
@@ -38,7 +39,7 @@ body {
 
   .comic-input:focus {
     background: #fffef9;
-    box-shadow: 0 0 0 2px #111827;
+    box-shadow: 0 0 0 2px #141414;
   }
 }
 
