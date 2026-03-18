@@ -237,6 +237,18 @@ export default function RoomPage() {
     setChatDraft("");
   };
 
+  const pushReactionBurst = useCallback((id: string, emoji: string) => {
+    setReactionBursts((prev) => {
+      if (prev.some((burst) => burst.id === id)) return prev;
+      return [...prev, { id, emoji, left: Math.floor(Math.random() * 80) + 10 }];
+    });
+    window.setTimeout(
+      () =>
+        setReactionBursts((prev) => prev.filter((burst) => burst.id !== id)),
+      2300,
+    );
+  }, []);
+
   const sendReaction = (emoji: (typeof REACTIONS)[number]["emoji"]) => {
     socket.emit(SOCKET_EVENTS.REACTION_SEND, {
       roomId,
@@ -244,16 +256,6 @@ export default function RoomPage() {
       displayName,
       emoji,
     });
-    const id = nanoid();
-    setReactionBursts((prev) => [
-      ...prev,
-      { id, emoji, left: 18 + Math.random() * 64 },
-    ]);
-    window.setTimeout(
-      () =>
-        setReactionBursts((prev) => prev.filter((burst) => burst.id !== id)),
-      2200,
-    );
   };
 
   useEffect(() => {
@@ -264,26 +266,14 @@ export default function RoomPage() {
       emoji: string;
       reactionId: string;
     }) => {
-      const burst = {
-        id: reactionId,
-        emoji,
-        left: Math.floor(Math.random() * 80) + 10,
-      };
-      setReactionBursts((prev) => [...prev, burst]);
-      window.setTimeout(
-        () =>
-          setReactionBursts((prev) =>
-            prev.filter((item) => item.id !== burst.id),
-          ),
-        2300,
-      );
+      pushReactionBurst(reactionId, emoji);
     };
 
     socket.on(SOCKET_EVENTS.REACTION_EVENT, onReaction);
     return () => {
       socket.off(SOCKET_EVENTS.REACTION_EVENT, onReaction);
     };
-  }, []);
+  }, [pushReactionBurst]);
 
   useEffect(() => {
     if (!hasJoined || joinedToastShownRef.current) return;
