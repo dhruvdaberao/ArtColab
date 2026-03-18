@@ -15,6 +15,7 @@ interface RoomInternal extends RoomState {
   visibility: RoomVisibility;
   lastActiveAt: number;
   pendingExpiryAt: number | null;
+  redoStacks: Map<string, Stroke[]>;
 }
 
 interface RoomMeta {
@@ -81,7 +82,8 @@ export class RoomManager {
         strokes: (item.canvasState?.strokes ?? []).map((stroke) => ({ ...stroke, points: [...stroke.points] })),
         stickers: (item.canvasState?.stickers ?? []).map((sticker) => ({ ...sticker })),
         chatMessages: [],
-        mode: 'free-draw'
+        mode: 'free-draw',
+        redoStacks: new Map()
       };
       this.rooms.set(room.roomId, room);
       this.roomMeta.set(room.roomId, {
@@ -115,7 +117,8 @@ export class RoomManager {
       strokes: [],
       stickers: [],
       chatMessages: [],
-      mode: 'free-draw'
+      mode: 'free-draw',
+      redoStacks: new Map()
     };
     this.rooms.set(roomId, room);
     this.roomMeta.set(roomId, {
@@ -199,6 +202,7 @@ export class RoomManager {
     const room = this.rooms.get(roomId);
     if (!room) return null;
     room.strokes.push(stroke);
+    room.redoStacks.delete(stroke.userId);
     if (room.strokes.length > env.MAX_STROKES_PER_ROOM) {
       room.strokes = room.strokes.slice(room.strokes.length - env.MAX_STROKES_PER_ROOM);
     }
@@ -229,6 +233,7 @@ export class RoomManager {
     if (!room) return null;
     room.strokes = [];
     room.stickers = [];
+    room.redoStacks.clear();
     room.updatedAt = Date.now();
     this.schedulePersist(roomId, true);
     return this.serialize(room);
@@ -273,12 +278,28 @@ export class RoomManager {
     for (let i = room.strokes.length - 1; i >= 0; i -= 1) {
       if (room.strokes[i].userId === userId) {
         const [removed] = room.strokes.splice(i, 1);
+        const redoStack = room.redoStacks.get(userId) ?? [];
+        redoStack.push({ ...removed, points: [...removed.points] });
+        room.redoStacks.set(userId, redoStack.slice(-50));
         room.updatedAt = Date.now();
         this.schedulePersist(roomId);
         return removed;
       }
     }
     return null;
+  }
+
+  redoLastStroke(roomId: string, userId: string): Stroke | null {
+    const room = this.rooms.get(roomId);
+    if (!room) return null;
+    const redoStack = room.redoStacks.get(userId);
+    const restored = redoStack?.pop();
+    if (!restored) return null;
+    room.strokes.push({ ...restored, points: [...restored.points] });
+    room.updatedAt = Date.now();
+    room.lastActiveAt = room.updatedAt;
+    this.schedulePersist(roomId);
+    return restored;
   }
 
   cleanupExpiredRooms(): string[] {

@@ -20,6 +20,8 @@ export const SOCKET_EVENTS = {
   BOARD_CLEARED: "board:cleared",
   STROKE_UNDO: "stroke:undo",
   STROKE_UNDONE: "stroke:undone",
+  STROKE_REDO: "stroke:redo",
+  STROKE_REDONE: "stroke:redone",
   CURSOR_UPDATE: "cursor:update",
   CURSOR_PRESENCE: "cursor:presence",
   CHAT_SEND: "chat:send",
@@ -73,6 +75,11 @@ export interface ClearBoardPayload {
 }
 
 export interface UndoStrokePayload {
+  roomId: string;
+  userId: string;
+}
+
+export interface RedoStrokePayload {
   roomId: string;
   userId: string;
 }
