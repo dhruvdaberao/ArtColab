@@ -1,4 +1,5 @@
 import { resolvePublicUrl } from './runtime-config';
+import { getStoredDisplayName } from './guest';
 
 const API_URL = resolvePublicUrl(process.env.NEXT_PUBLIC_API_URL);
 
@@ -78,6 +79,10 @@ const request = async <T>(path: string, options: RequestInit = {}, fallback = 'R
     }
     if (token) {
       headers.set('Authorization', `Bearer ${token}`);
+    }
+    const guestDisplayName = typeof window !== 'undefined' ? getStoredDisplayName() : '';
+    if (!token && guestDisplayName && !headers.has('X-Guest-Display-Name')) {
+      headers.set('X-Guest-Display-Name', guestDisplayName);
     }
     const response = await fetch(`${API_URL}${path}`, {
       ...options,
