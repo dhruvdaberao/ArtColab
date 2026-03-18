@@ -26,7 +26,6 @@ export default function RoomPage() {
   const isValidRoomId = /^[A-Z0-9]{6}$/.test(roomId);
   const [tool, setTool] = useState<DrawingTool>("pen");
   const [brushStyle, setBrushStyle] = useState<BrushStyle>("classic");
-  const [stickerMode, setStickerMode] = useState<string | null>(null);
   const [color, setColor] = useState("#0f172a");
   const [size, setSize] = useState(4);
   const [userId, setUserId] = useState("");
@@ -69,8 +68,6 @@ export default function RoomPage() {
     participants,
     strokes,
     setStrokes,
-    stickers,
-    setStickers,
     chatMessages,
     mode,
     cursors,
@@ -85,7 +82,6 @@ export default function RoomPage() {
   const clearBoard = () => {
     socket.emit(SOCKET_EVENTS.BOARD_CLEAR, { roomId });
     setStrokes([]);
-    setStickers([]);
     setIsClearModalOpen(false);
     pushToast("Chaos reset. Fresh canvas unlocked ✨");
   };
@@ -101,11 +97,11 @@ export default function RoomPage() {
     ctx.fillStyle = "white";
     ctx.fillRect(0, 0, exportCanvas.width, exportCanvas.height);
     ctx.drawImage(canvas as HTMLCanvasElement, 0, 0);
-    ctx.fillStyle = "#7c3aed";
+    ctx.fillStyle = "#111827";
     ctx.font = "bold 24px sans-serif";
-    ctx.fillText("Made on SprinkleSketch 🎨", 16, exportCanvas.height - 14);
+    ctx.fillText("Made on Art Colab", 16, exportCanvas.height - 14);
     const link = document.createElement("a");
-    link.download = `sprinklesketch-${roomId}.png`;
+    link.download = `art-colab-${roomId}.png`;
     link.href = exportCanvas.toDataURL("image/png");
     link.click();
   };
@@ -168,17 +164,17 @@ export default function RoomPage() {
     <main className="min-h-screen overscroll-none px-3 py-4 sm:px-5 sm:py-6">
       <div className="mx-auto flex w-full max-w-[1520px] flex-col gap-4">
         <header className="flex flex-wrap items-center justify-between gap-3 rounded-3xl border border-fuchsia-100 bg-white/95 px-4 py-3 shadow-sm sm:px-5">
-          <div><p className="text-[11px] uppercase tracking-[0.18em] text-purple-500">SprinkleSketch Room</p><h1 className="text-lg font-extrabold text-purple-900 sm:text-xl">{roomId}</h1></div>
+          <div><p className="text-[11px] uppercase tracking-[0.18em] text-purple-500">Art Colab Room</p><h1 className="text-lg font-extrabold text-purple-900 sm:text-xl">{roomId}</h1></div>
           <div className="flex flex-wrap items-center gap-2 text-sm"><UserAvatarMenu /><Badge className="capitalize bg-sky-50 text-sky-700 border-sky-100">{status}</Badge><Badge className="bg-violet-50 text-violet-700 border-violet-100">{mode === "guess-mode" ? "Guess Mode" : "Free Draw"}</Badge><SecondaryButton onClick={() => navigator.clipboard.writeText(window.location.href)}>Copy room link</SecondaryButton><Button className="min-h-11 gap-2 bg-rose-500 px-5" onClick={() => setIsExitModalOpen(true)}>🚪 Exit Room</Button></div>
         </header>
 
         {error && <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-2 text-sm text-rose-700">{error}</div>}
 
-        <Toolbar tool={tool} setTool={setTool} brushStyle={brushStyle} setBrushStyle={setBrushStyle} mode={mode} onToggleMode={() => socket.emit(SOCKET_EVENTS.MODE_SET, { roomId, mode: mode === "free-draw" ? "guess-mode" : "free-draw" })} stickerMode={stickerMode} setStickerMode={setStickerMode} color={color} setColor={setColor} size={size} setSize={setSize} onClear={() => setIsClearModalOpen(true)} onUndo={() => socket.emit(SOCKET_EVENTS.STROKE_UNDO, { roomId, userId })} onDownload={download} onCopyImage={copyImage} disabled={!hasJoined} />
+        <Toolbar tool={tool} setTool={setTool} brushStyle={brushStyle} setBrushStyle={setBrushStyle} mode={mode} onToggleMode={() => socket.emit(SOCKET_EVENTS.MODE_SET, { roomId, mode: mode === "free-draw" ? "guess-mode" : "free-draw" })} color={color} setColor={setColor} size={size} setSize={setSize} onClear={() => setIsClearModalOpen(true)} onUndo={() => socket.emit(SOCKET_EVENTS.STROKE_UNDO, { roomId, userId })} onDownload={download} onCopyImage={copyImage} disabled={!hasJoined} />
 
         <section className="grid gap-4 xl:grid-cols-[1fr_320px]">
           <div className="relative">
-            <CanvasBoard roomId={roomId} userId={userId || "pending"} displayName={displayName} avatarUrl={avatarUrl} tool={tool} brushStyle={brushStyle} stickerMode={stickerMode} color={color} size={size} strokes={strokes} stickers={stickers} cursors={cursors} setStrokes={setStrokes} setStickers={setStickers} disabled={!hasJoined} />
+            <CanvasBoard roomId={roomId} userId={userId || "pending"} displayName={displayName} avatarUrl={avatarUrl} tool={tool} brushStyle={brushStyle} color={color} size={size} strokes={strokes} cursors={cursors} setStrokes={setStrokes} disabled={!hasJoined} />
             {strokes.length === 0 && <div className="pointer-events-none absolute inset-0 grid place-items-center p-8"><div className="rounded-3xl border border-fuchsia-100 bg-white/95 px-6 py-5 text-center shadow-sm"><p className="text-sm font-semibold text-purple-700">Unleash your inner artist 🎨</p><p className="mt-1 text-xs text-purple-500">This is chaos. We love it.</p></div></div>}
             <div className="pointer-events-none absolute inset-0 overflow-hidden">
               {reactionBursts.map((burst) => <div key={burst.id} className="absolute bottom-6 text-3xl animate-[float-up_2.2s_ease-out_forwards]" style={{ left: `${burst.left}%` }}>{burst.emoji}</div>)}
@@ -203,7 +199,7 @@ export default function RoomPage() {
           </div>
         </section>
       </div>
-      <ConfirmModal open={isClearModalOpen} title="Clear board?" description="This will remove all strokes + stickers for everyone." confirmLabel="Clear board" cancelLabel="Cancel" destructive onCancel={() => setIsClearModalOpen(false)} onConfirm={clearBoard} />
+      <ConfirmModal open={isClearModalOpen} title="Clear board?" description="This will remove all strokes for everyone." confirmLabel="Clear board" cancelLabel="Cancel" destructive onCancel={() => setIsClearModalOpen(false)} onConfirm={clearBoard} />
       <ConfirmModal open={isExitModalOpen} title="Leave room?" description="Are you sure you want to leave this room?" confirmLabel="Leave" cancelLabel="Cancel" destructive onCancel={() => setIsExitModalOpen(false)} onConfirm={() => { leaveSocketRoom(); setIsExitModalOpen(false); router.push("/"); }} />
       <ToastStack toasts={toasts} />
     </main>
