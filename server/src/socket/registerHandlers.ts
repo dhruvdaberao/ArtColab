@@ -20,6 +20,7 @@ import {
   joinRoomSocketSchema,
   modeSchema,
   reactionSchema,
+  redoSchema,
   roomActionSchema,
   stickerSchema,
   undoSchema,
@@ -305,6 +306,27 @@ export const registerSocketHandlers = (
       io.to(parsed.data.roomId).emit(SOCKET_EVENTS.STROKE_UNDONE, {
         roomId: parsed.data.roomId,
         strokeId: removed.strokeId,
+        userId: parsed.data.userId,
+      });
+    });
+
+    socket.on(SOCKET_EVENTS.STROKE_REDO, (payload: unknown) => {
+      const parsed = redoSchema.safeParse(payload);
+      if (!parsed.success) {
+        emitError(socket, {
+          code: "INVALID_PAYLOAD",
+          message: "Unable to redo stroke.",
+        });
+        return;
+      }
+      const restored = roomManager.redoLastStroke(
+        parsed.data.roomId,
+        parsed.data.userId,
+      );
+      if (!restored) return;
+      io.to(parsed.data.roomId).emit(SOCKET_EVENTS.STROKE_REDONE, {
+        roomId: parsed.data.roomId,
+        stroke: restored,
         userId: parsed.data.userId,
       });
     });

@@ -17,6 +17,12 @@ const roomNameSchema = z
   );
 
 const roomVisibilitySchema = z.enum(["public", "private"]);
+const toolSchema = z.enum(["pen", "eraser", "line", "rectangle", "square", "circle", "ellipse", "triangle", "star"]);
+const shapeSchema = z.object({
+  kind: z.enum(["line", "rectangle", "square", "circle", "ellipse", "triangle", "star"]),
+  start: z.object({ x: z.number().finite(), y: z.number().finite() }),
+  end: z.object({ x: z.number().finite(), y: z.number().finite() }),
+}).optional();
 
 export const createRoomSchema = z
   .object({
@@ -93,11 +99,21 @@ export const drawStartSchema = z.object({
     strokeId: z.string().min(1).max(64),
     roomId: roomIdSchema,
     userId: z.string().min(1).max(64),
-    tool: z.enum(["pen", "eraser"]),
+    tool: toolSchema,
     brushStyle: z.enum(["classic", "rainbow", "neon", "dotted", "spray"]).optional(),
     color: z.string().max(20),
+    fillColor: z.string().max(20).nullable().optional(),
     size: z.number().min(1).max(64),
-    points: z.array(pointSchema).min(1).max(20),
+    points: z.array(pointSchema).max(20),
+    shape: shapeSchema,
+  }).superRefine((stroke, ctx) => {
+    const hasShape = !!stroke.shape;
+    if (hasShape && stroke.points.length !== 0) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Shape strokes should not include freehand points.", path: ["points"] });
+    }
+    if (!hasShape && stroke.points.length < 1) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Freehand strokes need at least one point.", path: ["points"] });
+    }
   }),
 });
 
@@ -130,6 +146,8 @@ export const undoSchema = z.object({
   roomId: roomIdSchema,
   userId: z.string().min(1).max(64),
 });
+
+export const redoSchema = undoSchema;
 
 export const chatSchema = z.object({
   roomId: roomIdSchema,
