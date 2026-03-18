@@ -2,7 +2,9 @@
 
 import { Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { Badge } from '@/components/ui';
 import { AuthCard, type AuthView } from '@/components/auth-card';
+import { FroddleWordmark } from '@/components/froddle-logo';
 
 function AuthPageContent() {
   const searchParams = useSearchParams();
@@ -10,12 +12,28 @@ function AuthPageContent() {
   const initialView: AuthView = requestedView === 'register' || requestedView === 'forgot-request' || requestedView === 'forgot-verify' ? requestedView : 'login';
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-5xl items-center px-4 py-10">
-      <div className="grid w-full gap-6 md:grid-cols-[1.1fr_0.9fr]">
-        <section className="space-y-4 rounded-[2rem] border-2 border-[color:var(--border)] bg-[color:var(--bg-elevated)] p-8 shadow-[var(--shadow)]">
-          <p className="inline-flex items-center rounded-full border-2 border-[color:var(--border)] bg-[color:var(--accent)] px-3 py-1 text-xs font-bold uppercase tracking-[0.16em] text-[color:var(--text-main)]">Realtime creative rooms</p>
-          <h1 className="text-5xl font-black leading-tight text-[color:var(--text-main)]">Art Colab</h1>
-          <p className="max-w-md text-sm text-[color:var(--text-muted)]">A professional shared canvas for teams and friends. Draw together, stay synced, and move between guest and account mode without friction.</p>
+    <main className="mx-auto flex min-h-screen w-full max-w-6xl items-center px-4 py-8 sm:px-6 sm:py-10">
+      <div className="grid w-full gap-6 lg:grid-cols-[1.15fr_0.85fr]">
+        <section className="brand-panel space-y-5 rounded-[2rem] border-2 border-[color:var(--border)] p-6 shadow-[var(--shadow)] sm:p-8 lg:p-10">
+          <Badge className="bg-[color:var(--brand-yellow)]">Frog-powered creative rooms</Badge>
+          <FroddleWordmark />
+          <div className="space-y-3 text-sm text-[color:var(--text-muted)] sm:text-base">
+            <p className="max-w-xl">Froddle keeps drawing with friends delightfully fast: jump in as a guest, sign in to keep your profile, and hop between shared rooms without friction.</p>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div className="rounded-[1.4rem] border-2 border-[color:var(--border)] bg-white/75 p-4">
+                <p className="font-bold text-[color:var(--text-main)]">Sketch live</p>
+                <p className="mt-1 text-sm">Realtime strokes, chat, reactions, and synced cursors.</p>
+              </div>
+              <div className="rounded-[1.4rem] border-2 border-[color:var(--border)] bg-white/75 p-4">
+                <p className="font-bold text-[color:var(--text-main)]">Keep it playful</p>
+                <p className="mt-1 text-sm">Bold, friendly tools with a polished frog-inspired theme.</p>
+              </div>
+              <div className="rounded-[1.4rem] border-2 border-[color:var(--border)] bg-white/75 p-4">
+                <p className="font-bold text-[color:var(--text-main)]">Stay flexible</p>
+                <p className="mt-1 text-sm">Use guest mode instantly or save your identity with an account.</p>
+              </div>
+            </div>
+          </div>
         </section>
         <AuthCard initialView={initialView} />
       </div>
