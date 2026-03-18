@@ -22,6 +22,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const refresh = async () => {
     const res = await getMe();
     setUser(res.user);
+    if (res.user?.username) localStorage.setItem('cloudcanvas-display-name', res.user.username);
   };
 
   useEffect(() => {
@@ -52,6 +53,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = async () => {
     await logoutUser();
     setAuthToken(null);
+    localStorage.removeItem('cloudcanvas-display-name');
     setUser(null);
   };
 
