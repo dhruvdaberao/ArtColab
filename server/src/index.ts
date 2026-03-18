@@ -3,7 +3,7 @@ import cors from 'cors';
 import express, { type NextFunction, type Request, type Response } from 'express';
 import { Server } from 'socket.io';
 import { SOCKET_EVENTS } from '@cloudcanvas/shared';
-import { allowedClientOrigins, env, isAllowedClientOrigin, validateCriticalEnv } from './config/env.js';
+import { allowedClientOriginEnvSummary, allowedClientOrigins, env, getClientOriginDecision, validateCriticalEnv } from './config/env.js';
 import { connectMongo, isMongoReady } from './db/mongo.js';
 import { Room } from './models/Room.js';
 import { RoomManager } from './rooms/roomManager.js';
@@ -42,13 +42,22 @@ const roomManager = new RoomManager(async (roomId, state) => {
 });
 
 const corsOrigin: cors.CorsOptions['origin'] = (origin, callback) => {
-  if (isAllowedClientOrigin(origin)) {
+  const decision = getClientOriginDecision(origin);
+
+  if (decision.allowed) {
+    if (origin) {
+      console.info('[cors] allowed request', { origin: decision.normalizedOrigin, reason: decision.reason });
+    }
     callback(null, true);
     return;
   }
 
-  const error = new Error(`CORS blocked for origin: ${origin ?? 'unknown'}`);
-  console.warn('[cors] blocked request', { origin: origin ?? null });
+  const error = new Error(`CORS blocked for origin: ${decision.normalizedOrigin ?? origin ?? 'unknown'}`);
+  console.warn('[cors] blocked request', {
+    origin: decision.normalizedOrigin ?? origin ?? null,
+    reason: decision.reason,
+    allowedOrigins: allowedClientOrigins
+  });
   callback(error);
 };
 
@@ -129,9 +138,7 @@ const start = async () => {
     console.log(`[CloudCanvas] port=${env.PORT}`);
     console.log(`[CloudCanvas] node_env=${env.NODE_ENV}`);
     console.log(`[CloudCanvas] allowed_client_origins=${allowedClientOrigins.join(',') || 'none'}`);
-    if (!process.env.CLIENT_ORIGIN) {
-      console.warn('[CloudCanvas] CLIENT_ORIGIN is not set; using safe defaults. Set CLIENT_ORIGIN in Render for strict production control.');
-    }
+    console.log(`[CloudCanvas] client_origin_env=${JSON.stringify(allowedClientOriginEnvSummary)}`);
   });
 };
 

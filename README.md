@@ -38,7 +38,7 @@ npm run dev
 ### Backend (`server/.env`)
 - `PORT` (default: `4000`)
 - `NODE_ENV` (`development` | `test` | `production`)
-- `CLIENT_ORIGIN` (optional, comma-separated allowed frontend origins; safe defaults include localhost and `https://art-colab-client.vercel.app`)
+- `CLIENT_ORIGIN` / `CLIENT_URL` / `CLIENT_ORIGINS` (optional; backend accepts any of these aliases as a comma- or whitespace-separated allowed-origin list, with safe defaults including localhost, `https://art-colab-client.vercel.app`, and `https://froodle.vercel.app`)
 - `ROOM_IDLE_TIMEOUT_MS` (default: `900000`)
 - `CLEANUP_INTERVAL_MS` (default: `60000`)
 - `MAX_STROKES_PER_ROOM` (default: `1000`)
@@ -67,7 +67,7 @@ npm run dev
 
 Required Render environment variables:
 - `NODE_ENV=production`
-- `CLIENT_ORIGIN=https://art-colab-client.vercel.app` (and optionally additional origins as a comma-separated list, e.g. `https://art-colab-client.vercel.app,https://your-preview.vercel.app`)
+- `CLIENT_ORIGIN=https://froodle.vercel.app` (or `CLIENT_URL=https://froodle.vercel.app`; optionally add additional origins as a comma-separated list, e.g. `https://froodle.vercel.app,https://art-colab-client.vercel.app`)
 - `PORT=4000` (Render may inject one automatically; app supports `process.env.PORT || 4000`)
 
 Optional:
@@ -88,5 +88,5 @@ Optional:
 If room creation fails with `Failed to fetch` or `ERR_CONNECTION_REFUSED`:
 1. Verify backend is running and reachable at `/health`.
 2. Verify `NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_SOCKET_URL` point to the live backend URL (recommended), or that `https://artcolab-1.onrender.com` is reachable when fallback is used.
-3. Verify backend `CLIENT_ORIGIN` includes the frontend origin (exact origin or wildcard such as `https://*.vercel.app`).
-4. Check backend startup logs for effective `port`, `node_env`, and `allowed_client_origins`.
+3. Verify backend `CLIENT_ORIGIN`, `CLIENT_URL`, or `CLIENT_ORIGINS` includes the frontend origin (exact origin or wildcard such as `https://*.vercel.app`).
+4. Check backend startup logs for effective `port`, `node_env`, `allowed_client_origins`, and `client_origin_env`.
