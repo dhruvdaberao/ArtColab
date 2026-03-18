@@ -64,6 +64,7 @@ export default function RoomPage() {
   const [isWorkspaceMode, setIsWorkspaceMode] = useState(false);
   const chatEndRef = useRef<HTMLDivElement | null>(null);
   const joinedToastShownRef = useRef(false);
+  const isMountedRef = useRef(true);
   const { user } = useAuth();
 
   const pushToast = useCallback((message: string) => {
@@ -129,9 +130,36 @@ export default function RoomPage() {
     return () => window.removeEventListener("resize", updateViewportState);
   }, []);
 
+  const resetWorkspaceMode = useCallback(
+    async ({ preserveState = false }: { preserveState?: boolean } = {}) => {
+      if (!preserveState && isMountedRef.current) setIsWorkspaceMode(false);
+      const screenOrientation = window.screen.orientation as ScreenOrientation & {
+        unlock?: () => void;
+      };
+      if (typeof screenOrientation.unlock === "function")
+        screenOrientation.unlock();
+      if (document.fullscreenElement) {
+        try {
+          await document.exitFullscreen();
+        } catch {
+          // noop
+        }
+      }
+    },
+    [],
+  );
+
   useEffect(() => {
-    if (!isMobile) setIsWorkspaceMode(false);
-  }, [isMobile]);
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      void resetWorkspaceMode({ preserveState: true });
+    };
+  }, [resetWorkspaceMode]);
+
+  useEffect(() => {
+    if (!isMobile && isWorkspaceMode) void resetWorkspaceMode();
+  }, [isMobile, isWorkspaceMode, resetWorkspaceMode]);
 
   const avatarUrl = user?.profileImage;
   const {
@@ -162,8 +190,8 @@ export default function RoomPage() {
   const canUndo = strokes.some((stroke) => stroke.userId === userId);
   const canRedo = redoCount > 0;
   const showMobileLayout = isMobile;
-  const showRotatePrompt = showMobileLayout && isPortrait;
-  const showWorkspaceBanner = isWorkspaceMode && showRotatePrompt;
+  const showRotateControl = showMobileLayout;
+  const showWorkspaceBanner = isWorkspaceMode && showMobileLayout;
 
   const clearBoard = () => {
     socket.emit(SOCKET_EVENTS.BOARD_CLEAR, { roomId });
@@ -317,20 +345,15 @@ export default function RoomPage() {
   };
 
   const exitWorkspaceMode = async () => {
-    setIsWorkspaceMode(false);
-    const screenOrientation = window.screen.orientation as ScreenOrientation & {
-      unlock?: () => void;
-    };
-    if (typeof screenOrientation.unlock === "function")
-      screenOrientation.unlock();
-    if (document.fullscreenElement) {
-      try {
-        await document.exitFullscreen();
-      } catch {
-        // noop
-      }
-    }
+    await resetWorkspaceMode();
   };
+
+  const leaveRoomSafely = useCallback(async () => {
+    await resetWorkspaceMode();
+    leaveSocketRoom();
+    setIsExitModalOpen(false);
+    router.push("/");
+  }, [leaveSocketRoom, resetWorkspaceMode, router]);
 
   if (roomLoadError || expired)
     return (
@@ -384,9 +407,9 @@ export default function RoomPage() {
             >
               <LinkIcon size={16} /> Copy room link
             </SecondaryButton>
-            {showRotatePrompt && (
+            {showRotateControl && (
               <SecondaryButton
-                className="min-h-10 border-[color:var(--border)] bg-[#dff0ff] px-3 text-xs text-[color:var(--text-main)] hover:bg-[#c7e7ff] sm:min-h-11 sm:text-sm"
+                className="min-h-10 shrink-0 border-[color:var(--border)] bg-[#dff0ff] px-3 text-xs text-[color:var(--text-main)] hover:bg-[#c7e7ff] sm:min-h-11 sm:text-sm"
                 onClick={isWorkspaceMode ? exitWorkspaceMode : enterWorkspaceMode}
               >
                 <RefreshCw size={16} /> {isWorkspaceMode
@@ -572,11 +595,7 @@ export default function RoomPage() {
         cancelLabel="Cancel"
         destructive
         onCancel={() => setIsExitModalOpen(false)}
-        onConfirm={() => {
-          leaveSocketRoom();
-          setIsExitModalOpen(false);
-          router.push("/");
-        }}
+        onConfirm={leaveRoomSafely}
       />
       <ToastStack toasts={toasts} />
     </main>
