@@ -97,6 +97,12 @@ export const roomsRouter = (roomManager: RoomManager) => {
     if (!requireGuestDisplayName(req, res)) return;
 
     const name = parsedBody.data.name.trim();
+    console.info('[rooms:join] join requested', {
+      roomName: name,
+      visibility: parsedBody.data.visibility,
+      requesterRole: req.auth?.role ?? 'guest',
+      requesterId: req.auth?.sub ?? 'anonymous'
+    });
     try {
       let roomMeta: (RoomJoinSource & { passwordHash: string | null }) | null = null;
       if (isMongoReady()) {
@@ -107,20 +113,38 @@ export const roomsRouter = (roomManager: RoomManager) => {
       if (!roomMeta) {
         roomMeta = roomManager.listMeta().find((meta) => meta.name.toLowerCase() === name.toLowerCase()) || null;
       }
-      if (!roomMeta) return res.status(404).json({ success: false, message: 'Room not found.' });
-      if (roomMeta.visibility !== parsedBody.data.visibility) return res.status(400).json({ success: false, message: 'Room visibility selection does not match.' });
+      if (!roomMeta) {
+        console.warn('[rooms:join] room lookup failed', { roomName: name });
+        return res.status(404).json({ success: false, message: 'Room not found.' });
+      }
+      if (roomMeta.visibility !== parsedBody.data.visibility) {
+        console.warn('[rooms:join] visibility mismatch', {
+          roomId: roomMeta.roomId,
+          expectedVisibility: roomMeta.visibility,
+          requestedVisibility: parsedBody.data.visibility
+        });
+        return res.status(400).json({ success: false, message: 'Room visibility selection does not match.' });
+      }
       if (roomMeta.visibility === 'private') {
         const ok = roomMeta.passwordHash && parsedBody.data.password ? await bcrypt.compare(parsedBody.data.password.trim(), roomMeta.passwordHash) : false;
-        if (!ok) return res.status(401).json({ success: false, message: 'Invalid room password.' });
+        if (!ok) {
+          console.warn('[rooms:join] invalid private room password', { roomId: roomMeta.roomId });
+          return res.status(401).json({ success: false, message: 'Invalid room password.' });
+        }
       }
-      if (!roomManager.getRoom(roomMeta.roomId)) return res.status(410).json({ success: false, message: 'Room is no longer active.' });
+      if (!roomManager.getRoom(roomMeta.roomId)) {
+        console.warn('[rooms:join] room no longer active', { roomId: roomMeta.roomId });
+        return res.status(410).json({ success: false, message: 'Room is no longer active.' });
+      }
 
       if (req.auth?.role === 'user' && isMongoReady()) {
         await User.findByIdAndUpdate(req.auth.sub, { $addToSet: { joinedRooms: roomMeta.roomId } });
       }
 
+      console.info('[rooms:join] join granted', { roomId: roomMeta.roomId, roomName: roomMeta.name });
       return res.json({ success: true, roomId: roomMeta.roomId });
     } catch (error) {
+      console.error('[rooms:join] unexpected failure', { roomName: name, error });
       return res.status(500).json({ success: false, message: 'Failed to join room.', error: toErrorMessage(error) });
     }
   });
@@ -200,12 +224,19 @@ export const roomsRouter = (roomManager: RoomManager) => {
   router.get('/:roomId', optionalAuth, async (req: Request, res: Response) => {
     const parsedId = roomIdSchema.safeParse(req.params.roomId);
     if (!parsedId.success) {
+      console.warn('[rooms:get] invalid room id', { roomId: req.params.roomId });
       return res.status(400).json({ success: false, message: 'Invalid room ID format.', error: 'INVALID_ROOM_ID' });
     }
 
     try {
+      console.info('[rooms:get] loading room', {
+        roomId: parsedId.data,
+        requesterRole: req.auth?.role ?? 'guest',
+        requesterId: req.auth?.sub ?? 'anonymous'
+      });
       const room = roomManager.getRoom(parsedId.data);
       if (!room) {
+        console.warn('[rooms:get] room missing', { roomId: parsedId.data });
         return res.status(404).json({ success: false, message: 'Room does not exist or has expired.', error: 'ROOM_NOT_FOUND' });
       }
 
@@ -216,6 +247,7 @@ export const roomsRouter = (roomManager: RoomManager) => {
       return res.json({ success: true, room });
     } catch (error) {
       const errorMessage = toErrorMessage(error);
+      console.error('[rooms:get] failed to fetch room', { roomId: parsedId.data, error });
       return res.status(500).json({ success: false, message: 'Failed to fetch room.', error: errorMessage });
     }
   });

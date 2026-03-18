@@ -29,9 +29,12 @@ const REACTIONS = [
 ] as const;
 
 export default function RoomPage() {
-  const params = useParams<{ roomId: string }>();
+  const params = useParams<{ roomId?: string | string[] }>();
   const router = useRouter();
-  const roomId = useMemo(() => params.roomId.toUpperCase(), [params.roomId]);
+  const roomId = useMemo(() => {
+    const candidate = Array.isArray(params.roomId) ? params.roomId[0] : params.roomId;
+    return typeof candidate === "string" ? candidate.trim().toUpperCase() : "";
+  }, [params.roomId]);
   const isValidRoomId = /^[A-Z0-9]{6}$/.test(roomId);
   const [tool, setTool] = useState<DrawingTool>("pen");
   const [brushStyle, setBrushStyle] = useState<BrushStyle>("classic");
@@ -103,16 +106,36 @@ export default function RoomPage() {
   }, [user?.username, user]);
 
   useEffect(() => {
-    if (!isValidRoomId)
-      return (setRoomLoadError("Invalid room code."), setRoomReady(false));
+    if (!roomId) {
+      setRoomLoadError("Missing room code.");
+      setRoomReady(false);
+      setRoomMeta(null);
+      return;
+    }
+    if (!isValidRoomId) {
+      setRoomLoadError("Invalid room code.");
+      setRoomReady(false);
+      setRoomMeta(null);
+      return;
+    }
+    let cancelled = false;
+    setRoomLoadError(null);
+    setRoomReady(false);
     getRoom(roomId)
       .then((data) => {
-        setRoomMeta(data.room);
+        if (cancelled) return;
+        setRoomMeta(data.room ?? null);
         setRoomReady(true);
       })
-      .catch((error: Error) =>
-        setRoomLoadError(error.message || "Room unavailable."),
-      );
+      .catch((error: Error) => {
+        if (cancelled) return;
+        console.error("[room-page] failed to load room", { roomId, error });
+        setRoomMeta(null);
+        setRoomLoadError(error.message || "Room unavailable.");
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [roomId, isValidRoomId]);
 
   useEffect(() => {

@@ -8,7 +8,7 @@ import { Room } from '../models/Room.js';
 import type { RoomManager } from '../rooms/roomManager.js';
 import { serializeSafeUser } from '../serializers/user.js';
 import { generateGuestUsername, generateResetCode, hashResetCode, signGuestToken, signUserToken, verifyToken } from '../utils/auth.js';
-import { sendPasswordResetCodeEmail } from '../utils/email.js';
+import { EmailDeliveryError, sendPasswordResetCodeEmail } from '../utils/email.js';
 
 const registerSchema = z
   .object({
@@ -222,7 +222,10 @@ export const authRouter = (roomManager: RoomManager) => {
     const parsed = resetRequestSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ success: false, message: 'Please provide a valid email address.' });
 
-    const user = await User.findOne({ email: parsed.data.email.toLowerCase() });
+    const normalizedEmail = parsed.data.email.toLowerCase();
+    console.info('[auth] forgot-password request received', { email: normalizedEmail });
+
+    const user = await User.findOne({ email: normalizedEmail });
     if (!user) return res.status(404).json({ success: false, message: 'No account exists for that email address.' });
 
     const code = generateResetCode();
@@ -233,8 +236,21 @@ export const authRouter = (roomManager: RoomManager) => {
     try {
       await sendPasswordResetCodeEmail(user.email, code);
     } catch (error) {
-      console.error('[auth] failed to send reset email', error);
-      return res.status(500).json({ success: false, message: 'Password reset email could not be sent.' });
+      console.error('[auth] failed to send reset email', {
+        email: user.email,
+        error
+      });
+      if (error instanceof EmailDeliveryError) {
+        const isConfigurationError = error.code === 'EMAIL_NOT_CONFIGURED';
+        return res.status(isConfigurationError ? 503 : 502).json({
+          success: false,
+          message: isConfigurationError
+            ? 'Password reset email is not configured on the server.'
+            : 'Password reset email could not be sent.',
+          code: error.code
+        });
+      }
+      return res.status(500).json({ success: false, message: 'Password reset email could not be sent.', code: 'EMAIL_SEND_FAILED' });
     }
 
     return res.json({ success: true, message: 'A reset code has been sent to your email.' });
