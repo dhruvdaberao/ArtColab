@@ -16,6 +16,7 @@ import {
   resolveSessionDisplayName,
   setStoredDisplayName,
 } from "@/lib/guest";
+import { grantRoomAccess } from "@/lib/room-access";
 
 export default function BrowseRoomsPage() {
   const router = useRouter();
@@ -167,6 +168,7 @@ export default function BrowseRoomsPage() {
             visibility: "private",
             password,
           });
+          grantRoomAccess(data.room.roomId);
           router.push(`/room/${data.room.roomId}`);
         }}
       />

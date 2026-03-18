@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { AuthProvider } from "@/components/auth-provider";
+import frogIcon from "../../frog icon.png";
 import "./globals.css";
 
 const APP_URL =
@@ -13,12 +14,9 @@ export const metadata: Metadata = {
   applicationName: "Froddle",
   manifest: "/manifest.webmanifest",
   icons: {
-    icon: [
-      { url: "/icons/192", type: "image/png", sizes: "192x192" },
-      { url: "/icons/512", type: "image/png", sizes: "512x512" },
-    ],
-    apple: [{ url: "/apple-icon", type: "image/png", sizes: "180x180" }],
-    shortcut: [{ url: "/icon", type: "image/png", sizes: "512x512" }],
+    icon: [{ url: frogIcon.src, type: "image/png", sizes: "1200x1200" }],
+    apple: [{ url: frogIcon.src, type: "image/png", sizes: "1200x1200" }],
+    shortcut: [{ url: frogIcon.src, type: "image/png", sizes: "1200x1200" }],
   },
 };
 

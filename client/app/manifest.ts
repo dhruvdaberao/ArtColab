@@ -1,4 +1,5 @@
 import type { MetadataRoute } from "next";
+import frogIcon from "../../frog icon.png";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
@@ -14,20 +15,14 @@ export default function manifest(): MetadataRoute.Manifest {
     theme_color: "#19a7ff",
     icons: [
       {
-        src: "/icons/192",
-        sizes: "192x192",
+        src: frogIcon.src,
+        sizes: "1200x1200",
         type: "image/png",
         purpose: "any maskable" as any,
       },
       {
-        src: "/icons/512",
-        sizes: "512x512",
-        type: "image/png",
-        purpose: "any maskable" as any,
-      },
-      {
-        src: "/apple-icon",
-        sizes: "180x180",
+        src: frogIcon.src,
+        sizes: "1200x1200",
         type: "image/png",
       },
     ],
