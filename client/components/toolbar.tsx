@@ -56,25 +56,25 @@ const PRESET_COLORS = [
   "#ec4899",
   "#fff7df",
 ];
-const BRUSHES: Array<{ id: BrushStyle; label: string; emoji: string }> = [
-  { id: "classic", label: "Classic", emoji: "✏️" },
-  { id: "crayon", label: "Crayon", emoji: "🖍️" },
-  { id: "neon", label: "Neon", emoji: "🌈" },
-  { id: "spray", label: "Spray", emoji: "💨" },
-  { id: "dotted", label: "Dotted", emoji: "⚪" },
+const BRUSHES: Array<{ id: BrushStyle; label: string }> = [
+  { id: "classic", label: "Classic" },
+  { id: "crayon", label: "Crayon" },
+  { id: "neon", label: "Neon" },
+  { id: "spray", label: "Spray" },
+  { id: "dotted", label: "Dotted" },
 ];
-const SHAPES: Array<{ tool: ShapeKind; label: string; icon: typeof Minus; emoji: string }> = [
-  { tool: "line", label: "Line", icon: Slash, emoji: "📏" },
-  { tool: "rectangle", label: "Rectangle", icon: Square, emoji: "▭" },
-  { tool: "square", label: "Square", icon: Square, emoji: "◻️" },
-  { tool: "circle", label: "Circle", icon: Circle, emoji: "⚪" },
-  { tool: "ellipse", label: "Ellipse", icon: Circle, emoji: "🥚" },
-  { tool: "triangle", label: "Triangle", icon: Triangle, emoji: "🔺" },
-  { tool: "star", label: "Star", icon: Star, emoji: "⭐" },
+const SHAPES: Array<{ tool: ShapeKind; label: string; icon: typeof Minus }> = [
+  { tool: "line", label: "Line", icon: Slash },
+  { tool: "rectangle", label: "Rectangle", icon: Square },
+  { tool: "square", label: "Square", icon: Square },
+  { tool: "circle", label: "Circle", icon: Circle },
+  { tool: "ellipse", label: "Ellipse", icon: Circle },
+  { tool: "triangle", label: "Triangle", icon: Triangle },
+  { tool: "star", label: "Star", icon: Star },
 ];
 
 const toolButton =
-  "inline-flex min-h-10 items-center justify-center gap-2 rounded-2xl border-2 border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 text-xs font-black text-[color:var(--text-main)] transition hover:-translate-y-0.5 hover:bg-[color:var(--surface-soft)] disabled:cursor-not-allowed disabled:opacity-40 sm:text-sm";
+  "inline-flex min-h-10 items-center justify-center gap-2 rounded-2xl border-2 border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 text-xs font-black text-[color:var(--text-main)] shadow-[0_4px_0_rgba(26,26,26,0.08)] transition hover:-translate-y-0.5 hover:bg-[color:var(--surface-soft)] hover:shadow-[0_6px_0_rgba(26,26,26,0.08)] disabled:cursor-not-allowed disabled:opacity-40 sm:text-sm";
 const selectedToolButton =
   "bg-[linear-gradient(180deg,#3ea5ff_0%,#1c7dd7_100%)] text-[color:var(--surface)] shadow-[0_5px_0_rgba(26,26,26,0.14)]";
 const sectionClass =
@@ -113,9 +113,9 @@ export function Toolbar({
   const isShapeTool = SHAPES.some((shape) => shape.tool === tool);
   const commonToolButtons = useMemo(
     () => [
-      { id: "pen", label: "Brush", Icon: Pencil, emoji: "🖌️" },
-      { id: "eraser", label: "Eraser", Icon: Eraser, emoji: "🧽" },
-      { id: "fill", label: "Fill", Icon: PaintBucket, emoji: "🪣" },
+      { id: "pen", label: "Brush", Icon: Pencil },
+      { id: "eraser", label: "Eraser", Icon: Eraser },
+      { id: "fill", label: "Fill", Icon: PaintBucket },
     ] as const,
     [],
   );
@@ -137,9 +137,9 @@ export function Toolbar({
 
   const utilityButtons = (
     <div className="grid gap-2 min-[480px]:grid-cols-2 xl:grid-cols-1">
-      <button type="button" className={toolButton} onClick={onUndo} disabled={disabled || !canUndo}>↩️ Undo</button>
-      <button type="button" className={toolButton} onClick={onRedo} disabled={disabled || !canRedo}>↪️ Redo</button>
-      <button type="button" className={toolButton} onClick={onDownload} disabled={disabled}>📦 Export</button>
+      <button type="button" className={toolButton} onClick={onUndo} disabled={disabled || !canUndo}><Undo2 size={16} /> Undo</button>
+      <button type="button" className={toolButton} onClick={onRedo} disabled={disabled || !canRedo}><Redo2 size={16} /> Redo</button>
+      <button type="button" className={toolButton} onClick={onDownload} disabled={disabled}><Download size={16} /> Export</button>
       <button type="button" className={toolButton} onClick={onResetView} disabled={disabled}><ZoomIn size={16} /> Reset view</button>
       <button type="button" className={toolButton} onClick={onCopyImage} disabled={disabled}><Copy size={16} /> Copy</button>
       <button type="button" className={`${toolButton} bg-[color:var(--danger-soft)] text-[color:var(--danger)] hover:bg-[#ffd0d0]`} onClick={onClear} disabled={disabled}><Trash2 size={16} /> Clear</button>
@@ -151,7 +151,7 @@ export function Toolbar({
       <div className={`grid gap-2 sm:gap-3 ${compact ? "xl:grid-cols-[minmax(0,1.25fr)_minmax(0,0.75fr)]" : "2xl:grid-cols-[minmax(0,1.45fr)_minmax(0,1fr)_minmax(0,0.8fr)]"}`}>
         <div className={`${sectionClass} min-w-0 flex-col items-stretch`}>
           <div className="flex flex-wrap items-center gap-2">
-            {commonToolButtons.map(({ id, label, Icon, emoji }) => (
+            {commonToolButtons.map(({ id, label, Icon }) => (
               <button
                 key={id}
                 type="button"
@@ -162,7 +162,7 @@ export function Toolbar({
                 }}
                 disabled={disabled}
               >
-                <span aria-hidden="true">{emoji}</span> <Icon size={16} /> {label}
+                <Icon size={16} /> {label}
               </button>
             ))}
             <button
@@ -171,7 +171,7 @@ export function Toolbar({
               onClick={() => setShapePanelOpen((value) => !value)}
               disabled={disabled}
             >
-              <span aria-hidden="true">📐</span> <Shapes size={16} /> Shapes
+              <Shapes size={16} /> Shapes
             </button>
           </div>
 
@@ -183,7 +183,7 @@ export function Toolbar({
                   {compact && <span className="text-[11px] text-[color:var(--text-muted)]">Pick one shape</span>}
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  {SHAPES.map(({ tool: shapeTool, label, icon: Icon, emoji }) => (
+                  {SHAPES.map(({ tool: shapeTool, label, icon: Icon }) => (
                     <button
                       key={shapeTool}
                       type="button"
@@ -194,7 +194,7 @@ export function Toolbar({
                       }}
                       disabled={disabled}
                     >
-                      <span aria-hidden="true">{emoji}</span> <Icon size={15} /> {label}
+                      <Icon size={15} /> {label}
                     </button>
                   ))}
                 </div>
@@ -210,7 +210,7 @@ export function Toolbar({
                 <div className="flex flex-wrap gap-2">
                   {BRUSHES.map((b) => (
                     <button key={b.id} type="button" className={`${toolButton} min-h-9 px-2.5 py-1.5 text-[11px] sm:text-xs ${brushStyle === b.id ? selectedToolButton : ''}`} onClick={() => setBrushStyle(b.id)} disabled={disabled}>
-                      <span aria-hidden="true">{b.emoji}</span> {b.label}
+                      {b.label}
                     </button>
                   ))}
                 </div>
@@ -287,7 +287,7 @@ export function Toolbar({
           <div className="rounded-[1.25rem] border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2.5 text-sm text-[color:var(--text-main)]">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <p className="font-black">🪄 Shape fill</p>
+                <p className="font-black">Shape fill</p>
                 <p className="text-xs text-[color:var(--text-muted)]">Closed shapes can use the current fill color.</p>
               </div>
               <label className="inline-flex items-center gap-2 text-sm font-medium text-[color:var(--text-main)]">
@@ -302,7 +302,7 @@ export function Toolbar({
           {utilityButtons}
           {!compact && (
             <div className="rounded-[1.25rem] border border-[color:var(--border)] bg-[color:var(--surface)] p-2.5 text-xs leading-5 text-[color:var(--text-muted)]">
-              Froddle keeps the toolbar roomy on smaller screens so buttons, emojis, and utility controls do not overlap the canvas.
+              Froddle keeps the toolbar roomy on smaller screens so controls stay legible and separated from the canvas area.
             </div>
           )}
         </div>

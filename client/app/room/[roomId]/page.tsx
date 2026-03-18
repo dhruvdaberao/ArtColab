@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { RefreshCw } from "lucide-react";
+import { Link2, RefreshCw } from "lucide-react";
 import { nanoid } from "nanoid";
 import { SOCKET_EVENTS } from "@cloudcanvas/shared";
 import type { BrushStyle, DrawingTool } from "@cloudcanvas/shared";
@@ -43,6 +43,7 @@ export default function RoomPage() {
   const [userId, setUserId] = useState("");
   const [displayName, setDisplayName] = useState("Guest");
   const [roomReady, setRoomReady] = useState(false);
+  const [roomMeta, setRoomMeta] = useState<{ name?: string; visibility?: "public" | "private" } | null>(null);
   const [roomLoadError, setRoomLoadError] = useState<string | null>(null);
   const [isClearModalOpen, setIsClearModalOpen] = useState(false);
   const [isExitModalOpen, setIsExitModalOpen] = useState(false);
@@ -105,7 +106,10 @@ export default function RoomPage() {
     if (!isValidRoomId)
       return (setRoomLoadError("Invalid room code."), setRoomReady(false));
     getRoom(roomId)
-      .then(() => setRoomReady(true))
+      .then((data) => {
+        setRoomMeta(data.room);
+        setRoomReady(true);
+      })
       .catch((error: Error) =>
         setRoomLoadError(error.message || "Room unavailable."),
       );
@@ -366,46 +370,44 @@ export default function RoomPage() {
       <div
         className={`mx-auto flex w-full max-w-[1520px] flex-col ${isWorkspaceMode ? "gap-3" : "gap-4"}`}
       >
-        <header className="flex flex-col gap-3 rounded-[24px] border-2 border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-3 shadow-[var(--shadow)] sm:rounded-[28px] sm:px-5 sm:py-4 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <FroddleLogoLink imageClassName="max-w-[110px] sm:max-w-[130px]" />
-              <div>
-                <p className="text-[10px] uppercase tracking-[0.22em] text-[color:var(--text-muted)] sm:text-[11px]">
-                  Froddle Room
-                </p>
-                <h1 className="text-lg font-black text-[color:var(--text-main)] sm:text-2xl">
-                  {roomId}
-                </h1>
+        <header className="space-y-3">
+          <div className="flex items-start justify-between gap-3">
+            <FroddleLogoLink imageClassName="max-w-[110px] sm:max-w-[130px]" />
+            <div className="shrink-0"><UserAvatarMenu /></div>
+          </div>
+          <div className="flex flex-col gap-3 rounded-[24px] border-2 border-[color:var(--border)] bg-[color:var(--surface)] px-4 py-4 shadow-[var(--shadow)] sm:rounded-[28px] sm:px-5 sm:py-5 xl:flex-row xl:items-start xl:justify-between">
+            <div className="min-w-0 space-y-3">
+              <div className="space-y-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge className="capitalize border-[color:var(--border)] bg-[color:var(--accent)] text-[color:var(--text-main)]">{roomMeta?.visibility ?? 'public'}</Badge>
+                  <Badge className="capitalize border-[color:var(--border)] bg-[color:var(--surface-soft)] text-[color:var(--text-main)]">{status}</Badge>
+                  {mode === "guess-mode" && (
+                    <Badge className="border-[color:var(--border)] bg-[#91d7ff] text-[color:var(--text-main)]">Guess mode active</Badge>
+                  )}
+                </div>
+                <div>
+                  <h1 className="truncate text-2xl font-black text-[color:var(--text-main)] sm:text-3xl">{roomMeta?.name?.trim() || `Room ${roomId}`}</h1>
+                  <p className="mt-1 text-sm text-[color:var(--text-muted)]">{roomMeta?.visibility === 'private' ? 'Private room. Access is limited to invited participants with the correct password.' : 'Public room. Anyone with the room details can hop in and draw together.'}</p>
+                </div>
               </div>
             </div>
-            <div className="lg:hidden"><UserAvatarMenu /></div>
-          </div>
-          <div className="flex flex-wrap items-center gap-2 pr-16 text-sm lg:justify-end lg:pr-0">
-            <div className="hidden lg:block"><UserAvatarMenu /></div>
-            <Badge className="capitalize border-[color:var(--border)] bg-[color:var(--accent)] text-[color:var(--text-main)]">
-              {status}
-            </Badge>
-            {mode === "guess-mode" && (
-              <Badge className="border-[color:var(--border)] bg-[#91d7ff] text-[color:var(--text-main)]">
-                Guess mode active
-              </Badge>
-            )}
-            <SecondaryButton
-              className="min-h-10 px-3 text-xs sm:min-h-11 sm:text-sm"
-              onClick={() => {
-                navigator.clipboard.writeText(window.location.href);
-                pushToast("Room link copied.");
-              }}
-            >
-              🔗 Copy room link
-            </SecondaryButton>
-            <DangerButton
-              className="min-h-10 px-4 text-xs sm:min-h-11 sm:px-5 sm:text-sm"
-              onClick={() => setIsExitModalOpen(true)}
-            >
-              🚪 Exit room
-            </DangerButton>
+            <div className="flex w-full flex-col gap-2 sm:flex-row sm:flex-wrap xl:w-auto xl:justify-end">
+              <SecondaryButton
+                className="min-h-10 px-3 text-xs sm:min-h-11 sm:text-sm"
+                onClick={() => {
+                  navigator.clipboard.writeText(window.location.href);
+                  pushToast("Room link copied.");
+                }}
+              >
+                <Link2 size={16} /> Copy room link
+              </SecondaryButton>
+              <DangerButton
+                className="min-h-10 px-4 text-xs sm:min-h-11 sm:px-5 sm:text-sm"
+                onClick={() => setIsExitModalOpen(true)}
+              >
+                Exit room
+              </DangerButton>
+            </div>
           </div>
         </header>
 
@@ -447,7 +449,7 @@ export default function RoomPage() {
         <section
           className={`grid gap-4 ${isWorkspaceMode ? "xl:grid-cols-[minmax(0,1.2fr)_340px]" : "2xl:grid-cols-[minmax(0,1fr)_320px]"}`}
         >
-          <div className={`relative min-w-0 ${isWorkspaceMode ? "lg:order-1" : ""}`}>
+          <div className={`min-w-0 space-y-3 ${isWorkspaceMode ? "lg:order-1" : ""}`}>
             {isWorkspaceMode && showMobileLayout && (
               <div className="mb-2 flex flex-col gap-3 rounded-2xl border border-[color:var(--border)] bg-[#fff1a8] px-3 py-3 text-xs text-[color:var(--text-main)] shadow-sm sm:flex-row sm:items-start sm:justify-between">
                 <div>
@@ -467,25 +469,26 @@ export default function RoomPage() {
                 </button>
               </div>
             )}
-            <CanvasBoard
-              roomId={roomId}
-              userId={userId || "pending"}
-              displayName={displayName}
-              avatarUrl={avatarUrl}
-              tool={tool}
-              brushStyle={brushStyle}
-              color={strokeColor}
-              fillColor={fillColor}
-              fillEnabled={fillEnabled}
-              size={size}
-              strokes={strokes}
-              cursors={cursors}
-              setStrokes={setStrokes}
-              disabled={!hasJoined}
-              resetViewSignal={resetViewSignal}
-              compact={showMobileLayout}
-            />
-            {strokes.length === 0 && (
+            <div className="relative">
+              <CanvasBoard
+                roomId={roomId}
+                userId={userId || "pending"}
+                displayName={displayName}
+                avatarUrl={avatarUrl}
+                tool={tool}
+                brushStyle={brushStyle}
+                color={strokeColor}
+                fillColor={fillColor}
+                fillEnabled={fillEnabled}
+                size={size}
+                strokes={strokes}
+                cursors={cursors}
+                setStrokes={setStrokes}
+                disabled={!hasJoined}
+                resetViewSignal={resetViewSignal}
+                compact={showMobileLayout}
+              />
+              {strokes.length === 0 && (
               <div className="pointer-events-none absolute inset-0 grid place-items-center p-4 sm:p-8">
                 <div className="max-w-xs rounded-[24px] border-2 border-[color:var(--border)] bg-[color:var(--surface)]/95 px-5 py-4 text-center shadow-[var(--shadow)] sm:rounded-[28px] sm:px-6 sm:py-5">
                   <p className="text-sm font-semibold text-[color:var(--text-main)]">
@@ -498,30 +501,40 @@ export default function RoomPage() {
                 </div>
               </div>
             )}
-            <div className="pointer-events-none absolute inset-0 overflow-hidden">
-              {reactionBursts.map((burst) => (
-                <div
-                  key={burst.id}
-                  className="absolute bottom-4 text-2xl animate-[float-up_2.2s_ease-out_forwards] sm:bottom-6 sm:text-3xl"
-                  style={{ left: `${burst.left}%` }}
-                >
-                  {burst.emoji}
+              <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-[28px]">
+                {reactionBursts.map((burst) => (
+                  <div
+                    key={burst.id}
+                    className="absolute bottom-4 text-2xl animate-[float-up_2.2s_ease-out_forwards] sm:bottom-6 sm:text-3xl"
+                    style={{ left: `${burst.left}%` }}
+                  >
+                    {burst.emoji}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <Card className="bg-[color:var(--surface)] p-3 sm:p-4">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--text-muted)]">Reactions</p>
+                  <p className="mt-1 text-sm text-[color:var(--text-muted)]">Send a quick response without covering the canvas or control rows.</p>
                 </div>
-              ))}
-            </div>
-            <div className="absolute left-2 right-2 top-3 z-10 flex flex-wrap justify-end gap-2 rounded-[1.25rem] border border-[color:var(--border)] bg-[color:var(--surface)]/95 p-2 shadow-sm sm:left-auto sm:right-3 sm:max-w-[260px]">
-              {REACTIONS.map(({ emoji, label }) => (
-                <button
-                  key={emoji}
-                  className="inline-flex h-10 min-w-10 items-center justify-center rounded-full border border-transparent bg-white text-lg transition hover:border-[color:var(--border)] hover:bg-[color:var(--surface-soft)]"
-                  onClick={() => sendReaction(emoji)}
-                  aria-label={label}
-                  title={label}
-                >
-                  {emoji}
-                </button>
-              ))}
-            </div>
+                <div className="flex flex-wrap gap-2">
+                  {REACTIONS.map(({ emoji, label }) => (
+                    <button
+                      key={emoji}
+                      className="inline-flex min-h-10 min-w-10 items-center justify-center rounded-full border-2 border-[color:var(--border)] bg-white px-3 text-lg shadow-[0_4px_0_rgba(26,26,26,0.08)] transition hover:-translate-y-0.5 hover:bg-[color:var(--surface-soft)]"
+                      onClick={() => sendReaction(emoji)}
+                      aria-label={label}
+                      title={label}
+                    >
+                      {emoji}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </Card>
           </div>
 
           <div className={`space-y-4 ${isWorkspaceMode ? "lg:order-2" : ""}`}>
@@ -560,7 +573,7 @@ export default function RoomPage() {
                   }
                 />
                 <Button onClick={sendChat} className="min-h-10 sm:min-w-24">
-                  💬 Send
+                  Send
                 </Button>
               </div>
             </Card>
