@@ -44,7 +44,7 @@ export function UserAvatarMenu() {
           event.stopPropagation();
           setOpen((prev) => !prev);
         }}
-        className="inline-flex h-12 items-center gap-2 rounded-full border-2 border-[color:var(--border)] bg-[linear-gradient(180deg,#fffef8_0%,#eef7d8_100%)] px-1.5 pr-3 shadow-[0_6px_0_rgba(26,26,26,0.12)] transition hover:-translate-y-0.5 hover:bg-[color:var(--surface-soft)]"
+        className="inline-flex h-12 items-center gap-2 rounded-full border-2 border-[color:var(--border)] bg-[color:var(--brand-yellow)] px-1.5 pr-3 shadow-[0_6px_0_rgba(26,26,26,0.14)] transition hover:-translate-y-0.5 hover:brightness-[1.03]"
       >
         <span className="grid h-9 w-9 place-items-center overflow-hidden rounded-full border border-[color:var(--border)] bg-[color:var(--surface-soft)] text-[11px] font-bold text-[color:var(--primary)]">
           {user.profileImage ? <img src={user.profileImage} alt={displayName} className="h-full w-full object-cover" /> : initials}

@@ -50,7 +50,7 @@ export function ConfirmModal({ open, title, description, confirmLabel = "Confirm
         </div>
         <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <SecondaryButton ref={cancelButtonRef} onClick={onCancel}>{cancelLabel}</SecondaryButton>
-          <Button onClick={onConfirm} className={destructive ? "bg-[color:var(--danger)] hover:bg-[#bd3939] text-[color:var(--surface)]" : ""}>{confirmLabel}</Button>
+          <Button onClick={onConfirm} className={destructive ? "bg-[color:var(--brand-red)] text-[color:var(--surface)] hover:bg-[color:var(--brand-red)]" : ""}>{confirmLabel}</Button>
         </div>
       </div>
     </div>

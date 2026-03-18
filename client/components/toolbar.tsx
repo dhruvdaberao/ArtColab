@@ -76,7 +76,7 @@ const SHAPES: Array<{ tool: ShapeKind; label: string; icon: typeof Minus }> = [
 const toolButton =
   "inline-flex min-h-10 items-center justify-center gap-2 rounded-2xl border-2 border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 text-xs font-black text-[color:var(--text-main)] shadow-[0_4px_0_rgba(26,26,26,0.08)] transition hover:-translate-y-0.5 hover:bg-[color:var(--surface-soft)] hover:shadow-[0_6px_0_rgba(26,26,26,0.08)] disabled:cursor-not-allowed disabled:opacity-40 sm:text-sm";
 const selectedToolButton =
-  "bg-[linear-gradient(180deg,#3ea5ff_0%,#1c7dd7_100%)] text-[color:var(--surface)] shadow-[0_5px_0_rgba(26,26,26,0.14)]";
+  "bg-[color:var(--brand-blue)] text-[color:var(--surface)] shadow-[0_5px_0_rgba(26,26,26,0.16)]";
 const sectionClass =
   "flex flex-wrap items-center gap-2 rounded-[1.5rem] border border-[color:var(--border)] bg-[color:var(--bg-elevated)] p-2.5";
 const labelClass =
@@ -142,7 +142,7 @@ export function Toolbar({
       <button type="button" className={toolButton} onClick={onDownload} disabled={disabled}><Download size={16} /> Export</button>
       <button type="button" className={toolButton} onClick={onResetView} disabled={disabled}><ZoomIn size={16} /> Reset view</button>
       <button type="button" className={toolButton} onClick={onCopyImage} disabled={disabled}><Copy size={16} /> Copy</button>
-      <button type="button" className={`${toolButton} bg-[color:var(--danger-soft)] text-[color:var(--danger)] hover:bg-[#ffd0d0]`} onClick={onClear} disabled={disabled}><Trash2 size={16} /> Clear</button>
+      <button type="button" className={`${toolButton} bg-[color:var(--brand-red)] text-white hover:bg-[color:var(--brand-red)]`} onClick={onClear} disabled={disabled}><Trash2 size={16} /> Clear</button>
     </div>
   );
 
