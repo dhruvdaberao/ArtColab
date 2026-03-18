@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/components/auth-provider';
 import { Button, SecondaryButton } from '@/components/ui';
+import { getAvatarInitials, resolveSessionDisplayName } from '@/lib/guest';
 
 export function UserAvatarMenu() {
   const { user, logout } = useAuth();
@@ -29,23 +30,24 @@ export function UserAvatarMenu() {
 
   if (!user) return null;
 
-  const initials = user.username.slice(0, 2).toUpperCase();
+  const displayName = resolveSessionDisplayName(user);
+  const initials = getAvatarInitials(displayName);
 
   return (
     <div ref={containerRef} className="relative">
       <button onClick={() => setOpen((prev) => !prev)} className="grid h-11 w-11 place-items-center overflow-hidden rounded-full border-2 border-black bg-[#f4efe2] shadow-sm transition hover:-translate-y-0.5">
-        {user.profileImage ? <img src={user.profileImage} alt={user.username} className="h-full w-full object-cover" /> : <span className="text-xs font-bold text-slate-900">{initials}</span>}
+        {user.profileImage ? <img src={user.profileImage} alt={displayName} className="h-full w-full object-cover" /> : <span className="text-xs font-bold text-slate-900">{initials}</span>}
       </button>
       {open && (
         <div className="absolute right-0 z-50 mt-2 w-64 space-y-3 rounded-[1.5rem] border-2 border-black bg-[#fffdf7] p-4 shadow-[8px_8px_0_rgba(17,24,39,0.08)]">
           <div>
-            <p className="text-sm font-bold text-slate-900">{user.username}</p>
+            <p className="text-sm font-bold text-slate-900">{displayName}</p>
             <p className="text-xs text-slate-600">{user.role === 'guest' ? 'Guest session' : pathname === '/profile' ? 'Account settings' : 'Signed in'}</p>
           </div>
           {user.role === 'guest' ? (
             <>
               <p className="text-xs text-slate-600">Guest mode is active. Save your identity to keep the same profile across rooms.</p>
-              <SecondaryButton className="w-full" onClick={() => { setOpen(false); router.push('/auth?view=login'); }}>Login / Create Account</SecondaryButton>
+              <SecondaryButton className="w-full" onClick={() => { setOpen(false); const redirect = encodeURIComponent(pathname || '/'); router.push(`/auth?view=login&redirect=${redirect}`); }}>Login / Create Account</SecondaryButton>
             </>
           ) : (
             <>

@@ -16,10 +16,10 @@ export function AuthCard({ initialView = 'login', redirectTo = '/' }: { initialV
   const [error, setError] = useState<string | null>(null);
   const [emailForReset, setEmailForReset] = useState('');
 
-  useEffect(() => setView(initialView), [initialView]);
-  useEffect(() => { if (user) router.replace(redirectTo); }, [user, router, redirectTo]);
-
   const authRedirect = useMemo(() => searchParams.get('redirect') || redirectTo, [searchParams, redirectTo]);
+
+  useEffect(() => setView(initialView), [initialView]);
+  useEffect(() => { if (user?.role === 'user') router.replace(authRedirect); }, [user, router, authRedirect]);
   const onSuccess = () => router.replace(authRedirect);
 
   return <Card className="space-y-4 border-2 border-black bg-[#fffdf7] p-6 shadow-[8px_8px_0_rgba(17,24,39,0.08)]">

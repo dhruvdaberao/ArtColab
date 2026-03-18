@@ -148,6 +148,26 @@ export class RoomManager {
     return Array.from(this.roomMeta.values()).sort((a, b) => b.createdAt - a.createdAt);
   }
 
+
+  getRoomIdsForParticipant(userId: string): string[] {
+    return Array.from(this.rooms.values())
+      .filter((room) => room.participants.some((participant) => participant.userId === userId))
+      .map((room) => room.roomId);
+  }
+
+  transferRoomOwnership(fromOwnerId: string, owner: RoomOwnership): string[] {
+    const transferred: string[] = [];
+    for (const meta of this.roomMeta.values()) {
+      if (meta.ownerId !== fromOwnerId || meta.ownerType !== 'guest') continue;
+      meta.ownerId = owner.ownerId;
+      meta.ownerType = owner.ownerType;
+      meta.ownerName = owner.ownerName;
+      meta.updatedAt = Date.now();
+      transferred.push(meta.roomId);
+    }
+    return transferred;
+  }
+
   addParticipant(roomId: string, participant: Participant): RoomState | null {
     const room = this.rooms.get(roomId);
     if (!room) return null;

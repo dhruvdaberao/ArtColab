@@ -15,6 +15,7 @@ import { Badge, Button, Card, SecondaryButton } from "@/components/ui";
 import { socket } from "@/lib/socket";
 import { useRoomSocket } from "@/hooks/use-room-socket";
 import { getRoom } from "@/lib/api";
+import { resolveSessionDisplayName } from "@/lib/guest";
 import { useAuth } from "@/components/auth-provider";
 import { UserAvatarMenu } from "@/components/user-avatar-menu";
 
@@ -64,7 +65,7 @@ export default function RoomPage() {
       localStorage.setItem("cloudcanvas-user-id", next);
       setUserId(next);
     }
-    setDisplayName(localStorage.getItem("cloudcanvas-display-name") ?? user?.username ?? "Guest");
+    setDisplayName(resolveSessionDisplayName(user));
   }, [user?.username]);
 
   useEffect(() => {

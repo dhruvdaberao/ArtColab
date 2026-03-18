@@ -6,6 +6,7 @@ import type { BrushStyle, CursorPayload, DrawingTool, ShapeKind, Stroke } from '
 import { nanoid } from 'nanoid';
 import { Move, ZoomIn, ZoomOut } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { getAvatarInitials } from '@/lib/guest';
 
 const LOGICAL_CANVAS_WIDTH = 1200;
 const LOGICAL_CANVAS_HEIGHT = 700;
@@ -20,7 +21,6 @@ const clamp = (value: number, min: number, max: number) => Math.min(Math.max(val
 const distanceBetween = (a: { x: number; y: number }, b: { x: number; y: number }) => Math.hypot(b.x - a.x, b.y - a.y);
 const midpoint = (a: { x: number; y: number }, b: { x: number; y: number }) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
 const isShapeTool = (tool: DrawingTool): tool is ShapeKind => SHAPE_TOOLS.includes(tool as ShapeKind);
-const getInitials = (name: string) => name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase() ?? '').join('') || '?';
 
 const buildShapePath = (ctx: CanvasRenderingContext2D, stroke: Stroke) => {
   const shape = stroke.shape;
@@ -375,7 +375,7 @@ export function CanvasBoard({ roomId, userId, displayName, avatarUrl, tool, brus
           <div className="pointer-events-none absolute inset-0">
             {Object.values(cursors).filter((cursor) => cursor.userId !== userId && Date.now() - cursor.updatedAt < 4000).map((cursor) => (
               <div key={cursor.userId} className="absolute -translate-x-1/2 -translate-y-1/2" style={{ left: `${(cursor.x / LOGICAL_CANVAS_WIDTH) * 100}%`, top: `${(cursor.y / LOGICAL_CANVAS_HEIGHT) * 100}%` }}>
-                <div className="rounded-full border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold text-slate-700 shadow-sm">{getInitials(cursor.displayName)}</div>
+                <div className="rounded-full border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold text-slate-700 shadow-sm">{getAvatarInitials(cursor.displayName)}</div>
               </div>
             ))}
           </div>
