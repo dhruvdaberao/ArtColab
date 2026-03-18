@@ -81,8 +81,7 @@ const request = async <T>(path: string, options: RequestInit = {}, fallback = 'R
     }
     const response = await fetch(`${API_URL}${path}`, {
       ...options,
-      headers,
-      credentials: 'include'
+      headers
     });
 
     const contentType = response.headers.get('content-type') || '';

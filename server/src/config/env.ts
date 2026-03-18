@@ -7,6 +7,8 @@ const envSchema = z.object({
   PORT: z.coerce.number().default(4000),
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   CLIENT_ORIGIN: z.string().optional(),
+  CLIENT_URL: z.string().optional(),
+  CLIENT_ORIGINS: z.string().optional(),
   ROOM_IDLE_TIMEOUT_MS: z.coerce.number().default(15 * 60 * 1000),
   CLEANUP_INTERVAL_MS: z.coerce.number().default(60 * 1000),
   MAX_STROKES_PER_ROOM: z.coerce.number().default(1000),
@@ -31,6 +33,11 @@ const wildcardToRegExp = (pattern: string): RegExp => {
   return new RegExp(`^${escaped}$`, 'i');
 };
 
+const parseOriginList = (...values: Array<string | undefined>): string[] => values
+  .flatMap((value) => (value ?? '').split(/[\s,]+/))
+  .map((origin) => normalizeOrigin(origin))
+  .filter(Boolean);
+
 const parsedEnv = envSchema.parse(process.env);
 const mongoUri = parsedEnv.MONGODB_URI ?? parsedEnv.MONGO_URI;
 const jwtSecret = parsedEnv.JWT_SECRET?.trim() ? parsedEnv.JWT_SECRET : 'development-cloudcanvas-jwt-secret';
@@ -41,15 +48,15 @@ export const env = {
   JWT_SECRET: jwtSecret
 };
 
-const defaultClientOrigins = ['http://localhost:3000', 'http://127.0.0.1:3000', 'https://art-colab-client.vercel.app'];
+const defaultClientOrigins = [
+  'http://localhost:3000',
+  'http://127.0.0.1:3000',
+  'https://art-colab-client.vercel.app',
+  'https://froodle.vercel.app'
+];
 
-const configuredClientOrigins = (env.CLIENT_ORIGIN ?? '')
-  .split(',')
-  .map((origin) => normalizeOrigin(origin))
-  .filter(Boolean);
-
+const configuredClientOrigins = parseOriginList(env.CLIENT_ORIGIN, env.CLIENT_URL, env.CLIENT_ORIGINS);
 const effectiveClientOrigins = [...defaultClientOrigins, ...configuredClientOrigins];
-
 const uniqueClientOrigins = [...new Set(effectiveClientOrigins)];
 
 const wildcardOriginPatterns = uniqueClientOrigins
@@ -63,17 +70,48 @@ const exactOrigins = new Set(uniqueClientOrigins.filter((origin) => !origin.incl
 
 export const allowedClientOrigins = uniqueClientOrigins;
 
-export const isAllowedClientOrigin = (origin?: string): boolean => {
-  if (!origin) return true;
+export const allowedClientOriginEnvSummary = {
+  CLIENT_ORIGIN: env.CLIENT_ORIGIN?.trim() || null,
+  CLIENT_URL: env.CLIENT_URL?.trim() || null,
+  CLIENT_ORIGINS: env.CLIENT_ORIGINS?.trim() || null
+};
+
+export const getClientOriginDecision = (origin?: string) => {
+  if (!origin) {
+    return {
+      allowed: true,
+      normalizedOrigin: null,
+      reason: 'no-origin-header'
+    } as const;
+  }
 
   const normalizedOrigin = normalizeOrigin(origin);
 
   if (exactOrigins.has(normalizedOrigin)) {
-    return true;
+    return {
+      allowed: true,
+      normalizedOrigin,
+      reason: 'exact-match'
+    } as const;
   }
 
-  return wildcardOriginPatterns.some(({ matcher }) => matcher.test(normalizedOrigin));
+  const wildcardMatch = wildcardOriginPatterns.find(({ matcher }) => matcher.test(normalizedOrigin));
+  if (wildcardMatch) {
+    return {
+      allowed: true,
+      normalizedOrigin,
+      reason: `wildcard-match:${wildcardMatch.origin}`
+    } as const;
+  }
+
+  return {
+    allowed: false,
+    normalizedOrigin,
+    reason: 'not-configured'
+  } as const;
 };
+
+export const isAllowedClientOrigin = (origin?: string): boolean => getClientOriginDecision(origin).allowed;
 
 export const validateCriticalEnv = () => {
   const warnings: string[] = [];
@@ -88,6 +126,10 @@ export const validateCriticalEnv = () => {
 
   if (!env.RESEND_API_KEY || !env.RESEND_FROM_EMAIL) {
     warnings.push('Resend email env vars are incomplete. Password reset email delivery will be disabled.');
+  }
+
+  if (!env.CLIENT_ORIGIN && !env.CLIENT_URL && !env.CLIENT_ORIGINS) {
+    warnings.push('CLIENT_ORIGIN/CLIENT_URL/CLIENT_ORIGINS is not set; using built-in safe defaults.');
   }
 
   warnings.forEach((warning) => console.warn(`[env] ${warning}`));

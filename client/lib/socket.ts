@@ -14,7 +14,6 @@ const resolveSocketUrl = () => {
 
 export const socket = io(resolveSocketUrl(), {
   autoConnect: false,
-  withCredentials: true,
   transports: ['websocket', 'polling'],
   reconnection: true,
   reconnectionAttempts: Infinity,
