@@ -70,7 +70,7 @@ export function UserAvatarMenu() {
                 Guest mode is active. Create an account to keep your profile and room history across sessions.
               </div>
               <SuccessButton className="w-full justify-center" onClick={() => { setOpen(false); const redirect = encodeURIComponent(pathname || '/'); router.push(`/auth?view=register&redirect=${redirect}`); }}>
-                ✨ Create account
+                Create account
               </SuccessButton>
               <SecondaryButton className="w-full justify-center" onClick={() => { setOpen(false); const redirect = encodeURIComponent(pathname || '/'); router.push(`/auth?view=login&redirect=${redirect}`); }}>
                 <CircleUserRound className="h-4 w-4" /> Login
@@ -79,7 +79,7 @@ export function UserAvatarMenu() {
           ) : (
             <div className="space-y-2">
               <SecondaryButton className="w-full justify-center" onClick={() => { setOpen(false); router.push('/profile'); }}>
-                <CircleUserRound className="h-4 w-4" /> 👤 Profile
+                <CircleUserRound className="h-4 w-4" /> Profile
               </SecondaryButton>
               <Button className="w-full justify-center" onClick={async () => { setOpen(false); await logout(); if (pathname !== '/') router.push('/'); }}>
                 <LogOut className="h-4 w-4" /> Logout

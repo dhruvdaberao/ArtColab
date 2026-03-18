@@ -344,9 +344,9 @@ export function CanvasBoard({
   const [previewStroke, setPreviewStroke] = useState<Stroke | null>(null);
   const zoomPercent = Math.round(viewport.scale * 100);
   const panHint = compact
-    ? "🫳 Pan: Shift-drag or two fingers"
-    : "🫳 Pan with Shift-drag or two fingers";
-  const zoomHint = compact ? "🔎 Pinch or Ctrl/Cmd + wheel to zoom" : "🔎 Zoom with pinch or Ctrl/Cmd + wheel";
+    ? "Pan: Shift-drag or two fingers"
+    : "Pan with Shift-drag or two fingers";
+  const zoomHint = compact ? "Pinch or Ctrl/Cmd + wheel to zoom" : "Zoom with pinch or Ctrl/Cmd + wheel";
 
   const viewportStyle = useMemo<React.CSSProperties>(
     () => ({
