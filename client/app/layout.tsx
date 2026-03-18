@@ -6,7 +6,7 @@ import './globals.css';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'ArtColab',
+  title: 'Art Colab',
   description: 'Professional real-time collaborative drawing app'
 };
 

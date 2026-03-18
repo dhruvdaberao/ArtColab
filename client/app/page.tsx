@@ -63,43 +63,46 @@ export default function HomePage() {
     }
   };
 
-  if (loading) return <main className="grid min-h-screen place-items-center text-lg font-semibold text-gray-800">Loading ArtColab…</main>;
+  if (loading) return <main className="grid min-h-screen place-items-center text-lg font-semibold text-gray-800">Loading Art Colab…</main>;
 
   if (!user) {
     return (
-      <main className="mx-auto flex min-h-screen w-full max-w-md items-center px-4 py-10">
-        <Card className="w-full space-y-4">
-          <div className="space-y-1 text-center">
-            <p className="inline-flex items-center rounded-full border-2 border-black bg-[#fef3c7] px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-black">Collaborative canvas</p>
-            <h1 className="text-3xl font-black text-gray-900">ArtColab</h1>
-            <p className="text-sm text-gray-600">Minimal, real-time drawing rooms for teams and friends.</p>
-          </div>
-          {view === 'entry' && (
-            <div className="space-y-3">
-              <Button className="w-full" onClick={() => setView('register')}>Create account</Button>
-              <SecondaryButton className="w-full" onClick={() => setView('login')}>Login</SecondaryButton>
-              <SecondaryButton className="w-full" disabled={isGuesting} onClick={() => {
-                setIsGuesting(true);
-                setError(null);
-                loginAsGuest().catch((e) => setError((e as Error).message)).finally(() => setIsGuesting(false));
-              }}>{isGuesting ? 'Starting guest session…' : 'Continue as guest'}</SecondaryButton>
-            </div>
-          )}
-          {view === 'login' && <LoginForm onSubmit={login} onBack={() => setView('entry')} onForgot={() => setView('forgot-request')} setError={setError} />}
-          {view === 'register' && <RegisterForm onSubmit={register} onBack={() => setView('entry')} setError={setError} />}
-          {view === 'forgot-request' && (
-            <ForgotRequest
-              onBack={() => setView('login')}
-              setError={setError}
-              onSent={(email) => {
-                setEmailForReset(email);
-                setView('forgot-verify');
-              }}
-            />
-          )}
-          {view === 'forgot-verify' && <ForgotVerify email={emailForReset} onBack={() => setView('login')} setError={setError} />}
-          {error && <p className="rounded-xl border-2 border-black bg-[#fee2e2] px-3 py-2 text-sm text-red-700">{error}</p>}
-        </Card>
+      <main className="mx-auto flex min-h-screen w-full max-w-5xl items-center px-4 py-10">
+        <div className="grid w-full gap-6 md:grid-cols-[1.1fr_0.9fr]">
+          <Card className="space-y-4 bg-[#f9f6ea]">
+            <p className="inline-flex items-center rounded-full border-2 border-black bg-[#f3e49a] px-3 py-1 text-xs font-bold uppercase tracking-[0.16em]">Realtime creative rooms</p>
+            <h1 className="text-4xl font-black leading-tight text-gray-900">Art Colab</h1>
+            <p className="max-w-md text-sm text-gray-700">A clean shared canvas for teams and friends. Draw together, stay synced, and move fast.</p>
+            <div className="rounded-2xl border-2 border-black bg-[#d9e9f4] p-4 text-sm font-medium text-gray-900">Guest mode stays instant. Account mode gives you profile, room history, and password recovery.</div>
+          </Card>
+          <Card className="space-y-4">
+            {view === 'entry' && (
+              <div className="space-y-3">
+                <Button className="w-full" onClick={() => setView('register')}>Create account</Button>
+                <SecondaryButton className="w-full" onClick={() => setView('login')}>Login</SecondaryButton>
+                <SecondaryButton className="w-full" disabled={isGuesting} onClick={() => {
+                  setIsGuesting(true);
+                  setError(null);
+                  loginAsGuest().catch((e) => setError((e as Error).message)).finally(() => setIsGuesting(false));
+                }}>{isGuesting ? 'Starting guest session…' : 'Continue as guest'}</SecondaryButton>
+              </div>
+            )}
+            {view === 'login' && <LoginForm onSubmit={login} onBack={() => setView('entry')} onForgot={() => setView('forgot-request')} setError={setError} />}
+            {view === 'register' && <RegisterForm onSubmit={register} onBack={() => setView('entry')} setError={setError} />}
+            {view === 'forgot-request' && (
+              <ForgotRequest
+                onBack={() => setView('login')}
+                setError={setError}
+                onSent={(email) => {
+                  setEmailForReset(email);
+                  setView('forgot-verify');
+                }}
+              />
+            )}
+            {view === 'forgot-verify' && <ForgotVerify email={emailForReset} onBack={() => setView('login')} setError={setError} />}
+            {error && <p className="rounded-xl border-2 border-black bg-[#fbe4e0] px-3 py-2 text-sm text-red-700">{error}</p>}
+          </Card>
+        </div>
       </main>
     );
   }
@@ -107,43 +110,39 @@ export default function HomePage() {
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-4 py-8 sm:px-8">
       <div className="mb-4 flex items-center justify-between">
-        <div className="inline-flex items-center gap-2 rounded-full border-2 border-black bg-[#fef3c7] px-4 py-2 text-sm font-semibold text-black">
-          <Palette className="h-4 w-4" /> ArtColab Workspace
+        <div className="inline-flex items-center gap-2 rounded-full border-2 border-black bg-[#f3e49a] px-4 py-2 text-sm font-semibold text-black">
+          <Palette className="h-4 w-4" /> Art Colab Workspace
         </div>
         <UserAvatarMenu />
       </div>
       <Card className="space-y-6 p-5 sm:p-8">
-        <div className="grid gap-3 rounded-2xl border-2 border-black bg-[#f9fafb] p-4 sm:flex sm:items-center sm:justify-between">
+        <div className="grid gap-3 rounded-2xl border-2 border-black bg-[#eef2f4] p-4 sm:flex sm:items-center sm:justify-between">
           <div>
             <h2 className="text-xl font-bold text-gray-900">Create or join a drawing room</h2>
             <p className="text-sm text-gray-600">Invite collaborators and draw live with synced canvas state.</p>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <Link href="/browse-rooms"><SecondaryButton>Browse rooms</SecondaryButton></Link>
-            <Link href="/manage-rooms"><SecondaryButton>Manage rooms</SecondaryButton></Link>
-            <Link href="/profile"><SecondaryButton>Profile</SecondaryButton></Link>
-          </div>
+          <Link className="inline-flex items-center rounded-full border-2 border-black bg-white px-3 py-1 text-xs font-semibold uppercase tracking-wide text-gray-700" href="/browse-rooms">Browse rooms</Link>
         </div>
-        <label className="block text-sm font-semibold text-gray-800">
-          Display name inside rooms
-          <Input className="mt-1" placeholder={user.username} value={displayName} onChange={(e) => setDisplayName(e.target.value)} maxLength={32} />
-        </label>
+
         <div className="grid gap-4 md:grid-cols-2">
-          <Card className="p-5 shadow-none">
-            <h2 className="mb-3 text-sm font-semibold text-gray-900">Create room</h2>
-            <form onSubmit={onCreate} className="space-y-2">
+          <Card className="space-y-3 bg-[#f9f6ea]">
+            <h3 className="text-lg font-semibold text-gray-900">Create room</h3>
+            <form className="space-y-3" onSubmit={onCreate}>
+              <Input placeholder="Display name (optional)" value={displayName} onChange={(e) => setDisplayName(e.target.value)} maxLength={40} />
               <Input placeholder="Room name" value={createName} onChange={(e) => setCreateName(e.target.value)} maxLength={48} />
               <select className="comic-input" value={createVisibility} onChange={(e) => setCreateVisibility(e.target.value as 'public' | 'private')}>
                 <option value="public">Public</option>
                 <option value="private">Private</option>
               </select>
               {createVisibility === 'private' && <Input type="password" placeholder="Room password" value={createPassword} onChange={(e) => setCreatePassword(e.target.value)} />}
-              <Button disabled={isCreating || isJoining} className="w-full">{isCreating ? 'Creating room…' : 'Create and enter'}</Button>
+              <Button type="submit" disabled={isCreating || isJoining} className="w-full">{isCreating ? 'Creating room…' : 'Create room'}</Button>
             </form>
           </Card>
-          <Card className="p-5 shadow-none">
-            <h2 className="mb-3 text-sm font-semibold text-gray-900">Join room</h2>
-            <form onSubmit={onJoin} className="space-y-2">
+
+          <Card className="space-y-3 bg-[#d9e9f4]">
+            <h3 className="text-lg font-semibold text-gray-900">Join room</h3>
+            <form className="space-y-3" onSubmit={onJoin}>
+              <Input placeholder="Display name (optional)" value={displayName} onChange={(e) => setDisplayName(e.target.value)} maxLength={40} />
               <Input placeholder="Room name" value={joinName} onChange={(e) => setJoinName(e.target.value)} maxLength={48} />
               <select className="comic-input" value={joinVisibility} onChange={(e) => setJoinVisibility(e.target.value as 'public' | 'private')}>
                 <option value="public">Public</option>
@@ -154,7 +153,7 @@ export default function HomePage() {
             </form>
           </Card>
         </div>
-        {error && <p className="rounded-xl border-2 border-black bg-[#fee2e2] px-3 py-2 text-sm text-red-700">{error}</p>}
+        {error && <p className="rounded-xl border-2 border-black bg-[#fbe4e0] px-3 py-2 text-sm text-red-700">{error}</p>}
       </Card>
     </main>
   );
@@ -172,6 +171,7 @@ function LoginForm({ onSubmit, onBack, onForgot, setError }: { onSubmit: (i: str
       setSubmitting(true);
       onSubmit(identifier, password).catch((err) => setError((err as Error).message)).finally(() => setSubmitting(false));
     }}>
+      <p className="text-sm font-semibold uppercase tracking-wide text-gray-600">Login</p>
       <Input placeholder="Email or username" value={identifier} onChange={(e) => setIdentifier(e.target.value)} />
       <Input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} />
       <Button className="w-full" disabled={submitting}>{submitting ? 'Logging in…' : 'Login'}</Button>
@@ -195,6 +195,7 @@ function RegisterForm({ onSubmit, onBack, setError }: { onSubmit: (e: string, u:
       setSubmitting(true);
       onSubmit(email, username, password, confirm).catch((err) => setError((err as Error).message)).finally(() => setSubmitting(false));
     }}>
+      <p className="text-sm font-semibold uppercase tracking-wide text-gray-600">Create account</p>
       <Input placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
       <Input placeholder="Username" value={username} onChange={(e) => setUsername(e.target.value)} />
       <Input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} />
@@ -223,6 +224,7 @@ function ForgotRequest({ onBack, onSent, setError }: { onBack: () => void; onSen
         .catch((err) => setError((err as Error).message))
         .finally(() => setSubmitting(false));
     }}>
+      <p className="text-sm font-semibold uppercase tracking-wide text-gray-600">Request reset code</p>
       <Input placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
       <Button className="w-full" disabled={submitting}>{submitting ? 'Sending…' : 'Send reset code'}</Button>
       {message && <p className="text-xs text-gray-600">{message}</p>}
@@ -248,6 +250,7 @@ function ForgotVerify({ email, onBack, setError }: { email: string; onBack: () =
         .catch((err) => setError((err as Error).message))
         .finally(() => setSubmitting(false));
     }}>
+      <p className="text-sm font-semibold uppercase tracking-wide text-gray-600">Verify code</p>
       <Input value={email} disabled />
       <Input placeholder="6-digit code" value={code} onChange={(e) => setCode(e.target.value)} maxLength={6} />
       <Input type="password" placeholder="New password" value={password} onChange={(e) => setPassword(e.target.value)} />
