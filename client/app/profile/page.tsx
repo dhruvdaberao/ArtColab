@@ -2,6 +2,7 @@
 
 import { ChangeEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { SiteHeader } from '@/components/site-header';
 import { useAuth } from '@/components/auth-provider';
 import { Button, Card, Input, SecondaryButton } from '@/components/ui';
 import { updateProfile } from '@/lib/api';
@@ -39,8 +40,9 @@ export default function ProfilePage() {
 
   return (
     <main className="mx-auto min-h-screen w-full max-w-4xl px-4 py-6 sm:px-6 sm:py-8">
-      <Card className="brand-panel space-y-5 bg-[color:var(--surface)] p-5 sm:p-6">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div><h1 className="text-2xl font-extrabold text-[color:var(--primary)]">Your Froddle profile</h1><p className="mt-1 text-sm text-[color:var(--text-muted)]">Update your saved identity without affecting room, auth, or guest behavior.</p></div><SecondaryButton onClick={() => router.push('/')}>Back home</SecondaryButton></div>
+      <SiteHeader compact />
+      <Card className="space-y-5 bg-[color:var(--surface)] p-5 sm:p-6">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div><h1 className="text-2xl font-black text-[color:var(--text-main)]">👤 Your Froddle profile</h1><p className="mt-1 text-sm text-[color:var(--text-muted)]">Update your saved identity without affecting rooms, auth, or guest behavior.</p></div><SecondaryButton onClick={() => router.push('/')}>🏠 Back home</SecondaryButton></div>
         <div className="grid gap-5 lg:grid-cols-[auto_1fr] lg:items-start">
           <div className="flex flex-col items-start gap-3">
             <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-full border-2 border-[color:var(--border)] bg-[color:var(--surface-soft)] transition hover:scale-105">
@@ -49,8 +51,8 @@ export default function ProfilePage() {
             <Input type="file" accept="image/*" onChange={onImageChange} className="max-w-xs" />
           </div>
           <div className="space-y-4">
-            <label className="block text-sm font-semibold text-[color:var(--primary)]">Username<Input value={username} onChange={(e) => setUsername(e.target.value)} className="mt-1" /></label>
-            <label className="block text-sm font-semibold text-[color:var(--primary)]">Email<Input value={email} onChange={(e) => setEmail(e.target.value)} className="mt-1" /></label>
+            <label className="block text-sm font-semibold text-[color:var(--text-main)]">Username<Input value={username} onChange={(e) => setUsername(e.target.value)} className="mt-1" /></label>
+            <label className="block text-sm font-semibold text-[color:var(--text-main)]">Email<Input value={email} onChange={(e) => setEmail(e.target.value)} className="mt-1" /></label>
             <Button
               onClick={() => {
                 setError('');
@@ -64,7 +66,7 @@ export default function ProfilePage() {
               }}
               className="w-full sm:w-auto"
             >
-              Save changes
+              💾 Save changes
             </Button>
           </div>
         </div>
