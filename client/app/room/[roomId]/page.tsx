@@ -21,10 +21,11 @@ import {
 } from "@/components/ui";
 import { getSocket } from "@/lib/socket";
 import { useRoomSocket } from "@/hooks/use-room-socket";
-import { getRoom } from "@/lib/api";
+import { getRoom, joinRoom } from "@/lib/api";
 import { resolveSessionDisplayName } from "@/lib/guest";
 import { useAuth } from "@/components/auth-provider";
 import { UserAvatarMenu } from "@/components/user-avatar-menu";
+import { grantRoomAccess, hasRoomAccessGrant, revokeRoomAccess } from "@/lib/room-access";
 
 const REACTIONS = [
   { emoji: "❤️", label: "Appreciate" },
@@ -61,6 +62,9 @@ export default function RoomPage() {
   } | null>(null);
   const [roomLoadError, setRoomLoadError] = useState<string | null>(null);
   const [isRoomLoading, setIsRoomLoading] = useState(true);
+  const [privateRoomPassword, setPrivateRoomPassword] = useState("");
+  const [privateRoomError, setPrivateRoomError] = useState<string | null>(null);
+  const [isUnlockingPrivateRoom, setIsUnlockingPrivateRoom] = useState(false);
   const [isClearModalOpen, setIsClearModalOpen] = useState(false);
   const [isExitModalOpen, setIsExitModalOpen] = useState(false);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
@@ -141,7 +145,14 @@ export default function RoomPage() {
       .then((data) => {
         if (cancelled) return;
         setRoomMeta(data.room);
-        setRoomReady(true);
+        if (
+          data.room.visibility === "private" &&
+          !hasRoomAccessGrant(data.room.roomId)
+        ) {
+          setRoomReady(false);
+        } else {
+          setRoomReady(true);
+        }
         setIsRoomLoading(false);
       })
       .catch((error: Error) => {
@@ -159,6 +170,22 @@ export default function RoomPage() {
   useEffect(() => {
     joinedToastShownRef.current = false;
   }, [roomId]);
+
+  useEffect(() => {
+    if (roomMeta?.visibility !== "private") {
+      setPrivateRoomPassword("");
+      setPrivateRoomError(null);
+      return;
+    }
+
+    if (hasRoomAccessGrant(roomMeta.roomId)) {
+      setPrivateRoomError(null);
+      setRoomReady(true);
+      return;
+    }
+
+    setRoomReady(false);
+  }, [roomMeta]);
 
   useEffect(() => {
     const updateViewportState = () => {
@@ -386,9 +413,40 @@ export default function RoomPage() {
   const leaveRoomSafely = useCallback(async () => {
     await resetWorkspaceMode();
     leaveSocketRoom();
+    revokeRoomAccess(roomId);
     setIsExitModalOpen(false);
     router.push("/");
-  }, [leaveSocketRoom, resetWorkspaceMode, router]);
+  }, [leaveSocketRoom, resetWorkspaceMode, roomId, router]);
+
+  const unlockPrivateRoom = useCallback(async () => {
+    if (!roomMeta || roomMeta.visibility !== "private") return;
+
+    const password = privateRoomPassword.trim();
+    if (!password) {
+      setPrivateRoomError("Enter the room password to continue.");
+      return;
+    }
+
+    try {
+      setIsUnlockingPrivateRoom(true);
+      setPrivateRoomError(null);
+      await joinRoom({
+        name: roomMeta.roomId,
+        visibility: "private",
+        password,
+      });
+      grantRoomAccess(roomMeta.roomId);
+      setRoomReady(true);
+      setPrivateRoomPassword("");
+      pushToast(`Unlocked private room ${roomMeta.roomId}.`);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Unable to unlock room.";
+      setPrivateRoomError(message);
+    } finally {
+      setIsUnlockingPrivateRoom(false);
+    }
+  }, [privateRoomPassword, pushToast, roomMeta]);
 
   if (isRoomLoading)
     return (
@@ -413,6 +471,52 @@ export default function RoomPage() {
           <Button className="mt-2" onClick={() => router.push("/")}>
             Go to home
           </Button>
+        </Card>
+      </main>
+    );
+
+  if (
+    roomMeta?.visibility === "private" &&
+    !roomReady &&
+    !hasRoomAccessGrant(roomMeta.roomId)
+  )
+    return (
+      <main className="flex min-h-screen items-center justify-center p-6">
+        <Card className="max-w-md space-y-4 p-8">
+          <div className="space-y-2 text-center">
+            <h1 className="text-2xl font-semibold">Private room</h1>
+            <p className="text-slate-600">
+              Enter the password for {roomMeta.name || `room ${roomMeta.roomId}`}{" "}
+              to start the live session.
+            </p>
+          </div>
+          <input
+            type="password"
+            value={privateRoomPassword}
+            onChange={(event) => setPrivateRoomPassword(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" && !isUnlockingPrivateRoom) {
+                void unlockPrivateRoom();
+              }
+            }}
+            className="w-full rounded-2xl border-2 border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2.5 text-sm outline-none ring-0 transition focus:border-[color:var(--primary)] focus:shadow-[0_0_0_3px_rgba(28,117,188,0.16)]"
+            placeholder="Room password"
+          />
+          {privateRoomError && (
+            <p className="text-sm text-red-600">{privateRoomError}</p>
+          )}
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Button
+              className="flex-1"
+              onClick={() => void unlockPrivateRoom()}
+              disabled={isUnlockingPrivateRoom}
+            >
+              {isUnlockingPrivateRoom ? "Unlocking..." : "Unlock room"}
+            </Button>
+            <SecondaryButton className="flex-1" onClick={() => router.push("/")}>
+              Back home
+            </SecondaryButton>
+          </div>
         </Card>
       </main>
     );

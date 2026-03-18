@@ -114,6 +114,23 @@ const authToken = () =>
   typeof window !== "undefined"
     ? localStorage.getItem("cloudcanvas-auth-token")
     : null;
+
+const REQUEST_TIMEOUT_MS = 15000;
+
+const combineSignals = (
+  signalA?: AbortSignal | null,
+  signalB?: AbortSignal | null,
+): AbortSignal | undefined => {
+  if (!signalA) return signalB ?? undefined;
+  if (!signalB) return signalA ?? undefined;
+  const controller = new AbortController();
+  const abort = () => controller.abort();
+  signalA.addEventListener("abort", abort, { once: true });
+  signalB.addEventListener("abort", abort, { once: true });
+  if (signalA.aborted || signalB.aborted) controller.abort();
+  return controller.signal;
+};
+
 const request = async <T>(
   path: string,
   options: RequestInit = {},
@@ -133,10 +150,35 @@ const request = async <T>(
     if (!token && guestDisplayName && !headers.has("X-Guest-Display-Name")) {
       headers.set("X-Guest-Display-Name", guestDisplayName);
     }
-    const response = await fetch(`${API_URL}${path}`, {
-      ...options,
-      headers,
-    });
+    const timeoutController = new AbortController();
+    const timeoutId = globalThis.setTimeout(
+      () => timeoutController.abort(),
+      REQUEST_TIMEOUT_MS,
+    );
+    const signal = combineSignals(options.signal, timeoutController.signal);
+    let response: Response;
+    try {
+      response = await fetch(`${API_URL}${path}`, {
+        ...options,
+        headers,
+        signal,
+      });
+    } catch (error) {
+      if (
+        error instanceof DOMException &&
+        error.name === "AbortError" &&
+        timeoutController.signal.aborted
+      ) {
+        throw new ApiError(
+          `${fallback} The server took too long to respond.`,
+          504,
+          "REQUEST_TIMEOUT",
+        );
+      }
+      throw error;
+    } finally {
+      globalThis.clearTimeout(timeoutId);
+    }
 
     const contentType = response.headers.get("content-type") || "";
     const body = contentType.includes("application/json")

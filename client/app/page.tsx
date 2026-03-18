@@ -21,6 +21,7 @@ import {
   resolveSessionDisplayName,
   setStoredDisplayName,
 } from "@/lib/guest";
+import { grantRoomAccess } from "@/lib/room-access";
 
 export default function HomePage() {
   const router = useRouter();
@@ -82,6 +83,9 @@ export default function HomePage() {
         password: createVisibility === "private" ? createPassword : undefined,
         guestDisplayName: user?.role === "guest" ? sessionName : undefined,
       });
+      if (data.room.visibility === "private") {
+        grantRoomAccess(data.room.roomId);
+      }
       router.push(`/room/${data.room.roomId}`);
     } catch (err) {
       setError((err as Error).message || "Unable to create room.");
@@ -107,6 +111,9 @@ export default function HomePage() {
         password: joinVisibility === "private" ? joinPassword : undefined,
         guestDisplayName: user?.role === "guest" ? normalized : undefined,
       });
+      if (data.room.visibility === "private") {
+        grantRoomAccess(data.room.roomId);
+      }
       router.push(`/room/${data.room.roomId}`);
     } catch (err) {
       setError((err as Error).message || "Unable to join room.");
