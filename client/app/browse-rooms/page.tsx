@@ -54,14 +54,14 @@ export default function BrowseRoomsPage() {
       <SiteHeader compact />
 
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <Link href="/"><SecondaryButton>🏠 Back home</SecondaryButton></Link>
+        <Link href="/"><SecondaryButton>Back home</SecondaryButton></Link>
         {user?.role === 'guest' && <p className="text-sm text-[color:var(--text-muted)]">Joining as <span className="font-semibold text-[color:var(--text-main)]">{resolveSessionDisplayName(user)}</span>.</p>}
       </div>
 
       <Card className="space-y-4 bg-[color:var(--surface)] p-5 sm:p-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-2xl font-black text-[color:var(--text-main)] sm:text-3xl">🐸 Browse rooms</h1>
+            <h1 className="text-2xl font-black text-[color:var(--text-main)] sm:text-3xl">Browse rooms</h1>
             <p className="mt-1 text-sm text-[color:var(--text-muted)]">Search active Froddle spaces and jump in fast.</p>
           </div>
           <p className="text-sm text-[color:var(--text-muted)]">{rooms.length} room{rooms.length === 1 ? '' : 's'} available.</p>
@@ -91,7 +91,7 @@ export default function BrowseRoomsPage() {
                 <p className="inline-flex items-center gap-1"><Users className="h-3 w-3" /> {room.participants} participant{room.participants === 1 ? '' : 's'}</p>
                 <p className="inline-flex items-center gap-1 break-all">🔑 Room code: {room.roomId}</p>
               </div>
-              <Button onClick={() => startJoin(room).catch((e) => setError((e as Error).message))} className="mt-auto w-full">🚪 Join room</Button>
+              <Button onClick={() => startJoin(room).catch((e) => setError((e as Error).message))} className="mt-auto w-full">Join room</Button>
             </div>
           ))}
         </div>

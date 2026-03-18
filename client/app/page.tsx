@@ -103,9 +103,9 @@ export default function HomePage() {
 
   if (!user) {
     return (
-      <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
-        <section className="grid flex-1 items-center gap-6 lg:grid-cols-[1.15fr_0.85fr]">
-          <Card className="brand-panel space-y-6 overflow-hidden p-6 sm:p-8 lg:p-10">
+      <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-4 py-5 sm:px-6 sm:py-6 lg:px-8">
+        <section className="grid flex-1 items-start gap-8 pt-1 lg:grid-cols-[1.1fr_0.9fr] lg:gap-10 lg:pt-2">
+          <div className="space-y-6 self-center py-2 sm:space-y-7">
             <div className="flex justify-center lg:justify-start">
               <FroddleLogo priority imageClassName="max-w-[220px] sm:max-w-[300px]" />
             </div>
@@ -114,15 +114,15 @@ export default function HomePage() {
               <p className="mx-auto max-w-2xl text-sm leading-7 text-[color:var(--text-muted)] sm:text-lg lg:mx-0">Froddle turns collaborative sketching into a playful room-based experience with live drawing, chat, reactions, and frog-powered personality.</p>
             </div>
             <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap lg:justify-start">
-              <Link href="/browse-rooms"><SecondaryButton className="w-full sm:w-auto">🐸 Browse rooms</SecondaryButton></Link>
-              <Link href="/manage-rooms"><Button className="w-full sm:w-auto">🛠️ Manage rooms</Button></Link>
+              <Link href="/browse-rooms"><SecondaryButton className="w-full sm:w-auto">Browse rooms</SecondaryButton></Link>
+              <Link href="/manage-rooms"><Button className="w-full sm:w-auto">Manage rooms</Button></Link>
             </div>
-          </Card>
+          </div>
 
-          <Card className="space-y-4 bg-[color:var(--surface)] p-5 sm:p-6">
+          <Card className="space-y-4 bg-[color:var(--surface)] p-5 sm:p-6 lg:self-center">
             <p className="text-sm font-semibold text-[color:var(--text-muted)]">Hop in with an account or start a guest session.</p>
-            <Link href="/auth?view=register" className="block"><SuccessButton className="w-full">✨ Create account</SuccessButton></Link>
-            <Link href="/auth?view=login" className="block"><Button className="w-full">🔐 Login</Button></Link>
+            <Link href="/auth?view=register" className="block"><SuccessButton className="w-full">Create account</SuccessButton></Link>
+            <Link href="/auth?view=login" className="block"><Button className="w-full">Login</Button></Link>
             <SecondaryButton
               className="w-full"
               disabled={isGuesting}
@@ -132,7 +132,7 @@ export default function HomePage() {
                 loginAsGuest().catch((e) => setError((e as Error).message)).finally(() => setIsGuesting(false));
               }}
             >
-              {isGuesting ? 'Starting guest session…' : '🎨 Continue as guest'}
+              {isGuesting ? 'Starting guest session…' : 'Continue as guest'}
             </SecondaryButton>
             {error && <p className="status-banner status-danger">{error}</p>}
           </Card>
@@ -142,29 +142,29 @@ export default function HomePage() {
   }
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-7xl flex-col px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
+    <main className="mx-auto flex min-h-screen w-full max-w-7xl flex-col px-4 py-5 sm:px-6 sm:py-6 lg:px-8">
       <SiteHeader />
 
       {error && <p className="mb-4 status-banner status-danger">{error}</p>}
 
-      <section className="mb-6 rounded-[2rem] border-2 border-[color:var(--border)] bg-[linear-gradient(135deg,rgba(255,255,255,0.96),rgba(223,240,255,0.92))] px-5 py-8 text-center shadow-[var(--shadow)] sm:px-8 sm:py-10">
+      <section className="mb-6 space-y-4 px-1 py-1 text-center sm:mb-7 sm:space-y-5 lg:px-0">
         <div className="mx-auto flex max-w-4xl flex-col items-center gap-4">
           <FroddleLogo priority imageClassName="max-w-[220px] sm:max-w-[320px]" />
           <div className="space-y-3">
             <p className="text-sm font-black uppercase tracking-[0.24em] text-[color:var(--brand-green)]">Welcome back, {resolveSessionDisplayName(user)}!</p>
             <h1 className="text-3xl font-black text-[color:var(--text-main)] sm:text-5xl">Your collaborative frog pond is ready.</h1>
-            <p className="max-w-2xl text-sm leading-7 text-[color:var(--text-muted)] sm:text-lg">Create a fresh room, jump into an existing one, or explore active spaces without fighting the interface.</p>
+            <p className="mx-auto max-w-2xl text-sm leading-7 text-[color:var(--text-muted)] sm:text-lg">Create a fresh room, jump into an existing one, or explore active spaces without fighting the interface.</p>
           </div>
           <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:flex-wrap sm:justify-center">
-            <Link href="/browse-rooms"><SecondaryButton className="w-full sm:w-auto">🐸 Browse rooms</SecondaryButton></Link>
-            <Link href="/manage-rooms"><Button className="w-full sm:w-auto">🛠️ Manage rooms</Button></Link>
+            <Link href="/browse-rooms"><SecondaryButton className="w-full sm:w-auto">Browse rooms</SecondaryButton></Link>
+            <Link href="/manage-rooms"><Button className="w-full sm:w-auto">Manage rooms</Button></Link>
           </div>
         </div>
       </section>
 
       <section className="grid gap-4 xl:grid-cols-2">
-        <Card className="space-y-3 bg-[color:var(--surface)] p-5 sm:p-6"><h2 className="text-xl font-black text-[color:var(--text-main)]">🎉 Create room</h2><p className="text-sm text-[color:var(--text-muted)]">Launch a fresh creative space for sketches, brainstorms, and shared experiments.</p><form className="space-y-3" onSubmit={onCreate}><Input placeholder="Room name" value={createName} onChange={(e) => setCreateName(e.target.value)} required /><select className="comic-select" value={createVisibility} onChange={(e) => setCreateVisibility(e.target.value as 'public' | 'private')}><option value="public">Public</option><option value="private">Private</option></select>{createVisibility === 'private' && <Input type="password" placeholder="Room password" value={createPassword} onChange={(e) => setCreatePassword(e.target.value)} /> }<SuccessButton type="submit" disabled={isCreating || isJoining} className="w-full">{isCreating ? 'Creating room…' : 'Create room'}</SuccessButton></form></Card>
-        <Card className="space-y-3 bg-[color:var(--surface)] p-5 sm:p-6"><h2 className="text-xl font-black text-[color:var(--text-main)]">🚪 Join room</h2><p className="text-sm text-[color:var(--text-muted)]">Rejoin your crew with a room name and hop back into the shared board.</p><form className="space-y-3" onSubmit={onJoin}><Input placeholder="Room name" value={joinName} onChange={(e) => setJoinName(e.target.value)} required /><select className="comic-select" value={joinVisibility} onChange={(e) => setJoinVisibility(e.target.value as 'public' | 'private')}><option value="public">Public</option><option value="private">Private</option></select>{joinVisibility === 'private' && <Input type="password" placeholder="Room password" value={joinPassword} onChange={(e) => setJoinPassword(e.target.value)} /> }<Button type="submit" disabled={isCreating || isJoining} className="w-full">{isJoining ? 'Joining room…' : 'Join room'}</Button></form></Card>
+        <Card className="space-y-3 bg-[color:var(--surface)] p-5 sm:p-6"><h2 className="text-xl font-black text-[color:var(--text-main)]">Create room</h2><p className="text-sm text-[color:var(--text-muted)]">Launch a fresh creative space for sketches, brainstorms, and shared experiments.</p><form className="space-y-3" onSubmit={onCreate}><Input placeholder="Room name" value={createName} onChange={(e) => setCreateName(e.target.value)} required /><select className="comic-select" value={createVisibility} onChange={(e) => setCreateVisibility(e.target.value as 'public' | 'private')}><option value="public">Public</option><option value="private">Private</option></select>{createVisibility === 'private' && <Input type="password" placeholder="Room password" value={createPassword} onChange={(e) => setCreatePassword(e.target.value)} /> }<SuccessButton type="submit" disabled={isCreating || isJoining} className="w-full">{isCreating ? 'Creating room…' : 'Create room'}</SuccessButton></form></Card>
+        <Card className="space-y-3 bg-[color:var(--surface)] p-5 sm:p-6"><h2 className="text-xl font-black text-[color:var(--text-main)]">Join room</h2><p className="text-sm text-[color:var(--text-muted)]">Rejoin your crew with a room name and hop back into the shared board.</p><form className="space-y-3" onSubmit={onJoin}><Input placeholder="Room name" value={joinName} onChange={(e) => setJoinName(e.target.value)} required /><select className="comic-select" value={joinVisibility} onChange={(e) => setJoinVisibility(e.target.value as 'public' | 'private')}><option value="public">Public</option><option value="private">Private</option></select>{joinVisibility === 'private' && <Input type="password" placeholder="Room password" value={joinPassword} onChange={(e) => setJoinPassword(e.target.value)} /> }<Button type="submit" disabled={isCreating || isJoining} className="w-full">{isJoining ? 'Joining room…' : 'Join room'}</Button></form></Card>
       </section>
 
       <section className="mt-6">
