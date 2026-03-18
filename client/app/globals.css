@@ -26,8 +26,9 @@
   --success: #1d8f52;
   --success-soft: #ddf8e7;
   --shadow: 8px 8px 0 rgba(26, 26, 26, 0.12);
-  --paper-line: rgba(28, 125, 215, 0.12);
-  --paper-grid: rgba(255, 216, 77, 0.1);
+  --grid-line: rgba(28, 125, 215, 0.09);
+  --grid-line-strong: rgba(31, 183, 106, 0.08);
+  --grid-glow: rgba(255, 255, 255, 0.7);
 }
 
 html {
@@ -38,10 +39,26 @@ body {
   min-height: 100vh;
   color: var(--text-main);
   background:
-    linear-gradient(90deg, transparent 0, transparent 76px, rgba(255, 93, 93, 0.12) 76px, rgba(255, 93, 93, 0.12) 78px, transparent 78px),
-    repeating-linear-gradient(to bottom, transparent 0, transparent 34px, var(--paper-line) 34px, var(--paper-line) 35px),
-    repeating-linear-gradient(to right, transparent 0, transparent 34px, var(--paper-grid) 34px, var(--paper-grid) 35px),
-    radial-gradient(circle at top left, #fffdf4, #f8f4e8 48%, #e6f2d3 100%);
+    linear-gradient(var(--grid-glow), var(--grid-glow)),
+    linear-gradient(to right, var(--grid-line) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px),
+    linear-gradient(to right, var(--grid-line-strong) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--grid-line-strong) 1px, transparent 1px),
+    radial-gradient(circle at top left, #fffef8, #f8f4e8 52%, #e5f2d8 100%);
+  background-size:
+    100% 100%,
+    26px 26px,
+    26px 26px,
+    104px 104px,
+    104px 104px,
+    100% 100%;
+  background-position:
+    0 0,
+    0 0,
+    0 0,
+    -1px -1px,
+    -1px -1px,
+    0 0;
   background-attachment: fixed;
   @apply antialiased;
 }
