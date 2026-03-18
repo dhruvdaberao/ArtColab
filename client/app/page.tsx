@@ -61,7 +61,12 @@ export default function HomePage() {
     setIsCreating(true);
     setError(null);
     try {
-      const data = await createRoom({ name: createName.trim(), visibility: createVisibility, password: createVisibility === 'private' ? createPassword : undefined });
+      const data = await createRoom({
+        name: createName.trim(),
+        visibility: createVisibility,
+        password: createVisibility === 'private' ? createPassword : undefined,
+        guestDisplayName: user?.role === 'guest' ? sessionName : undefined
+      });
       router.push(`/room/${data.room.roomId}`);
     } catch (err) {
       setError((err as Error).message || 'Unable to create room.');
@@ -83,7 +88,12 @@ export default function HomePage() {
     setIsJoining(true);
     setError(null);
     try {
-      const data = await joinRoom({ name: joinName.trim(), visibility: joinVisibility, password: joinVisibility === 'private' ? joinPassword : undefined });
+      const data = await joinRoom({
+        name: joinName.trim(),
+        visibility: joinVisibility,
+        password: joinVisibility === 'private' ? joinPassword : undefined,
+        guestDisplayName: user?.role === 'guest' ? normalized : undefined
+      });
       router.push(`/room/${data.roomId}`);
     } catch (err) {
       setError((err as Error).message || 'Unable to join room.');

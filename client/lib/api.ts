@@ -69,8 +69,6 @@ const withNetworkErrorHandling = async <T>(requestFn: () => Promise<T>, fallback
 };
 
 const authToken = () => (typeof window !== 'undefined' ? localStorage.getItem('cloudcanvas-auth-token') : null);
-const guestDisplayName = () => (typeof window !== 'undefined' ? localStorage.getItem('cloudcanvas-display-name')?.trim() || null : null);
-
 const request = async <T>(path: string, options: RequestInit = {}, fallback = 'Request failed.'): Promise<T> => {
   return withNetworkErrorHandling(async () => {
     const token = authToken();
@@ -81,11 +79,6 @@ const request = async <T>(path: string, options: RequestInit = {}, fallback = 'R
     if (token) {
       headers.set('Authorization', `Bearer ${token}`);
     }
-    const displayName = guestDisplayName();
-    if (displayName) {
-      headers.set('X-Guest-Display-Name', displayName);
-    }
-
     const response = await fetch(`${API_URL}${path}`, {
       ...options,
       headers,
@@ -113,10 +106,10 @@ export const setAuthToken = (token: string | null) => {
   localStorage.setItem('cloudcanvas-auth-token', token);
 };
 
-export const createRoom = async (payload: { name: string; visibility: 'public' | 'private'; password?: string }): Promise<CreateRoomResponse> =>
+export const createRoom = async (payload: { name: string; visibility: 'public' | 'private'; password?: string; guestDisplayName?: string }): Promise<CreateRoomResponse> =>
   request('/api/rooms/create', { method: 'POST', body: JSON.stringify(payload) }, 'Failed to create room.');
 
-export const joinRoom = async (payload: { name: string; visibility: 'public' | 'private'; password?: string }): Promise<{ roomId: string }> =>
+export const joinRoom = async (payload: { name: string; visibility: 'public' | 'private'; password?: string; guestDisplayName?: string }): Promise<{ roomId: string }> =>
   request('/api/rooms/join', { method: 'POST', body: JSON.stringify(payload) }, 'Failed to join room.');
 
 export const browseRooms = async (query: string): Promise<{ rooms: RoomListItem[] }> =>

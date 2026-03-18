@@ -29,6 +29,7 @@ export const createRoomSchema = z
     name: roomNameSchema,
     visibility: roomVisibilitySchema,
     password: z.string().max(64).optional(),
+    guestDisplayName: z.string().trim().min(1).max(32).optional(),
   })
   .superRefine((value, ctx) => {
     if (
@@ -48,6 +49,7 @@ export const joinRoomHttpSchema = z
     name: roomNameSchema,
     visibility: roomVisibilitySchema,
     password: z.string().max(64).optional(),
+    guestDisplayName: z.string().trim().min(1).max(32).optional(),
   })
   .superRefine((value, ctx) => {
     if (
