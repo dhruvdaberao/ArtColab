@@ -15,8 +15,11 @@ const toErrorMessage = (error: unknown): string => {
 
 
 const guestDisplayNameFromRequest = (req: Request) => {
-  const candidate = req.header('X-Guest-Display-Name')?.trim();
-  return candidate && candidate.length <= 32 ? candidate : null;
+  const bodyCandidate = typeof req.body?.guestDisplayName === 'string' ? req.body.guestDisplayName.trim() : '';
+  if (bodyCandidate && bodyCandidate.length <= 32) return bodyCandidate;
+
+  const headerCandidate = req.header('X-Guest-Display-Name')?.trim();
+  return headerCandidate && headerCandidate.length <= 32 ? headerCandidate : null;
 };
 
 const requireGuestDisplayName = (req: Request, res: Response) => {
