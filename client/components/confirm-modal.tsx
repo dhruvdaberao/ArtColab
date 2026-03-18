@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { AlertTriangle } from "lucide-react";
 import { Button, SecondaryButton } from "./ui";
 
 interface ConfirmModalProps {
@@ -36,13 +37,20 @@ export function ConfirmModal({ open, title, description, confirmLabel = "Confirm
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-purple-900/40 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="confirm-title" onMouseDown={onCancel}>
-      <div className="w-full max-w-md rounded-3xl border border-fuchsia-100 bg-white p-5 shadow-xl animate-[pop-in_0.2s_ease-out]" onMouseDown={(event) => event.stopPropagation()}>
-        <h2 id="confirm-title" className="text-lg font-extrabold text-purple-900">{title}</h2>
-        <p className="mt-2 text-sm text-purple-600">{description}</p>
+    <div className="fixed inset-0 z-50 grid place-items-center bg-[color:var(--primary)]/28 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="confirm-title" onMouseDown={onCancel}>
+      <div className="w-full max-w-md rounded-[1.75rem] border-2 border-[color:var(--border)] bg-[color:var(--surface)] p-5 shadow-[var(--shadow)] animate-[pop-in_0.2s_ease-out]" onMouseDown={(event) => event.stopPropagation()}>
+        <div className="flex items-start gap-3">
+          <span className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-[color:var(--border)] ${destructive ? 'bg-[color:var(--danger-soft)] text-[color:var(--danger)]' : 'bg-[color:var(--accent)]/70 text-[color:var(--primary)]'}`}>
+            <AlertTriangle className="h-4 w-4" />
+          </span>
+          <div>
+            <h2 id="confirm-title" className="text-lg font-extrabold text-[color:var(--primary)]">{title}</h2>
+            <p className="mt-1 text-sm text-[color:var(--text-muted)]">{description}</p>
+          </div>
+        </div>
         <div className="mt-5 flex justify-end gap-2">
           <SecondaryButton ref={cancelButtonRef} onClick={onCancel}>{cancelLabel}</SecondaryButton>
-          <Button onClick={onConfirm} className={destructive ? "bg-rose-500 hover:bg-rose-400 focus-visible:ring-rose-300" : ""}>{confirmLabel}</Button>
+          <Button onClick={onConfirm} className={destructive ? "bg-[color:var(--danger)] hover:bg-[#834145] text-[color:var(--surface)]" : ""}>{confirmLabel}</Button>
         </div>
       </div>
     </div>

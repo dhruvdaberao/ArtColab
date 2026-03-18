@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
+import { ChevronDown, CircleUserRound, LogOut, Sparkles } from 'lucide-react';
 import { useAuth } from '@/components/auth-provider';
 import { Button, SecondaryButton } from '@/components/ui';
 import { getAvatarInitials, resolveSessionDisplayName } from '@/lib/guest';
@@ -35,25 +36,46 @@ export function UserAvatarMenu() {
 
   return (
     <div ref={containerRef} className="relative">
-      <button onClick={() => setOpen((prev) => !prev)} className="grid h-11 w-11 place-items-center overflow-hidden rounded-full border-2 border-black bg-[#f4efe2] shadow-sm transition hover:-translate-y-0.5">
-        {user.profileImage ? <img src={user.profileImage} alt={displayName} className="h-full w-full object-cover" /> : <span className="text-xs font-bold text-slate-900">{initials}</span>}
+      <button
+        onClick={() => setOpen((prev) => !prev)}
+        className="inline-flex h-12 items-center gap-2 rounded-full border-2 border-[color:var(--border)] bg-[color:var(--surface)] px-1.5 pr-3 shadow-sm transition hover:-translate-y-0.5 hover:bg-[color:var(--surface-soft)]"
+      >
+        <span className="grid h-9 w-9 place-items-center overflow-hidden rounded-full border border-[color:var(--border)] bg-[color:var(--surface-soft)] text-[11px] font-bold text-[color:var(--primary)]">
+          {user.profileImage ? <img src={user.profileImage} alt={displayName} className="h-full w-full object-cover" /> : initials}
+        </span>
+        <span className="hidden max-w-[9rem] truncate text-sm font-semibold text-[color:var(--text-main)] sm:block">{displayName}</span>
+        <ChevronDown className={`h-4 w-4 text-[color:var(--primary)] transition ${open ? 'rotate-180' : ''}`} />
       </button>
       {open && (
-        <div className="absolute right-0 z-50 mt-2 w-64 space-y-3 rounded-[1.5rem] border-2 border-black bg-[#fffdf7] p-4 shadow-[8px_8px_0_rgba(17,24,39,0.08)]">
-          <div>
-            <p className="text-sm font-bold text-slate-900">{displayName}</p>
-            <p className="text-xs text-slate-600">{user.role === 'guest' ? 'Guest session' : pathname === '/profile' ? 'Account settings' : 'Signed in'}</p>
+        <div className="absolute right-0 z-50 mt-3 w-72 space-y-4 rounded-[1.75rem] border-2 border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow)]">
+          <div className="flex items-center gap-3 rounded-[1.25rem] border border-[color:var(--primary)]/15 bg-[color:var(--bg-elevated)] px-3 py-3">
+            <span className="grid h-11 w-11 place-items-center overflow-hidden rounded-full border border-[color:var(--border)] bg-[color:var(--surface-soft)] text-sm font-bold text-[color:var(--primary)]">
+              {user.profileImage ? <img src={user.profileImage} alt={displayName} className="h-full w-full object-cover" /> : initials}
+            </span>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-bold text-[color:var(--text-main)]">{displayName}</p>
+              <p className="text-xs text-[color:var(--text-muted)]">{user.role === 'guest' ? 'Guest session' : pathname === '/profile' ? 'Account settings' : 'Signed in'}</p>
+            </div>
           </div>
           {user.role === 'guest' ? (
             <>
-              <p className="text-xs text-slate-600">Guest mode is active. Save your identity to keep the same profile across rooms.</p>
-              <SecondaryButton className="w-full" onClick={() => { setOpen(false); const redirect = encodeURIComponent(pathname || '/'); router.push(`/auth?view=login&redirect=${redirect}`); }}>Login / Create Account</SecondaryButton>
+              <div className="rounded-[1.25rem] border border-[color:var(--primary)]/15 bg-[color:var(--surface-soft)] px-3 py-3 text-xs leading-5 text-[color:var(--text-muted)]">
+                <div className="mb-1 inline-flex items-center gap-2 font-semibold text-[color:var(--primary)]"><Sparkles className="h-4 w-4" /> Keep this identity</div>
+                Guest mode is active. Create an account to keep your profile and room history across sessions.
+              </div>
+              <SecondaryButton className="w-full justify-center" onClick={() => { setOpen(false); const redirect = encodeURIComponent(pathname || '/'); router.push(`/auth?view=login&redirect=${redirect}`); }}>
+                <CircleUserRound className="h-4 w-4" /> Login / Create Account
+              </SecondaryButton>
             </>
           ) : (
-            <>
-              <SecondaryButton className="w-full" onClick={() => { setOpen(false); router.push('/profile'); }}>Profile</SecondaryButton>
-              <Button className="w-full" onClick={async () => { setOpen(false); await logout(); if (pathname !== '/') router.push('/'); }}>Logout</Button>
-            </>
+            <div className="space-y-2">
+              <SecondaryButton className="w-full justify-center" onClick={() => { setOpen(false); router.push('/profile'); }}>
+                <CircleUserRound className="h-4 w-4" /> Profile
+              </SecondaryButton>
+              <Button className="w-full justify-center" onClick={async () => { setOpen(false); await logout(); if (pathname !== '/') router.push('/'); }}>
+                <LogOut className="h-4 w-4" /> Logout
+              </Button>
+            </div>
           )}
         </div>
       )}
