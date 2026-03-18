@@ -2,24 +2,17 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import {
-  CircleAlert,
-  Flame,
-  Heart,
-  Link as LinkIcon,
-  PartyPopper,
-  RefreshCw,
-  Smile,
-} from "lucide-react";
+import { RefreshCw } from "lucide-react";
 import { nanoid } from "nanoid";
 import { SOCKET_EVENTS } from "@cloudcanvas/shared";
 import type { BrushStyle, DrawingTool } from "@cloudcanvas/shared";
 import { CanvasBoard } from "@/components/canvas-board";
+import { FroddleLogoLink } from "@/components/froddle-logo";
 import { ConfirmModal } from "@/components/confirm-modal";
 import { ParticipantsPanel } from "@/components/participants-panel";
 import { ToastStack, type ToastMessage } from "@/components/toast";
 import { Toolbar } from "@/components/toolbar";
-import { Badge, Button, Card, SecondaryButton } from "@/components/ui";
+import { Badge, Button, Card, DangerButton, SecondaryButton } from "@/components/ui";
 import { socket } from "@/lib/socket";
 import { useRoomSocket } from "@/hooks/use-room-socket";
 import { getRoom } from "@/lib/api";
@@ -28,11 +21,11 @@ import { useAuth } from "@/components/auth-provider";
 import { UserAvatarMenu } from "@/components/user-avatar-menu";
 
 const REACTIONS = [
-  { emoji: "❤️", label: "Appreciate", Icon: Heart },
-  { emoji: "😂", label: "Laugh", Icon: Smile },
-  { emoji: "😮", label: "Surprised", Icon: CircleAlert },
-  { emoji: "🔥", label: "Fire", Icon: Flame },
-  { emoji: "🎉", label: "Celebrate", Icon: PartyPopper },
+  { emoji: "❤️", label: "Appreciate" },
+  { emoji: "😂", label: "Laugh" },
+  { emoji: "😮", label: "Surprised" },
+  { emoji: "🔥", label: "Fire" },
+  { emoji: "🎉", label: "Celebrate" },
 ] as const;
 
 export default function RoomPage() {
@@ -60,7 +53,6 @@ export default function RoomPage() {
   >([]);
   const [resetViewSignal, setResetViewSignal] = useState(0);
   const [isMobile, setIsMobile] = useState(false);
-  const [isPortrait, setIsPortrait] = useState(false);
   const [isWorkspaceMode, setIsWorkspaceMode] = useState(false);
   const chatEndRef = useRef<HTMLDivElement | null>(null);
   const joinedToastShownRef = useRef(false);
@@ -122,7 +114,6 @@ export default function RoomPage() {
   useEffect(() => {
     const updateViewportState = () => {
       setIsMobile(window.innerWidth < 1024);
-      setIsPortrait(window.matchMedia("(orientation: portrait)").matches);
     };
 
     updateViewportState();
@@ -190,8 +181,6 @@ export default function RoomPage() {
   const canUndo = strokes.some((stroke) => stroke.userId === userId);
   const canRedo = redoCount > 0;
   const showMobileLayout = isMobile;
-  const showRotateControl = showMobileLayout;
-  const showWorkspaceBanner = isWorkspaceMode && showMobileLayout;
 
   const clearBoard = () => {
     socket.emit(SOCKET_EVENTS.BOARD_CLEAR, { roomId });
@@ -378,18 +367,22 @@ export default function RoomPage() {
         className={`mx-auto flex w-full max-w-[1520px] flex-col ${isWorkspaceMode ? "gap-3" : "gap-4"}`}
       >
         <header className="flex flex-col gap-3 rounded-[24px] border-2 border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-3 shadow-[var(--shadow)] sm:rounded-[28px] sm:px-5 sm:py-4 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="text-[10px] uppercase tracking-[0.22em] text-[color:var(--text-muted)] sm:text-[11px]">
-                Froddle Room
-              </p>
-              <h1 className="text-lg font-semibold text-[color:var(--text-main)] sm:text-2xl">
-                {roomId}
-              </h1>
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <FroddleLogoLink imageClassName="max-w-[110px] sm:max-w-[130px]" />
+              <div>
+                <p className="text-[10px] uppercase tracking-[0.22em] text-[color:var(--text-muted)] sm:text-[11px]">
+                  Froddle Room
+                </p>
+                <h1 className="text-lg font-black text-[color:var(--text-main)] sm:text-2xl">
+                  {roomId}
+                </h1>
+              </div>
             </div>
+            <div className="lg:hidden"><UserAvatarMenu /></div>
           </div>
-          <div className="flex flex-wrap items-center gap-2 text-sm lg:justify-end">
-            <UserAvatarMenu />
+          <div className="flex flex-wrap items-center gap-2 pr-16 text-sm lg:justify-end lg:pr-0">
+            <div className="hidden lg:block"><UserAvatarMenu /></div>
             <Badge className="capitalize border-[color:var(--border)] bg-[color:var(--accent)] text-[color:var(--text-main)]">
               {status}
             </Badge>
@@ -405,28 +398,25 @@ export default function RoomPage() {
                 pushToast("Room link copied.");
               }}
             >
-              <LinkIcon size={16} /> Copy room link
+              🔗 Copy room link
             </SecondaryButton>
-            {showRotateControl && (
-              <SecondaryButton
-                className="min-h-10 shrink-0 border-[color:var(--border)] bg-[#dff0ff] px-3 text-xs text-[color:var(--text-main)] hover:bg-[#c7e7ff] sm:min-h-11 sm:text-sm"
-                onClick={isWorkspaceMode ? exitWorkspaceMode : enterWorkspaceMode}
-              >
-                <RefreshCw size={16} /> {isWorkspaceMode
-                  ? "Back to normal view"
-                  : "Rotate for better drawing"}
-              </SecondaryButton>
-            )}
-            <Button
-              className="min-h-10 bg-[#ff4d4f] px-4 text-xs text-white hover:bg-[#e0383b] sm:min-h-11 sm:px-5 sm:text-sm"
+            <DangerButton
+              className="min-h-10 px-4 text-xs sm:min-h-11 sm:px-5 sm:text-sm"
               onClick={() => setIsExitModalOpen(true)}
             >
-              Exit room
-            </Button>
+              🚪 Exit room
+            </DangerButton>
           </div>
         </header>
 
         {error && <div className="status-banner status-danger">{error}</div>}
+        {status !== "connected" && (
+          <div className={`status-banner ${status === "reconnecting" || status === "disconnected" ? "status-danger" : ""}`}>
+            {status === "connecting" && "Connecting to the collaboration server…"}
+            {status === "reconnecting" && "Realtime connection dropped. Trying to reconnect…"}
+            {status === "disconnected" && "Realtime connection is offline right now. We’ll reconnect automatically when possible."}
+          </div>
+        )}
 
         <Toolbar
           tool={tool}
@@ -458,7 +448,7 @@ export default function RoomPage() {
           className={`grid gap-4 ${isWorkspaceMode ? "xl:grid-cols-[minmax(0,1.2fr)_340px]" : "2xl:grid-cols-[minmax(0,1fr)_320px]"}`}
         >
           <div className={`relative min-w-0 ${isWorkspaceMode ? "lg:order-1" : ""}`}>
-            {showWorkspaceBanner && (
+            {isWorkspaceMode && showMobileLayout && (
               <div className="mb-2 flex flex-col gap-3 rounded-2xl border border-[color:var(--border)] bg-[#fff1a8] px-3 py-3 text-xs text-[color:var(--text-main)] shadow-sm sm:flex-row sm:items-start sm:justify-between">
                 <div>
                   <p className="font-semibold">Landscape workspace is on</p>
@@ -519,16 +509,16 @@ export default function RoomPage() {
                 </div>
               ))}
             </div>
-            <div className="absolute left-2 right-2 top-3 flex flex-wrap justify-end gap-1 rounded-[1.25rem] border border-[color:var(--border)] bg-[color:var(--surface)]/95 p-1 shadow-sm sm:left-auto sm:right-3">
-              {REACTIONS.map(({ emoji, label, Icon }) => (
+            <div className="absolute left-2 right-2 top-3 z-10 flex flex-wrap justify-end gap-2 rounded-[1.25rem] border border-[color:var(--border)] bg-[color:var(--surface)]/95 p-2 shadow-sm sm:left-auto sm:right-3 sm:max-w-[260px]">
+              {REACTIONS.map(({ emoji, label }) => (
                 <button
                   key={emoji}
-                  className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-transparent text-[color:var(--primary)] transition hover:border-[color:var(--border)] hover:bg-[color:var(--surface-soft)] sm:h-10 sm:w-10"
+                  className="inline-flex h-10 min-w-10 items-center justify-center rounded-full border border-transparent bg-white text-lg transition hover:border-[color:var(--border)] hover:bg-[color:var(--surface-soft)]"
                   onClick={() => sendReaction(emoji)}
                   aria-label={label}
                   title={label}
                 >
-                  <Icon className="h-4 w-4" />
+                  {emoji}
                 </button>
               ))}
             </div>
@@ -570,13 +560,19 @@ export default function RoomPage() {
                   }
                 />
                 <Button onClick={sendChat} className="min-h-10 sm:min-w-24">
-                  Send
+                  💬 Send
                 </Button>
               </div>
             </Card>
           </div>
         </section>
       </div>
+      <SecondaryButton
+        className="fixed bottom-4 right-4 z-[70] min-h-12 rounded-full px-4 text-sm sm:bottom-6 sm:right-6"
+        onClick={isWorkspaceMode ? exitWorkspaceMode : enterWorkspaceMode}
+      >
+        <RefreshCw size={16} /> {isWorkspaceMode ? 'Normal view' : 'Rotate view'}
+      </SecondaryButton>
       <ConfirmModal
         open={isClearModalOpen}
         title="Clear board?"

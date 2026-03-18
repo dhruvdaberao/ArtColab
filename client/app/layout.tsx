@@ -1,4 +1,4 @@
-import frogIcon from '../../frog icon.png';
+import frogLogo from '../../frog-logo.png';
 import type { Metadata } from 'next';
 import { AuthProvider } from '@/components/auth-provider';
 import './globals.css';
@@ -7,7 +7,7 @@ export const metadata: Metadata = {
   title: 'Froddle',
   description: 'Playful real-time collaborative drawing rooms with frog-powered energy',
   icons: {
-    icon: frogIcon.src
+    icon: frogLogo.src
   }
 };
 

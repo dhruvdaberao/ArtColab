@@ -14,7 +14,7 @@ const strokeSchema = new Schema(
     roomId: { type: String, required: true },
     userId: { type: String, required: true },
     tool: { type: String, enum: ['pen', 'eraser'], required: true },
-    brushStyle: { type: String, enum: ['classic', 'rainbow', 'neon', 'dotted', 'spray'], default: 'classic' },
+    brushStyle: { type: String, enum: ['classic', 'crayon', 'neon', 'dotted', 'spray', 'rainbow'], default: 'classic' },
     color: { type: String, required: true },
     size: { type: Number, required: true },
     points: { type: [pointSchema], default: [] },
