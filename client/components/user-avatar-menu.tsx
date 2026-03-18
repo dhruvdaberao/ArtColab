@@ -47,7 +47,7 @@ export function UserAvatarMenu() {
         <ChevronDown className={`h-4 w-4 text-[color:var(--primary)] transition ${open ? 'rotate-180' : ''}`} />
       </button>
       {open && (
-        <div className="absolute right-0 z-50 mt-3 w-72 space-y-4 rounded-[1.75rem] border-2 border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow)]">
+        <div className="absolute right-0 z-50 mt-3 w-[min(18rem,calc(100vw-2rem))] space-y-4 rounded-[1.75rem] border-2 border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow)]">
           <div className="flex items-center gap-3 rounded-[1.25rem] border border-[color:var(--primary)]/15 bg-[color:var(--bg-elevated)] px-3 py-3">
             <span className="grid h-11 w-11 place-items-center overflow-hidden rounded-full border border-[color:var(--border)] bg-[color:var(--surface-soft)] text-sm font-bold text-[color:var(--primary)]">
               {user.profileImage ? <img src={user.profileImage} alt={displayName} className="h-full w-full object-cover" /> : initials}
@@ -72,7 +72,7 @@ export function UserAvatarMenu() {
               <SecondaryButton className="w-full justify-center" onClick={() => { setOpen(false); router.push('/profile'); }}>
                 <CircleUserRound className="h-4 w-4" /> Profile
               </SecondaryButton>
-              <Button className="w-full justify-center" onClick={async () => { setOpen(false); await logout(); if (pathname !== '/') router.push('/'); }}>
+              <Button className="w-full justify-center bg-[color:var(--brand-green)] hover:bg-[color:var(--brand-green-strong)]" onClick={async () => { setOpen(false); await logout(); if (pathname !== '/') router.push('/'); }}>
                 <LogOut className="h-4 w-4" /> Logout
               </Button>
             </div>

@@ -36,33 +36,37 @@ export default function ManageRoomsPage() {
   };
 
   const roomRow = (room: RoomListItem, owned: boolean) => (
-    <div key={room.roomId} className="flex flex-wrap items-center justify-between gap-2 rounded-[1.5rem] border-2 border-[color:var(--border)] bg-[color:var(--surface)] p-3 transition hover:-translate-y-0.5">
-      <div>
-        <p className="font-semibold text-[color:var(--primary)]">{room.name}</p>
-        <p className="text-xs text-[color:var(--text-muted)]">Code: {room.roomId} · {room.participants} active</p>
+    <div key={room.roomId} className="flex flex-col gap-3 rounded-[1.5rem] border-2 border-[color:var(--border)] bg-[color:var(--surface)] p-4 transition hover:-translate-y-0.5 md:flex-row md:items-center md:justify-between">
+      <div className="min-w-0">
+        <p className="truncate font-semibold text-[color:var(--primary)]">{room.name}</p>
+        <p className="text-xs text-[color:var(--text-muted)] break-all">Code: {room.roomId} · {room.participants} active</p>
       </div>
       <div className="flex flex-wrap gap-2">
         <Badge className="capitalize">{room.visibility}</Badge>
         <Button onClick={() => router.push(`/room/${room.roomId}`)}>Open</Button>
-        {owned ? <><SecondaryButton onClick={() => { setEditing(room); setName(room.name); setVisibility(room.visibility); }}>Edit</SecondaryButton><SecondaryButton onClick={() => deleteRoom(room.roomId).then(load).catch((e) => setError((e as Error).message))}>Delete</SecondaryButton></> : <SecondaryButton onClick={() => leaveRoom(room.roomId).then(load).catch((e) => setError((e as Error).message))}>Leave</SecondaryButton>}
+        {owned ? <><SecondaryButton onClick={() => { setEditing(room); setName(room.name); setVisibility(room.visibility); }}>Edit</SecondaryButton><Button className="bg-[color:var(--danger)] hover:bg-[#bd3939]" onClick={() => deleteRoom(room.roomId).then(load).catch((e) => setError((e as Error).message))}>Delete</Button></> : <SecondaryButton onClick={() => leaveRoom(room.roomId).then(load).catch((e) => setError((e as Error).message))}>Leave</SecondaryButton>}
       </div>
     </div>
   );
 
   return (
-    <main className="mx-auto min-h-screen w-full max-w-5xl space-y-4 px-4 py-10">
-      <Link href="/"><SecondaryButton>Back</SecondaryButton></Link>
-      <Card className="bg-[color:var(--surface)]">
-        <h2 className="text-lg font-extrabold text-[color:var(--primary)]">Owned Rooms</h2>
+    <main className="mx-auto min-h-screen w-full max-w-6xl space-y-4 px-4 py-6 sm:px-6 sm:py-8">
+      <Link href="/"><SecondaryButton>Back to Froddle home</SecondaryButton></Link>
+      <Card className="brand-panel bg-[color:var(--surface)] p-5 sm:p-6">
+        <h1 className="text-2xl font-extrabold text-[color:var(--primary)]">Manage your Froddle rooms</h1>
+        <p className="mt-2 max-w-2xl text-sm text-[color:var(--text-muted)]">Keep owned and joined rooms tidy without changing any room logic. Edit visibility, update names, or hop back into active spaces.</p>
+      </Card>
+      <Card className="bg-[color:var(--surface)] p-5 sm:p-6">
+        <h2 className="text-lg font-extrabold text-[color:var(--primary)]">Owned rooms</h2>
         {ownedRooms.length === 0 && <p className="mt-2 text-sm text-[color:var(--text-muted)]">No owned rooms yet.</p>}
-        <div className="mt-3 space-y-2">{ownedRooms.map((room) => roomRow(room, true))}</div>
+        <div className="mt-3 space-y-3">{ownedRooms.map((room) => roomRow(room, true))}</div>
       </Card>
-      <Card className="bg-[color:var(--surface)]">
-        <h2 className="text-lg font-extrabold text-[color:var(--primary)]">Joined Rooms</h2>
+      <Card className="bg-[color:var(--surface)] p-5 sm:p-6">
+        <h2 className="text-lg font-extrabold text-[color:var(--primary)]">Joined rooms</h2>
         {joinedRooms.length === 0 && <p className="mt-2 text-sm text-[color:var(--text-muted)]">No joined rooms yet.</p>}
-        <div className="mt-3 space-y-2">{joinedRooms.map((room) => roomRow(room, false))}</div>
+        <div className="mt-3 space-y-3">{joinedRooms.map((room) => roomRow(room, false))}</div>
       </Card>
-      {editing && <Card className="bg-[color:var(--surface)]"><h3 className="font-bold text-[color:var(--primary)]">Edit Room</h3><form onSubmit={save} className="mt-2 space-y-2"><Input value={name} onChange={(e) => setName(e.target.value)} /><select className="comic-select" value={visibility} onChange={(e) => setVisibility(e.target.value as 'public' | 'private')}><option value="public">Public</option><option value="private">Private</option></select>{visibility === 'private' && <Input type="password" placeholder="New password" value={password} onChange={(e) => setPassword(e.target.value)} />}<div className="flex gap-2"><Button>Save</Button><SecondaryButton type="button" onClick={() => setEditing(null)}>Cancel</SecondaryButton></div></form></Card>}
+      {editing && <Card className="bg-[color:var(--surface)] p-5 sm:p-6"><h3 className="font-bold text-[color:var(--primary)]">Edit room</h3><form onSubmit={save} className="mt-3 space-y-3"><Input value={name} onChange={(e) => setName(e.target.value)} /><select className="comic-select" value={visibility} onChange={(e) => setVisibility(e.target.value as 'public' | 'private')}><option value="public">Public</option><option value="private">Private</option></select>{visibility === 'private' && <Input type="password" placeholder="New password" value={password} onChange={(e) => setPassword(e.target.value)} />}<div className="flex flex-col gap-2 sm:flex-row"><Button>Save</Button><SecondaryButton type="button" onClick={() => setEditing(null)}>Cancel</SecondaryButton></div></form></Card>}
       {error && <p className="status-banner status-danger">{error}</p>}
     </main>
   );

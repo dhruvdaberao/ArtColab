@@ -48,10 +48,10 @@ interface ToolbarProps {
 
 const PRESET_COLORS = [
   "#111111",
-  "#ffd60a",
-  "#7dd3fc",
-  "#ff4d4f",
-  "#22c55e",
+  "#ffd84d",
+  "#1c7dd7",
+  "#ff5d5d",
+  "#1fb76a",
   "#fb923c",
   "#ec4899",
   "#fff7df",
@@ -68,9 +68,9 @@ const SHAPES: Array<{ tool: ShapeKind; label: string; icon: typeof Minus }> = [
 ];
 
 const toolButton =
-  "inline-flex min-h-10 items-center justify-center gap-2 rounded-2xl border-2 border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 text-xs font-semibold text-[color:var(--text-main)] transition hover:bg-[color:var(--surface-soft)] disabled:cursor-not-allowed disabled:opacity-40 sm:text-sm";
+  "inline-flex min-h-10 items-center justify-center gap-2 rounded-2xl border-2 border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 text-xs font-semibold text-[color:var(--text-main)] transition hover:-translate-y-0.5 hover:bg-[color:var(--surface-soft)] disabled:cursor-not-allowed disabled:opacity-40 sm:text-sm";
 const selectedToolButton =
-  "bg-[color:var(--primary)] text-[color:var(--surface)] hover:bg-[color:var(--primary-strong)]";
+  "bg-[color:var(--brand-blue)] text-[color:var(--surface)] shadow-[0_4px_0_rgba(26,26,26,0.14)] hover:bg-[color:var(--primary-strong)]";
 const sectionClass =
   "flex flex-wrap items-center gap-2 rounded-[1.5rem] border border-[color:var(--border)] bg-[color:var(--bg-elevated)] p-2.5";
 const labelClass =
@@ -130,13 +130,13 @@ export function Toolbar({
   };
 
   const mobileUtilityButtons = (
-    <div className="flex flex-wrap gap-2">
+    <div className="grid gap-2 min-[480px]:grid-cols-2 xl:grid-cols-1">
       <button type="button" className={toolButton} onClick={onUndo} disabled={disabled || !canUndo}><Undo2 size={16} /> Undo</button>
       <button type="button" className={toolButton} onClick={onRedo} disabled={disabled || !canRedo}><Redo2 size={16} /> Redo</button>
       <button type="button" className={toolButton} onClick={onDownload} disabled={disabled}><Download size={16} /> Export</button>
       <button type="button" className={toolButton} onClick={onResetView} disabled={disabled}><ZoomIn size={16} /> Reset view</button>
       <button type="button" className={toolButton} onClick={onCopyImage} disabled={disabled}><Copy size={16} /> Copy</button>
-      <button type="button" className={toolButton} onClick={onClear} disabled={disabled}><Trash2 size={16} /> Clear</button>
+      <button type="button" className={`${toolButton} bg-[color:var(--danger-soft)] text-[color:var(--danger)] hover:bg-[#ffd0d0]`} onClick={onClear} disabled={disabled}><Trash2 size={16} /> Clear</button>
     </div>
   );
 
@@ -144,8 +144,8 @@ export function Toolbar({
     <div
       className={`flex flex-col gap-2 rounded-[24px] border-2 border-[color:var(--border)] bg-[color:var(--surface)] p-2.5 shadow-[var(--shadow)] sm:gap-3 sm:rounded-[28px] sm:p-4 ${compact ? "sm:p-3" : ""}`}
     >
-      <div className={`grid gap-2 sm:gap-3 ${compact ? "lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]" : "xl:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_minmax(0,0.8fr)]"}`}>
-        <div className={`${sectionClass} flex-col items-stretch`}>
+      <div className={`grid gap-2 sm:gap-3 ${compact ? "xl:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]" : "2xl:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_minmax(0,0.8fr)]"}`}>
+        <div className={`${sectionClass} min-w-0 flex-col items-stretch`}>
           <div className="flex flex-wrap items-center gap-2">
             {commonToolButtons.map(({ id, label, Icon }) => (
               <button
@@ -173,7 +173,7 @@ export function Toolbar({
 
           {(!compact || shapePanelOpen) && (
             <div className="rounded-[1.25rem] border border-[color:var(--border)] bg-[color:var(--surface)] p-2.5">
-              <div className="mb-2 flex items-center justify-between gap-2">
+              <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                 <span className={labelClass}>Shapes</span>
                 {compact && <span className="text-[11px] text-[color:var(--text-muted)]">Pick one shape</span>}
               </div>
@@ -196,9 +196,9 @@ export function Toolbar({
             </div>
           )}
 
-          <div className="flex min-w-[180px] items-center gap-3 rounded-[1.25rem] border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2.5">
+          <div className="flex min-w-0 flex-wrap items-center gap-3 rounded-[1.25rem] border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2.5 sm:flex-nowrap">
             <span className={labelClass}>Size</span>
-            <input type="range" min={1} max={24} value={size} onChange={(e) => setSize(Number(e.target.value))} disabled={disabled} className="flex-1 accent-[color:var(--primary)]" />
+            <input type="range" min={1} max={24} value={size} onChange={(e) => setSize(Number(e.target.value))} disabled={disabled} className="min-w-[120px] flex-1 accent-[color:var(--brand-green)]" />
             <span className="w-8 text-right text-sm font-semibold text-[color:var(--text-main)]">{size}</span>
           </div>
 
@@ -213,15 +213,15 @@ export function Toolbar({
           )}
         </div>
 
-        <div className={`${sectionClass} flex-col items-stretch`}>
+        <div className={`${sectionClass} min-w-0 flex-col items-stretch`}>
           <div className="flex items-center justify-between gap-2 rounded-[1.25rem] border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2.5">
-            <div>
+            <div className="min-w-0">
               <p className={labelClass}>{tool === "fill" ? "Fill color" : "Selected color"}</p>
-              <p className="mt-1 text-sm font-semibold text-[color:var(--text-main)]">{colorTarget.toUpperCase()}</p>
+              <p className="mt-1 truncate text-sm font-semibold text-[color:var(--text-main)]">{colorTarget.toUpperCase()}</p>
             </div>
             <button
               type="button"
-              className="h-11 w-11 rounded-full border-2 border-[color:var(--border)] shadow-sm"
+              className="h-11 w-11 shrink-0 rounded-full border-2 border-[color:var(--border)] shadow-sm"
               style={{ backgroundColor: colorTarget }}
               aria-label="Selected color preview"
               onClick={() => customColorInputRef.current?.click()}
@@ -237,7 +237,7 @@ export function Toolbar({
                   type="button"
                   onClick={() => setActiveColor(preset)}
                   disabled={disabled || tool === "eraser"}
-                  className={`h-9 w-9 rounded-full border-2 transition ${selected ? "border-[color:var(--border)] ring-4 ring-[#91d7ff]" : "border-[color:var(--border)]/30"}`}
+                  className={`h-10 w-10 rounded-full border-2 transition ${selected ? "border-[color:var(--border)] ring-4 ring-[#dff0ff]" : "border-[color:var(--border)]/30"}`}
                   style={{ backgroundColor: preset }}
                   aria-label={`Use color ${preset}`}
                 />
@@ -245,7 +245,7 @@ export function Toolbar({
             })}
             <button
               type="button"
-              className="inline-flex h-9 min-w-9 items-center justify-center rounded-full border-2 border-[color:var(--border)] bg-[color:var(--accent)] px-3 text-[11px] font-semibold text-[color:var(--text-main)]"
+              className="inline-flex min-h-10 items-center justify-center rounded-full border-2 border-[color:var(--border)] bg-[color:var(--accent)] px-3 text-[11px] font-semibold text-[color:var(--text-main)]"
               onClick={() => customColorInputRef.current?.click()}
               disabled={disabled || tool === "eraser"}
             >
@@ -262,9 +262,9 @@ export function Toolbar({
           </div>
 
           {!!recentColors.length && !compact && (
-            <div className="flex items-center gap-2 rounded-[1.25rem] border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2">
+            <div className="flex flex-wrap items-center gap-2 rounded-[1.25rem] border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2">
               <span className={labelClass}>Recent</span>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 {recentColors.map((preset) => (
                   <button key={preset} type="button" onClick={() => setActiveColor(preset)} className="h-7 w-7 rounded-full border border-[color:var(--border)]/30" style={{ backgroundColor: preset }} aria-label={`Recent color ${preset}`} />
                 ))}
@@ -273,24 +273,24 @@ export function Toolbar({
           )}
 
           <div className="rounded-[1.25rem] border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2.5 text-sm text-[color:var(--text-main)]">
-            <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <p className="font-semibold">Shape fill</p>
                 <p className="text-xs text-[color:var(--text-muted)]">Closed shapes can use the current fill color.</p>
               </div>
               <label className="inline-flex items-center gap-2 text-sm font-medium text-[color:var(--text-main)]">
-                <input type="checkbox" checked={fillEnabled} onChange={(e) => setFillEnabled(e.target.checked)} disabled={disabled} className="h-4 w-4 rounded border-[color:var(--border)] text-[color:var(--primary)]" />
+                <input type="checkbox" checked={fillEnabled} onChange={(e) => setFillEnabled(e.target.checked)} disabled={disabled} className="h-4 w-4 rounded border-[color:var(--border)] text-[color:var(--brand-green)]" />
                 On
               </label>
             </div>
           </div>
         </div>
 
-        <div className={`${sectionClass} flex-col items-stretch justify-between`}>
+        <div className={`${sectionClass} min-w-0 flex-col items-stretch justify-between`}>
           {mobileUtilityButtons}
           {!compact && (
-            <div className="rounded-[1.25rem] border border-[color:var(--border)] bg-[color:var(--surface)] p-2.5 text-xs text-[color:var(--text-muted)]">
-              Fill now works as a real paint bucket on closed regions and shapes.
+            <div className="rounded-[1.25rem] border border-[color:var(--border)] bg-[color:var(--surface)] p-2.5 text-xs leading-5 text-[color:var(--text-muted)]">
+              Froddle keeps the toolbar roomy on smaller screens so chips and controls do not overlap the canvas.
             </div>
           )}
         </div>

@@ -2,9 +2,10 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Clock3, Lock, Users } from 'lucide-react';
+import { Clock3, Lock, Search, Users } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/components/auth-provider';
+import { FroddleWordmark } from '@/components/froddle-logo';
 import { GuestDisplayNameModal } from '@/components/guest-display-name-modal';
 import { RoomPasswordModal } from '@/components/room-password-modal';
 import { Badge, Button, Card, Input, SecondaryButton } from '@/components/ui';
@@ -53,27 +54,42 @@ export default function BrowseRoomsPage() {
   };
 
   return (
-    <main className="mx-auto min-h-screen w-full max-w-5xl px-4 py-10">
-      <div className="mb-4 flex flex-wrap gap-2"><Link href="/"><SecondaryButton>Back</SecondaryButton></Link><Input placeholder="Find an Art Colab room by name" value={query} onChange={(e) => setQuery(e.target.value)} className="max-w-sm" /></div>
-      {user?.role === 'guest' && <p className="mb-4 text-sm text-[color:var(--text-muted)]">Joining as <span className="font-semibold text-[color:var(--text-main)]">{resolveSessionDisplayName(user)}</span>.</p>}
-      <Card className="space-y-3 bg-[color:var(--surface)]">
-        <h1 className="text-2xl font-extrabold text-[color:var(--primary)]">Browse Rooms</h1>
-        {rooms.length === 0 && <p className="rounded-2xl border border-dashed border-[color:var(--border)] bg-[color:var(--surface-soft)] px-4 py-5 text-sm text-[color:var(--text-muted)]">No rooms yet. Be the first to create a room.</p>}
-        <div className="grid gap-3 md:grid-cols-2">
+    <main className="mx-auto min-h-screen w-full max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
+      <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between"><Link href="/"><SecondaryButton>Back to Froddle home</SecondaryButton></Link>{user?.role === 'guest' && <p className="text-sm text-[color:var(--text-muted)]">Joining as <span className="font-semibold text-[color:var(--text-main)]">{resolveSessionDisplayName(user)}</span>.</p>}</div>
+      <Card className="brand-panel space-y-5 p-5 sm:p-6">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div className="space-y-3">
+            <Badge>Explore shared spaces</Badge>
+            <FroddleWordmark />
+            <p className="max-w-2xl text-sm leading-6 text-[color:var(--text-muted)]">Browse active Froddle rooms, spot private spaces quickly, and join the right session without crowded controls or awkward wrapping.</p>
+          </div>
+          <div className="w-full max-w-md">
+            <label className="block text-sm font-semibold text-[color:var(--text-main)]">Search rooms</label>
+            <div className="mt-1 flex items-center gap-2 rounded-[1.25rem] border-2 border-[color:var(--border)] bg-white px-3">
+              <Search className="h-4 w-4 shrink-0 text-[color:var(--text-muted)]" />
+              <Input placeholder="Find a Froddle room by name" value={query} onChange={(e) => setQuery(e.target.value)} className="border-0 bg-transparent px-0 shadow-none focus:shadow-none" />
+            </div>
+          </div>
+        </div>
+      </Card>
+      <Card className="mt-4 space-y-4 bg-[color:var(--surface)] p-5 sm:p-6">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"><h1 className="text-2xl font-extrabold text-[color:var(--primary)]">Browse rooms</h1><p className="text-sm text-[color:var(--text-muted)]">{rooms.length} room{rooms.length === 1 ? '' : 's'} available right now.</p></div>
+        {rooms.length === 0 && <p className="rounded-2xl border border-dashed border-[color:var(--border)] bg-[color:var(--surface-soft)] px-4 py-5 text-sm text-[color:var(--text-muted)]">No rooms yet. Be the first to create one.</p>}
+        <div className="grid gap-3 lg:grid-cols-2">
           {rooms.map((room) => (
-            <div key={room.roomId} className="group rounded-[1.5rem] border-2 border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow)] transition duration-150 hover:-translate-y-0.5">
-              <div className="mb-2 flex items-start justify-between gap-2">
-                <div>
-                  <div className="flex items-center gap-2 text-base font-bold text-[color:var(--primary)]">{room.name} {room.visibility === 'private' && <Lock className="h-4 w-4 text-[color:var(--primary)]" />}</div>
+            <div key={room.roomId} className="group flex h-full flex-col rounded-[1.5rem] border-2 border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow)] transition duration-150 hover:-translate-y-0.5">
+              <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2 text-base font-bold text-[color:var(--primary)]">{room.name} {room.visibility === 'private' && <Lock className="h-4 w-4 text-[color:var(--primary)]" />}</div>
                   <p className="text-xs text-[color:var(--text-muted)]">Owner: {room.owner?.name ?? 'Unknown'}</p>
                 </div>
                 <Badge className="capitalize">{room.visibility}</Badge>
               </div>
-              <div className="mb-3 space-y-1 text-xs text-[color:var(--text-muted)]">
+              <div className="mb-4 grid gap-2 text-xs text-[color:var(--text-muted)] sm:grid-cols-2">
                 <p className="inline-flex items-center gap-1"><Users className="h-3 w-3" /> {room.participants} participant{room.participants === 1 ? '' : 's'}</p>
-                <p className="inline-flex items-center gap-1"><Clock3 className="h-3 w-3" /> Room code: {room.roomId}</p>
+                <p className="inline-flex items-center gap-1 break-all"><Clock3 className="h-3 w-3 shrink-0" /> Room code: {room.roomId}</p>
               </div>
-              <Button onClick={() => startJoin(room).catch((e) => setError((e as Error).message))} className="w-full">Join room</Button>
+              <Button onClick={() => startJoin(room).catch((e) => setError((e as Error).message))} className="mt-auto w-full">Join room</Button>
             </div>
           ))}
         </div>

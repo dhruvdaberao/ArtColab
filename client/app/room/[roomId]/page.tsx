@@ -185,9 +185,9 @@ export default function RoomPage() {
     ctx.drawImage(canvas as HTMLCanvasElement, 0, 0);
     ctx.fillStyle = "#111827";
     ctx.font = "bold 24px sans-serif";
-    ctx.fillText("Made on Art Colab", 16, exportCanvas.height - 14);
+    ctx.fillText("Made on Froddle", 16, exportCanvas.height - 14);
     const link = document.createElement("a");
-    link.download = `art-colab-${roomId}.png`;
+    link.download = `froddle-${roomId}.png`;
     link.href = exportCanvas.toDataURL("image/png");
     link.click();
   };
@@ -358,14 +358,14 @@ export default function RoomPage() {
           <div className="flex items-start justify-between gap-3">
             <div>
               <p className="text-[10px] uppercase tracking-[0.22em] text-[color:var(--text-muted)] sm:text-[11px]">
-                Art Colab Room
+                Froddle Room
               </p>
               <h1 className="text-lg font-semibold text-[color:var(--text-main)] sm:text-2xl">
                 {roomId}
               </h1>
             </div>
           </div>
-          <div className="flex flex-wrap items-center gap-2 text-sm">
+          <div className="flex flex-wrap items-center gap-2 text-sm lg:justify-end">
             <UserAvatarMenu />
             <Badge className="capitalize border-[color:var(--border)] bg-[color:var(--accent)] text-[color:var(--text-main)]">
               {status}
@@ -386,7 +386,7 @@ export default function RoomPage() {
             </SecondaryButton>
             {showRotatePrompt && (
               <SecondaryButton
-                className="min-h-10 border-[color:var(--border)] bg-[#91d7ff] px-3 text-xs text-[color:var(--text-main)] hover:bg-[#6fcdfd] sm:min-h-11 sm:text-sm"
+                className="min-h-10 border-[color:var(--border)] bg-[#dff0ff] px-3 text-xs text-[color:var(--text-main)] hover:bg-[#c7e7ff] sm:min-h-11 sm:text-sm"
                 onClick={isWorkspaceMode ? exitWorkspaceMode : enterWorkspaceMode}
               >
                 <RefreshCw size={16} /> {isWorkspaceMode
@@ -432,11 +432,11 @@ export default function RoomPage() {
         />
 
         <section
-          className={`grid gap-4 ${isWorkspaceMode ? "lg:grid-cols-[minmax(0,1.2fr)_340px]" : "xl:grid-cols-[minmax(0,1fr)_320px]"}`}
+          className={`grid gap-4 ${isWorkspaceMode ? "xl:grid-cols-[minmax(0,1.2fr)_340px]" : "2xl:grid-cols-[minmax(0,1fr)_320px]"}`}
         >
           <div className={`relative min-w-0 ${isWorkspaceMode ? "lg:order-1" : ""}`}>
             {showWorkspaceBanner && (
-              <div className="mb-2 flex items-start justify-between gap-3 rounded-2xl border border-[color:var(--border)] bg-[#fff08a] px-3 py-2 text-xs text-[color:var(--text-main)] shadow-sm">
+              <div className="mb-2 flex flex-col gap-3 rounded-2xl border border-[color:var(--border)] bg-[#fff1a8] px-3 py-3 text-xs text-[color:var(--text-main)] shadow-sm sm:flex-row sm:items-start sm:justify-between">
                 <div>
                   <p className="font-semibold">Landscape workspace is on</p>
                   <p className="mt-0.5">
@@ -496,7 +496,7 @@ export default function RoomPage() {
                 </div>
               ))}
             </div>
-            <div className="absolute right-2 top-12 flex flex-wrap gap-1 rounded-full border border-[color:var(--border)] bg-[color:var(--surface)]/95 p-1 shadow-sm sm:right-3 sm:top-3">
+            <div className="absolute left-2 right-2 top-3 flex flex-wrap justify-end gap-1 rounded-[1.25rem] border border-[color:var(--border)] bg-[color:var(--surface)]/95 p-1 shadow-sm sm:left-auto sm:right-3">
               {REACTIONS.map(({ emoji, label, Icon }) => (
                 <button
                   key={emoji}
@@ -534,7 +534,7 @@ export default function RoomPage() {
                 )}
                 <div ref={chatEndRef} />
               </div>
-              <div className="flex flex-col gap-2 sm:flex-row">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch">
                 <input
                   value={chatDraft}
                   onChange={(e) => setChatDraft(e.target.value.slice(0, 240))}
@@ -546,7 +546,7 @@ export default function RoomPage() {
                       : "Send a message"
                   }
                 />
-                <Button onClick={sendChat} className="min-h-10">
+                <Button onClick={sendChat} className="min-h-10 sm:min-w-24">
                   Send
                 </Button>
               </div>
@@ -567,7 +567,7 @@ export default function RoomPage() {
       <ConfirmModal
         open={isExitModalOpen}
         title="Leave room?"
-        description="Are you sure you want to leave this Art Colab room?"
+        description="Are you sure you want to leave this Froddle room?"
         confirmLabel="Leave"
         cancelLabel="Cancel"
         destructive

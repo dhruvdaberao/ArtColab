@@ -9,7 +9,7 @@ interface ParticipantsPanelProps {
 
 export function ParticipantsPanel({ participants, userId }: ParticipantsPanelProps) {
   return (
-    <aside className="w-full rounded-[1.75rem] border-2 border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow)] transition xl:sticky xl:top-6 lg:w-[300px]" aria-label="Participants panel">
+    <aside className="w-full rounded-[1.75rem] border-2 border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow)] transition 2xl:sticky 2xl:top-6" aria-label="Participants panel">
       <div className="mb-4 flex items-center gap-2">
         <span className="inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-[color:var(--border)] bg-[color:var(--accent)]/70 text-[color:var(--primary)]">
           <Users className="h-4 w-4" />

@@ -38,34 +38,36 @@ export default function ProfilePage() {
   const avatar = profileImageDataUri || user.profileImage;
 
   return (
-    <main className="mx-auto max-w-xl p-6">
-      <Card className="space-y-4 bg-[color:var(--surface)]">
-        <div className="flex items-center justify-between"><h1 className="text-2xl font-extrabold text-[color:var(--primary)]">Your Creative Profile</h1><SecondaryButton onClick={() => router.push('/')}>Back Home</SecondaryButton></div>
-        <div className="flex items-center gap-3">
-          <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-full border-2 border-[color:var(--border)] bg-[color:var(--surface-soft)] transition hover:scale-105">
-            {avatar ? <img src={avatar} alt="Profile" className="absolute inset-0 h-full w-full rounded-full object-cover object-center" /> : <span className="grid h-full w-full place-items-center text-lg font-semibold text-[color:var(--primary)]">{user.username.slice(0, 1)}</span>}
+    <main className="mx-auto min-h-screen w-full max-w-4xl px-4 py-6 sm:px-6 sm:py-8">
+      <Card className="brand-panel space-y-5 bg-[color:var(--surface)] p-5 sm:p-6">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div><h1 className="text-2xl font-extrabold text-[color:var(--primary)]">Your Froddle profile</h1><p className="mt-1 text-sm text-[color:var(--text-muted)]">Update your saved identity without affecting room, auth, or guest behavior.</p></div><SecondaryButton onClick={() => router.push('/')}>Back home</SecondaryButton></div>
+        <div className="grid gap-5 lg:grid-cols-[auto_1fr] lg:items-start">
+          <div className="flex flex-col items-start gap-3">
+            <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-full border-2 border-[color:var(--border)] bg-[color:var(--surface-soft)] transition hover:scale-105">
+              {avatar ? <img src={avatar} alt="Profile" className="absolute inset-0 h-full w-full rounded-full object-cover object-center" /> : <span className="grid h-full w-full place-items-center text-2xl font-semibold text-[color:var(--primary)]">{user.username.slice(0, 1)}</span>}
+            </div>
+            <Input type="file" accept="image/*" onChange={onImageChange} className="max-w-xs" />
           </div>
-          <Input type="file" accept="image/*" onChange={onImageChange} />
+          <div className="space-y-4">
+            <label className="block text-sm font-semibold text-[color:var(--primary)]">Username<Input value={username} onChange={(e) => setUsername(e.target.value)} className="mt-1" /></label>
+            <label className="block text-sm font-semibold text-[color:var(--primary)]">Email<Input value={email} onChange={(e) => setEmail(e.target.value)} className="mt-1" /></label>
+            <Button
+              onClick={() => {
+                setError('');
+                setMessage('');
+                updateProfile({ username, email, profileImageDataUri })
+                  .then((res) => {
+                    setMessage(res.message || 'Changes saved');
+                    refresh();
+                  })
+                  .catch((e) => setError((e as Error).message));
+              }}
+              className="w-full sm:w-auto"
+            >
+              Save changes
+            </Button>
+          </div>
         </div>
-
-        <label className="block text-sm font-semibold text-[color:var(--primary)]">Username<Input value={username} onChange={(e) => setUsername(e.target.value)} className="mt-1" /></label>
-        <label className="block text-sm font-semibold text-[color:var(--primary)]">Email<Input value={email} onChange={(e) => setEmail(e.target.value)} className="mt-1" /></label>
-
-        <Button
-          onClick={() => {
-            setError('');
-            setMessage('');
-            updateProfile({ username, email, profileImageDataUri })
-              .then((res) => {
-                setMessage(res.message || 'Changes saved');
-                refresh();
-              })
-              .catch((e) => setError((e as Error).message));
-          }}
-          className="w-full"
-        >
-          Save changes
-        </Button>
 
         {message && <p className="status-banner status-success">{message}</p>}
         {error && <p className="status-banner status-danger">{error}</p>}

@@ -48,9 +48,9 @@ export function ConfirmModal({ open, title, description, confirmLabel = "Confirm
             <p className="mt-1 text-sm text-[color:var(--text-muted)]">{description}</p>
           </div>
         </div>
-        <div className="mt-5 flex justify-end gap-2">
+        <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <SecondaryButton ref={cancelButtonRef} onClick={onCancel}>{cancelLabel}</SecondaryButton>
-          <Button onClick={onConfirm} className={destructive ? "bg-[color:var(--danger)] hover:bg-[#834145] text-[color:var(--surface)]" : ""}>{confirmLabel}</Button>
+          <Button onClick={onConfirm} className={destructive ? "bg-[color:var(--danger)] hover:bg-[#bd3939] text-[color:var(--surface)]" : ""}>{confirmLabel}</Button>
         </div>
       </div>
     </div>
