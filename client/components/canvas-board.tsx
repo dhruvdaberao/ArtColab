@@ -1,6 +1,6 @@
 "use client";
 
-import { socket } from "@/lib/socket";
+import { getSocket } from "@/lib/socket";
 import { SOCKET_EVENTS } from "@cloudcanvas/shared";
 import type {
   BrushStyle,
@@ -107,12 +107,13 @@ const buildShapePath = (ctx: CanvasRenderingContext2D, stroke: Stroke) => {
 
 const hexToRgb = (color: string) => {
   const normalized = color.replace("#", "").trim();
-  const hex = normalized.length === 3
-    ? normalized
-        .split("")
-        .map((char) => `${char}${char}`)
-        .join("")
-    : normalized;
+  const hex =
+    normalized.length === 3
+      ? normalized
+          .split("")
+          .map((char) => `${char}${char}`)
+          .join("")
+      : normalized;
   if (!/^[0-9a-fA-F]{6}$/.test(hex)) return { r: 0, g: 0, b: 0 };
   const parsed = Number.parseInt(hex, 16);
   return {
@@ -144,8 +145,16 @@ const applyFloodFill = (
   const transform = ctx.getTransform();
   const pixelWidth = Math.max(1, Math.round(width * transform.a));
   const pixelHeight = Math.max(1, Math.round(height * transform.d));
-  const startX = clamp(Math.round(startPoint.x * transform.a), 0, pixelWidth - 1);
-  const startY = clamp(Math.round(startPoint.y * transform.d), 0, pixelHeight - 1);
+  const startX = clamp(
+    Math.round(startPoint.x * transform.a),
+    0,
+    pixelWidth - 1,
+  );
+  const startY = clamp(
+    Math.round(startPoint.y * transform.d),
+    0,
+    pixelHeight - 1,
+  );
   const image = ctx.getImageData(0, 0, pixelWidth, pixelHeight);
   const { data } = image;
   const startIndex = (startY * pixelWidth + startX) * 4;
@@ -346,7 +355,9 @@ export function CanvasBoard({
   const panHint = compact
     ? "Pan: Shift-drag or two fingers"
     : "Pan with Shift-drag or two fingers";
-  const zoomHint = compact ? "Pinch or Ctrl/Cmd + wheel to zoom" : "Zoom with pinch or Ctrl/Cmd + wheel";
+  const zoomHint = compact
+    ? "Pinch or Ctrl/Cmd + wheel to zoom"
+    : "Zoom with pinch or Ctrl/Cmd + wheel";
 
   const viewportStyle = useMemo<React.CSSProperties>(
     () => ({
@@ -362,7 +373,7 @@ export function CanvasBoard({
   ) => {
     if (emitCursorRef.current) cancelAnimationFrame(emitCursorRef.current);
     emitCursorRef.current = requestAnimationFrame(() => {
-      socket.emit(SOCKET_EVENTS.CURSOR_UPDATE, {
+      getSocket().emit(SOCKET_EVENTS.CURSOR_UPDATE, {
         roomId,
         userId,
         displayName,
@@ -398,8 +409,10 @@ export function CanvasBoard({
     const localY = clientY - rect.top - rect.height / 2;
     const contentX = (localX - viewport.offsetX) / viewport.scale;
     const contentY = (localY - viewport.offsetY) / viewport.scale;
-    const normalizedX = ((contentX + rect.width / 2) / rect.width) * LOGICAL_CANVAS_WIDTH;
-    const normalizedY = ((contentY + rect.height / 2) / rect.height) * LOGICAL_CANVAS_HEIGHT;
+    const normalizedX =
+      ((contentX + rect.width / 2) / rect.width) * LOGICAL_CANVAS_WIDTH;
+    const normalizedY =
+      ((contentY + rect.height / 2) / rect.height) * LOGICAL_CANVAS_HEIGHT;
     return {
       x: clamp(normalizedX, 0, LOGICAL_CANVAS_WIDTH),
       y: clamp(normalizedY, 0, LOGICAL_CANVAS_HEIGHT),
@@ -430,7 +443,7 @@ export function CanvasBoard({
     if (!pendingPointsRef.current.length || !currentStrokeId.current) return;
     const pointsToSend = pendingPointsRef.current;
     pendingPointsRef.current = [];
-    socket.emit(SOCKET_EVENTS.STROKE_APPEND, {
+    getSocket().emit(SOCKET_EVENTS.STROKE_APPEND, {
       roomId,
       strokeId: currentStrokeId.current,
       points: pointsToSend,
@@ -440,7 +453,7 @@ export function CanvasBoard({
   const finishStroke = () => {
     flushPendingPoints();
     if (!currentStrokeId.current) return;
-    socket.emit(SOCKET_EVENTS.STROKE_END, {
+    getSocket().emit(SOCKET_EVENTS.STROKE_END, {
       roomId,
       strokeId: currentStrokeId.current,
     });
@@ -564,8 +577,11 @@ export function CanvasBoard({
         timestamp: Date.now(),
       };
       setStrokes((prev) => [...prev, fillStroke]);
-      socket.emit(SOCKET_EVENTS.STROKE_START, { roomId, stroke: fillStroke });
-      socket.emit(SOCKET_EVENTS.STROKE_END, { roomId, strokeId });
+      getSocket().emit(SOCKET_EVENTS.STROKE_START, {
+        roomId,
+        stroke: fillStroke,
+      });
+      getSocket().emit(SOCKET_EVENTS.STROKE_END, { roomId, strokeId });
       queueCursorEmit(point, false);
       activePointerIdRef.current = null;
       return;
@@ -615,7 +631,10 @@ export function CanvasBoard({
     };
     pendingPointsRef.current = [point];
     setStrokes((prev) => [...prev, nextStroke]);
-    socket.emit(SOCKET_EVENTS.STROKE_START, { roomId, stroke: nextStroke });
+    getSocket().emit(SOCKET_EVENTS.STROKE_START, {
+      roomId,
+      stroke: nextStroke,
+    });
     queueCursorEmit(point, true);
   };
 
@@ -646,11 +665,13 @@ export function CanvasBoard({
           offsetX:
             gestureRef.current.startOffsetX +
             (center.x - gestureRef.current.startCenterX) +
-            ((center.x - gestureRef.current.startCenterX) * (nextDistance / gestureRef.current.startDistance - 1)),
+            (center.x - gestureRef.current.startCenterX) *
+              (nextDistance / gestureRef.current.startDistance - 1),
           offsetY:
             gestureRef.current.startOffsetY +
             (center.y - gestureRef.current.startCenterY) +
-            ((center.y - gestureRef.current.startCenterY) * (nextDistance / gestureRef.current.startDistance - 1)),
+            (center.y - gestureRef.current.startCenterY) *
+              (nextDistance / gestureRef.current.startDistance - 1),
         }),
       );
       return;
@@ -718,8 +739,11 @@ export function CanvasBoard({
       };
       setPreviewStroke(null);
       setStrokes((prev) => [...prev, committed]);
-      socket.emit(SOCKET_EVENTS.STROKE_START, { roomId, stroke: committed });
-      socket.emit(SOCKET_EVENTS.STROKE_END, {
+      getSocket().emit(SOCKET_EVENTS.STROKE_START, {
+        roomId,
+        stroke: committed,
+      });
+      getSocket().emit(SOCKET_EVENTS.STROKE_END, {
         roomId,
         strokeId: committed.strokeId,
       });
@@ -773,7 +797,10 @@ export function CanvasBoard({
         onWheel={handleWheel}
         style={{ touchAction: "none" }}
       >
-        <div style={viewportStyle} className="relative aspect-[12/7] w-full transition-transform duration-75 ease-out">
+        <div
+          style={viewportStyle}
+          className="relative aspect-[12/7] w-full transition-transform duration-75 ease-out"
+        >
           <canvas
             ref={canvasRef}
             className="h-full w-full rounded-[26px] bg-white sm:rounded-[30px]"
@@ -798,19 +825,21 @@ export function CanvasBoard({
                     <div
                       className={`flex items-center justify-center overflow-hidden rounded-full border-2 border-white bg-slate-900 text-white shadow-md ring-1 ring-slate-200 ${compact ? "h-7 w-7 text-[10px]" : "h-8 w-8 text-[11px] sm:h-9 sm:w-9"}`}
                     >
-                    {cursor.avatarUrl ? (
-                      <img
-                        src={cursor.avatarUrl}
-                        alt={cursor.displayName}
-                        className="h-full w-full object-cover"
-                      />
-                    ) : (
-                      <span className="font-semibold leading-none">
-                        {getAvatarInitials(cursor.displayName)}
-                      </span>
-                    )}
+                      {cursor.avatarUrl ? (
+                        <img
+                          src={cursor.avatarUrl}
+                          alt={cursor.displayName}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <span className="font-semibold leading-none">
+                          {getAvatarInitials(cursor.displayName)}
+                        </span>
+                      )}
                     </div>
-                    <span className="max-w-[92px] rounded-full bg-white/95 px-2 py-0.5 text-center text-[10px] font-black leading-none text-[color:var(--text-main)] shadow-sm">{cursor.displayName}</span>
+                    <span className="max-w-[92px] rounded-full bg-white/95 px-2 py-0.5 text-center text-[10px] font-black leading-none text-[color:var(--text-main)] shadow-sm">
+                      {cursor.displayName}
+                    </span>
                   </div>
                 </div>
               ))}

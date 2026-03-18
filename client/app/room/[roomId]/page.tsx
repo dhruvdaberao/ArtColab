@@ -12,8 +12,14 @@ import { ConfirmModal } from "@/components/confirm-modal";
 import { ParticipantsPanel } from "@/components/participants-panel";
 import { ToastStack, type ToastMessage } from "@/components/toast";
 import { Toolbar } from "@/components/toolbar";
-import { Badge, Button, Card, DangerButton, SecondaryButton } from "@/components/ui";
-import { socket } from "@/lib/socket";
+import {
+  Badge,
+  Button,
+  Card,
+  DangerButton,
+  SecondaryButton,
+} from "@/components/ui";
+import { getSocket } from "@/lib/socket";
 import { useRoomSocket } from "@/hooks/use-room-socket";
 import { getRoom } from "@/lib/api";
 import { resolveSessionDisplayName } from "@/lib/guest";
@@ -32,7 +38,9 @@ export default function RoomPage() {
   const params = useParams<{ roomId?: string | string[] }>();
   const router = useRouter();
   const roomId = useMemo(() => {
-    const candidate = Array.isArray(params.roomId) ? params.roomId[0] : params.roomId;
+    const candidate = Array.isArray(params.roomId)
+      ? params.roomId[0]
+      : params.roomId;
     return typeof candidate === "string" ? candidate.trim().toUpperCase() : "";
   }, [params.roomId]);
   const isValidRoomId = /^[A-Z0-9]{6}$/.test(roomId);
@@ -46,8 +54,13 @@ export default function RoomPage() {
   const [userId, setUserId] = useState("");
   const [displayName, setDisplayName] = useState("Guest");
   const [roomReady, setRoomReady] = useState(false);
-  const [roomMeta, setRoomMeta] = useState<{ name?: string; visibility?: "public" | "private" } | null>(null);
+  const [roomMeta, setRoomMeta] = useState<{
+    roomId: string;
+    name: string;
+    visibility: "public" | "private";
+  } | null>(null);
   const [roomLoadError, setRoomLoadError] = useState<string | null>(null);
+  const [isRoomLoading, setIsRoomLoading] = useState(true);
   const [isClearModalOpen, setIsClearModalOpen] = useState(false);
   const [isExitModalOpen, setIsExitModalOpen] = useState(false);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
@@ -110,33 +123,42 @@ export default function RoomPage() {
       setRoomLoadError("Missing room code.");
       setRoomReady(false);
       setRoomMeta(null);
+      setIsRoomLoading(false);
       return;
     }
     if (!isValidRoomId) {
       setRoomLoadError("Invalid room code.");
       setRoomReady(false);
       setRoomMeta(null);
+      setIsRoomLoading(false);
       return;
     }
     let cancelled = false;
     setRoomLoadError(null);
     setRoomReady(false);
+    setIsRoomLoading(true);
     getRoom(roomId)
       .then((data) => {
         if (cancelled) return;
-        setRoomMeta(data.room ?? null);
+        setRoomMeta(data.room);
         setRoomReady(true);
+        setIsRoomLoading(false);
       })
       .catch((error: Error) => {
         if (cancelled) return;
         console.error("[room-page] failed to load room", { roomId, error });
         setRoomMeta(null);
-        setRoomLoadError(error.message || "Room unavailable.");
+        setRoomLoadError(error.message || "Unable to load room.");
+        setIsRoomLoading(false);
       });
     return () => {
       cancelled = true;
     };
   }, [roomId, isValidRoomId]);
+
+  useEffect(() => {
+    joinedToastShownRef.current = false;
+  }, [roomId]);
 
   useEffect(() => {
     const updateViewportState = () => {
@@ -151,7 +173,8 @@ export default function RoomPage() {
   const resetWorkspaceMode = useCallback(
     async ({ preserveState = false }: { preserveState?: boolean } = {}) => {
       if (!preserveState && isMountedRef.current) setIsWorkspaceMode(false);
-      const screenOrientation = window.screen.orientation as ScreenOrientation & {
+      const screenOrientation = window.screen
+        .orientation as ScreenOrientation & {
         unlock?: () => void;
       };
       if (typeof screenOrientation.unlock === "function")
@@ -210,7 +233,7 @@ export default function RoomPage() {
   const showMobileLayout = isMobile;
 
   const clearBoard = () => {
-    socket.emit(SOCKET_EVENTS.BOARD_CLEAR, { roomId });
+    getSocket().emit(SOCKET_EVENTS.BOARD_CLEAR, { roomId });
     setStrokes([]);
     setIsClearModalOpen(false);
     pushToast("Board cleared for a fresh start.");
@@ -250,7 +273,7 @@ export default function RoomPage() {
   const sendChat = () => {
     const text = chatDraft.trim();
     if (!text) return;
-    socket.emit(SOCKET_EVENTS.CHAT_SEND, {
+    getSocket().emit(SOCKET_EVENTS.CHAT_SEND, {
       roomId,
       userId,
       displayName,
@@ -263,7 +286,10 @@ export default function RoomPage() {
   const pushReactionBurst = useCallback((id: string, emoji: string) => {
     setReactionBursts((prev) => {
       if (prev.some((burst) => burst.id === id)) return prev;
-      return [...prev, { id, emoji, left: Math.floor(Math.random() * 80) + 10 }];
+      return [
+        ...prev,
+        { id, emoji, left: Math.floor(Math.random() * 80) + 10 },
+      ];
     });
     window.setTimeout(
       () =>
@@ -273,7 +299,7 @@ export default function RoomPage() {
   }, []);
 
   const sendReaction = (emoji: (typeof REACTIONS)[number]["emoji"]) => {
-    socket.emit(SOCKET_EVENTS.REACTION_SEND, {
+    getSocket().emit(SOCKET_EVENTS.REACTION_SEND, {
       roomId,
       userId,
       displayName,
@@ -292,9 +318,9 @@ export default function RoomPage() {
       pushReactionBurst(reactionId, emoji);
     };
 
-    socket.on(SOCKET_EVENTS.REACTION_EVENT, onReaction);
+    getSocket().on(SOCKET_EVENTS.REACTION_EVENT, onReaction);
     return () => {
-      socket.off(SOCKET_EVENTS.REACTION_EVENT, onReaction);
+      getSocket().off(SOCKET_EVENTS.REACTION_EVENT, onReaction);
     };
   }, [pushReactionBurst]);
 
@@ -315,11 +341,14 @@ export default function RoomPage() {
     }: {
       participant: { displayName: string };
     }) => pushToast(`${participant.displayName} left the room.`);
-    socket.on(SOCKET_EVENTS.ROOM_PARTICIPANT_JOINED, onParticipantJoined);
-    socket.on(SOCKET_EVENTS.ROOM_PARTICIPANT_LEFT, onParticipantLeft);
+    getSocket().on(SOCKET_EVENTS.ROOM_PARTICIPANT_JOINED, onParticipantJoined);
+    getSocket().on(SOCKET_EVENTS.ROOM_PARTICIPANT_LEFT, onParticipantLeft);
     return () => {
-      socket.off(SOCKET_EVENTS.ROOM_PARTICIPANT_JOINED, onParticipantJoined);
-      socket.off(SOCKET_EVENTS.ROOM_PARTICIPANT_LEFT, onParticipantLeft);
+      getSocket().off(
+        SOCKET_EVENTS.ROOM_PARTICIPANT_JOINED,
+        onParticipantJoined,
+      );
+      getSocket().off(SOCKET_EVENTS.ROOM_PARTICIPANT_LEFT, onParticipantLeft);
     };
   }, [pushToast]);
 
@@ -361,6 +390,18 @@ export default function RoomPage() {
     router.push("/");
   }, [leaveSocketRoom, resetWorkspaceMode, router]);
 
+  if (isRoomLoading)
+    return (
+      <main className="flex min-h-screen items-center justify-center p-6">
+        <Card className="max-w-md space-y-3 p-8 text-center">
+          <h1 className="text-2xl font-semibold">Loading room</h1>
+          <p className="text-slate-600">
+            Checking the room link and loading the latest room details.
+          </p>
+        </Card>
+      </main>
+    );
+
   if (roomLoadError || expired)
     return (
       <main className="flex min-h-screen items-center justify-center p-6">
@@ -386,21 +427,35 @@ export default function RoomPage() {
         <header className="space-y-3">
           <div className="flex items-start justify-between gap-3">
             <FroddleLogoLink imageClassName="max-w-[110px] sm:max-w-[130px]" />
-            <div className="shrink-0"><UserAvatarMenu /></div>
+            <div className="shrink-0">
+              <UserAvatarMenu />
+            </div>
           </div>
           <div className="flex flex-col gap-3 rounded-[24px] border-2 border-[color:var(--border)] bg-[color:var(--surface)] px-4 py-4 shadow-[var(--shadow)] sm:rounded-[28px] sm:px-5 sm:py-5 xl:flex-row xl:items-start xl:justify-between">
             <div className="min-w-0 space-y-3">
               <div className="space-y-2">
                 <div className="flex flex-wrap items-center gap-2">
-                  <Badge className="capitalize border-[color:var(--border)] bg-[color:var(--accent)] text-[color:var(--text-main)]">{roomMeta?.visibility ?? 'public'}</Badge>
-                  <Badge className="capitalize border-[color:var(--border)] bg-[color:var(--surface-soft)] text-[color:var(--text-main)]">{status}</Badge>
+                  <Badge className="capitalize border-[color:var(--border)] bg-[color:var(--accent)] text-[color:var(--text-main)]">
+                    {roomMeta?.visibility ?? "public"}
+                  </Badge>
+                  <Badge className="capitalize border-[color:var(--border)] bg-[color:var(--surface-soft)] text-[color:var(--text-main)]">
+                    {status}
+                  </Badge>
                   {mode === "guess-mode" && (
-                    <Badge className="border-[color:var(--border)] bg-[#91d7ff] text-[color:var(--text-main)]">Guess mode active</Badge>
+                    <Badge className="border-[color:var(--border)] bg-[#91d7ff] text-[color:var(--text-main)]">
+                      Guess mode active
+                    </Badge>
                   )}
                 </div>
                 <div>
-                  <h1 className="truncate text-2xl font-black text-[color:var(--text-main)] sm:text-3xl">{roomMeta?.name?.trim() || `Room ${roomId}`}</h1>
-                  <p className="mt-1 text-sm text-[color:var(--text-muted)]">{roomMeta?.visibility === 'private' ? 'Private room. Access is limited to invited participants with the correct password.' : 'Public room. Anyone with the room details can hop in and draw together.'}</p>
+                  <h1 className="truncate text-2xl font-black text-[color:var(--text-main)] sm:text-3xl">
+                    {roomMeta?.name || `Room ${roomId}`}
+                  </h1>
+                  <p className="mt-1 text-sm text-[color:var(--text-muted)]">
+                    {roomMeta?.visibility === "private"
+                      ? "Private room. Access is limited to invited participants with the correct password."
+                      : "Public room. Anyone with the room details can hop in and draw together."}
+                  </p>
                 </div>
               </div>
             </div>
@@ -426,10 +481,15 @@ export default function RoomPage() {
 
         {error && <div className="status-banner status-danger">{error}</div>}
         {status !== "connected" && (
-          <div className={`status-banner ${status === "reconnecting" || status === "disconnected" ? "status-danger" : ""}`}>
-            {status === "connecting" && "Connecting to the collaboration server…"}
-            {status === "reconnecting" && "Realtime connection dropped. Trying to reconnect…"}
-            {status === "disconnected" && "Realtime connection is offline right now. We’ll reconnect automatically when possible."}
+          <div
+            className={`status-banner ${status === "reconnecting" || status === "disconnected" ? "status-danger" : ""}`}
+          >
+            {status === "connecting" &&
+              "Connecting to the collaboration server…"}
+            {status === "reconnecting" &&
+              "Realtime connection dropped. Trying to reconnect…"}
+            {status === "disconnected" &&
+              "Realtime connection is offline right now. We’ll reconnect automatically when possible."}
           </div>
         )}
 
@@ -448,8 +508,12 @@ export default function RoomPage() {
           setSize={setSize}
           recentColors={recentColors}
           onClear={() => setIsClearModalOpen(true)}
-          onUndo={() => socket.emit(SOCKET_EVENTS.STROKE_UNDO, { roomId, userId })}
-          onRedo={() => socket.emit(SOCKET_EVENTS.STROKE_REDO, { roomId, userId })}
+          onUndo={() =>
+            getSocket().emit(SOCKET_EVENTS.STROKE_UNDO, { roomId, userId })
+          }
+          onRedo={() =>
+            getSocket().emit(SOCKET_EVENTS.STROKE_REDO, { roomId, userId })
+          }
           onDownload={download}
           onCopyImage={copyImage}
           onResetView={() => setResetViewSignal((value) => value + 1)}
@@ -462,15 +526,17 @@ export default function RoomPage() {
         <section
           className={`grid gap-4 ${isWorkspaceMode ? "xl:grid-cols-[minmax(0,1.2fr)_340px]" : "2xl:grid-cols-[minmax(0,1fr)_320px]"}`}
         >
-          <div className={`min-w-0 space-y-3 ${isWorkspaceMode ? "lg:order-1" : ""}`}>
+          <div
+            className={`min-w-0 space-y-3 ${isWorkspaceMode ? "lg:order-1" : ""}`}
+          >
             {isWorkspaceMode && showMobileLayout && (
               <div className="mb-2 flex flex-col gap-3 rounded-2xl border border-[color:var(--border)] bg-[#fff1a8] px-3 py-3 text-xs text-[color:var(--text-main)] shadow-sm sm:flex-row sm:items-start sm:justify-between">
                 <div>
                   <p className="font-semibold">Landscape workspace is on</p>
                   <p className="mt-0.5">
-                    Rotate your phone sideways for a larger canvas. If the browser
-                    does not rotate automatically, the board still moves into a
-                    landscape-style layout inside the app.
+                    Rotate your phone sideways for a larger canvas. If the
+                    browser does not rotate automatically, the board still moves
+                    into a landscape-style layout inside the app.
                   </p>
                 </div>
                 <button
@@ -502,18 +568,18 @@ export default function RoomPage() {
                 compact={showMobileLayout}
               />
               {strokes.length === 0 && (
-              <div className="pointer-events-none absolute inset-0 grid place-items-center p-4 sm:p-8">
-                <div className="max-w-xs rounded-[24px] border-2 border-[color:var(--border)] bg-[color:var(--surface)]/95 px-5 py-4 text-center shadow-[var(--shadow)] sm:rounded-[28px] sm:px-6 sm:py-5">
-                  <p className="text-sm font-semibold text-[color:var(--text-main)]">
-                    Start drawing together
-                  </p>
-                  <p className="mt-1 text-xs text-[color:var(--text-muted)]">
-                    Brush, erase, sketch shapes, fill them, and zoom the board
-                    without losing precision.
-                  </p>
+                <div className="pointer-events-none absolute inset-0 grid place-items-center p-4 sm:p-8">
+                  <div className="max-w-xs rounded-[24px] border-2 border-[color:var(--border)] bg-[color:var(--surface)]/95 px-5 py-4 text-center shadow-[var(--shadow)] sm:rounded-[28px] sm:px-6 sm:py-5">
+                    <p className="text-sm font-semibold text-[color:var(--text-main)]">
+                      Start drawing together
+                    </p>
+                    <p className="mt-1 text-xs text-[color:var(--text-muted)]">
+                      Brush, erase, sketch shapes, fill them, and zoom the board
+                      without losing precision.
+                    </p>
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
               <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-[28px]">
                 {reactionBursts.map((burst) => (
                   <div
@@ -530,8 +596,13 @@ export default function RoomPage() {
             <Card className="bg-[color:var(--surface)] p-3 sm:p-4">
               <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                 <div className="min-w-0">
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--text-muted)]">Reactions</p>
-                  <p className="mt-1 text-sm text-[color:var(--text-muted)]">Send a quick response without covering the canvas or control rows.</p>
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--text-muted)]">
+                    Reactions
+                  </p>
+                  <p className="mt-1 text-sm text-[color:var(--text-muted)]">
+                    Send a quick response without covering the canvas or control
+                    rows.
+                  </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {REACTIONS.map(({ emoji, label }) => (
@@ -597,7 +668,8 @@ export default function RoomPage() {
         className="fixed bottom-4 right-4 z-[70] min-h-12 rounded-full px-4 text-sm sm:bottom-6 sm:right-6"
         onClick={isWorkspaceMode ? exitWorkspaceMode : enterWorkspaceMode}
       >
-        <RefreshCw size={16} /> {isWorkspaceMode ? 'Normal view' : 'Rotate view'}
+        <RefreshCw size={16} />{" "}
+        {isWorkspaceMode ? "Normal view" : "Rotate view"}
       </SecondaryButton>
       <ConfirmModal
         open={isClearModalOpen}
