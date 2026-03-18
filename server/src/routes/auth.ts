@@ -2,7 +2,7 @@ import crypto from 'node:crypto';
 import bcrypt from 'bcryptjs';
 import { Router, type NextFunction, type Request, type Response } from 'express';
 import { z } from 'zod';
-import { isMongoReady } from '../db/mongo.js';
+import { connectMongo, isMongoReady } from '../db/mongo.js';
 import { optionalAuth } from '../middleware/auth.js';
 import { User } from '../models/User.js';
 import { serializeSafeUser } from '../serializers/user.js';
@@ -37,20 +37,36 @@ const resetVerifySchema = z.object({
   confirmPassword: z.string().min(8).max(72)
 });
 
-const ensureMongo = (res: Response): boolean => {
-  if (isMongoReady()) return true;
-  res.status(503).json({ success: false, message: 'Authentication service unavailable.' });
-  return false;
-};
-
 const asyncHandler =
   (handler: (req: Request, res: Response, next: NextFunction) => Promise<void | Response>) =>
   (req: Request, res: Response, next: NextFunction) => {
     void handler(req, res, next).catch(next);
   };
 
+const ensureMongo = async (res: Response): Promise<boolean> => {
+  if (isMongoReady()) return true;
+
+  const connected = await connectMongo();
+  if (connected) return true;
+
+  res.status(500).json({ success: false, message: 'Authentication database is unavailable.' });
+  return false;
+};
+
+const getDuplicateMessage = (error: unknown): string => {
+  const dup = error as { code?: number; keyPattern?: Record<string, number> };
+  if (dup?.keyPattern?.email) return 'Email already in use.';
+  if (dup?.keyPattern?.username) return 'Username already in use.';
+  return 'Email or username already in use.';
+};
+
 export const authRouter = () => {
   const router = Router();
+
+  router.use((req, _res, next) => {
+    console.info('[auth] incoming request', { method: req.method, path: req.path });
+    next();
+  });
 
   router.post('/guest', optionalAuth, asyncHandler(async (_req: Request, res: Response) => {
     const username = generateGuestUsername();
@@ -59,38 +75,61 @@ export const authRouter = () => {
   }));
 
   router.post('/register', asyncHandler(async (req: Request, res: Response) => {
-    if (!ensureMongo(res)) return;
+    console.info('[auth] register request received');
+
+    if (!await ensureMongo(res)) {
+      console.error('[auth] register aborted: mongo unavailable');
+      return;
+    }
+
     const parsed = registerSchema.safeParse(req.body);
     if (!parsed.success) {
+      console.warn('[auth] register validation failed', {
+        issues: parsed.error.issues.map((issue) => ({ path: issue.path.join('.'), message: issue.message }))
+      });
       return res.status(400).json({ success: false, message: parsed.error.issues[0]?.message || 'Invalid registration payload.' });
     }
 
     const { email, username, password } = parsed.data;
     const normalizedEmail = email.toLowerCase();
 
-    const existing = await User.findOne({
-      $or: [{ email: normalizedEmail }, { username }]
-    }).lean();
+    try {
+      const existing = await User.findOne({
+        $or: [{ email: normalizedEmail }, { username }]
+      }).lean();
 
-    if (existing) {
-      const isEmailTaken = existing.email === normalizedEmail;
-      return res.status(409).json({ success: false, message: isEmailTaken ? 'Email already in use.' : 'Username already in use.' });
+      if (existing) {
+        const isEmailTaken = existing.email === normalizedEmail;
+        console.info('[auth] register rejected: duplicate value', { duplicateField: isEmailTaken ? 'email' : 'username' });
+        return res.status(409).json({ success: false, message: isEmailTaken ? 'Email already in use.' : 'Username already in use.' });
+      }
+
+      const passwordHash = await bcrypt.hash(password, 12);
+      const user = await User.create({
+        email: normalizedEmail,
+        username,
+        password: passwordHash
+      });
+
+      const token = signUserToken({ sub: String(user._id), username: user.username, email: user.email, role: 'user' });
+
+      return res.status(201).json({ success: true, token, user: serializeSafeUser(user) });
+    } catch (error) {
+      const duplicateError = (error as { code?: number })?.code === 11000;
+      if (duplicateError) {
+        console.warn('[auth] register duplicate key from db layer', {
+          message: (error as Error).message
+        });
+        return res.status(409).json({ success: false, message: getDuplicateMessage(error) });
+      }
+
+      console.error('[auth] register db failure', error);
+      return res.status(500).json({ success: false, message: 'Unable to create account right now.' });
     }
-
-    const passwordHash = await bcrypt.hash(password, 12);
-    const user = await User.create({
-      email: normalizedEmail,
-      username,
-      password: passwordHash
-    });
-
-    const token = signUserToken({ sub: String(user._id), username: user.username, email: user.email, role: 'user' });
-
-    return res.status(201).json({ success: true, token, user: serializeSafeUser(user) });
   }));
 
   router.post('/login', asyncHandler(async (req: Request, res: Response) => {
-    if (!ensureMongo(res)) return;
+    if (!await ensureMongo(res)) return;
     const parsed = loginSchema.safeParse(req.body);
     if (!parsed.success) {
       return res.status(400).json({ success: false, message: 'Invalid login payload.' });
@@ -115,7 +154,7 @@ export const authRouter = () => {
   }));
 
   router.post('/forgot-password/request', asyncHandler(async (req: Request, res: Response) => {
-    if (!ensureMongo(res)) return;
+    if (!await ensureMongo(res)) return;
     const parsed = resetRequestSchema.safeParse(req.body);
     if (!parsed.success) {
       return res.status(200).json({ success: true, message: 'If an account exists, a reset code has been sent.' });
@@ -138,7 +177,7 @@ export const authRouter = () => {
   }));
 
   router.post('/forgot-password/verify', asyncHandler(async (req: Request, res: Response) => {
-    if (!ensureMongo(res)) return;
+    if (!await ensureMongo(res)) return;
     const parsed = resetVerifySchema.safeParse(req.body);
     if (!parsed.success || parsed.data.password !== parsed.data.confirmPassword) {
       return res.status(400).json({ success: false, message: 'Invalid reset data.' });
@@ -173,7 +212,7 @@ export const authRouter = () => {
       return res.json({ success: true, user: { username: req.auth.username, role: 'guest' } });
     }
 
-    if (!ensureMongo(res)) return;
+    if (!await ensureMongo(res)) return;
     const user = await User.findById(req.auth.sub).lean();
     if (!user) {
       return res.json({ success: true, user: null });
