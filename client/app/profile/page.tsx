@@ -42,8 +42,8 @@ export default function ProfilePage() {
       <Card className="space-y-4 bg-[color:var(--surface)]">
         <div className="flex items-center justify-between"><h1 className="text-2xl font-extrabold text-[color:var(--primary)]">Your Creative Profile</h1><SecondaryButton onClick={() => router.push('/')}>Back Home</SecondaryButton></div>
         <div className="flex items-center gap-3">
-          <div className="grid h-16 w-16 place-items-center overflow-hidden rounded-full border-2 border-[color:var(--border)] bg-[color:var(--surface-soft)] transition hover:scale-105">
-            {avatar ? <img src={avatar} alt="Profile" className="h-full w-full object-cover" /> : <span className="text-lg font-semibold text-[color:var(--primary)]">{user.username.slice(0, 1)}</span>}
+          <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-full border-2 border-[color:var(--border)] bg-[color:var(--surface-soft)] transition hover:scale-105">
+            {avatar ? <img src={avatar} alt="Profile" className="absolute inset-0 h-full w-full rounded-full object-cover object-center" /> : <span className="grid h-full w-full place-items-center text-lg font-semibold text-[color:var(--primary)]">{user.username.slice(0, 1)}</span>}
           </div>
           <Input type="file" accept="image/*" onChange={onImageChange} />
         </div>

@@ -17,7 +17,7 @@ const roomNameSchema = z
   );
 
 const roomVisibilitySchema = z.enum(["public", "private"]);
-const toolSchema = z.enum(["pen", "eraser", "line", "rectangle", "square", "circle", "ellipse", "triangle", "star"]);
+const toolSchema = z.enum(["pen", "eraser", "fill", "line", "rectangle", "square", "circle", "ellipse", "triangle", "star"]);
 const shapeSchema = z.object({
   kind: z.enum(["line", "rectangle", "square", "circle", "ellipse", "triangle", "star"]),
   start: z.object({ x: z.number().finite(), y: z.number().finite() }),
@@ -115,6 +115,9 @@ export const drawStartSchema = z.object({
     }
     if (!hasShape && stroke.points.length < 1) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Freehand strokes need at least one point.", path: ["points"] });
+    }
+    if (stroke.tool === "fill" && stroke.points.length !== 1) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Fill strokes need exactly one point.", path: ["points"] });
     }
   }),
 });

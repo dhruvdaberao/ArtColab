@@ -105,11 +105,105 @@ const buildShapePath = (ctx: CanvasRenderingContext2D, stroke: Stroke) => {
   return true;
 };
 
+const hexToRgb = (color: string) => {
+  const normalized = color.replace("#", "").trim();
+  const hex = normalized.length === 3
+    ? normalized
+        .split("")
+        .map((char) => `${char}${char}`)
+        .join("")
+    : normalized;
+  if (!/^[0-9a-fA-F]{6}$/.test(hex)) return { r: 0, g: 0, b: 0 };
+  const parsed = Number.parseInt(hex, 16);
+  return {
+    r: (parsed >> 16) & 255,
+    g: (parsed >> 8) & 255,
+    b: parsed & 255,
+  };
+};
+
+const colorsMatch = (
+  data: Uint8ClampedArray,
+  index: number,
+  target: { r: number; g: number; b: number; a: number },
+) =>
+  data[index] === target.r &&
+  data[index + 1] === target.g &&
+  data[index + 2] === target.b &&
+  data[index + 3] === target.a;
+
+const applyFloodFill = (
+  ctx: CanvasRenderingContext2D,
+  stroke: Stroke,
+  width: number,
+  height: number,
+) => {
+  const startPoint = stroke.points[0];
+  if (!startPoint) return;
+
+  const transform = ctx.getTransform();
+  const pixelWidth = Math.max(1, Math.round(width * transform.a));
+  const pixelHeight = Math.max(1, Math.round(height * transform.d));
+  const startX = clamp(Math.round(startPoint.x * transform.a), 0, pixelWidth - 1);
+  const startY = clamp(Math.round(startPoint.y * transform.d), 0, pixelHeight - 1);
+  const image = ctx.getImageData(0, 0, pixelWidth, pixelHeight);
+  const { data } = image;
+  const startIndex = (startY * pixelWidth + startX) * 4;
+  const target = {
+    r: data[startIndex],
+    g: data[startIndex + 1],
+    b: data[startIndex + 2],
+    a: data[startIndex + 3],
+  };
+  const fill = hexToRgb(stroke.color);
+
+  if (
+    target.r === fill.r &&
+    target.g === fill.g &&
+    target.b === fill.b &&
+    target.a === 255
+  ) {
+    return;
+  }
+
+  const stack = [[startX, startY]];
+  const visited = new Uint8Array(pixelWidth * pixelHeight);
+
+  while (stack.length) {
+    const current = stack.pop();
+    if (!current) continue;
+    const [x, y] = current;
+    const cellIndex = y * pixelWidth + x;
+    if (visited[cellIndex]) continue;
+    visited[cellIndex] = 1;
+
+    const pixelIndex = cellIndex * 4;
+    if (!colorsMatch(data, pixelIndex, target)) continue;
+
+    data[pixelIndex] = fill.r;
+    data[pixelIndex + 1] = fill.g;
+    data[pixelIndex + 2] = fill.b;
+    data[pixelIndex + 3] = 255;
+
+    if (x > 0) stack.push([x - 1, y]);
+    if (x < pixelWidth - 1) stack.push([x + 1, y]);
+    if (y > 0) stack.push([x, y - 1]);
+    if (y < pixelHeight - 1) stack.push([x, y + 1]);
+  }
+
+  ctx.putImageData(image, 0, 0);
+};
+
 const renderStroke = (
   ctx: CanvasRenderingContext2D,
   stroke: Stroke,
   preview = false,
 ) => {
+  if (stroke.tool === "fill") {
+    applyFloodFill(ctx, stroke, LOGICAL_CANVAS_WIDTH, LOGICAL_CANVAS_HEIGHT);
+    return;
+  }
+
   if (stroke.shape) {
     ctx.save();
     ctx.lineCap = "round";
@@ -289,14 +383,18 @@ export function CanvasBoard({
   };
 
   const getCanvasPoint = (clientX: number, clientY: number) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return null;
-    const rect = canvas.getBoundingClientRect();
-    const x = ((clientX - rect.left) / rect.width) * LOGICAL_CANVAS_WIDTH;
-    const y = ((clientY - rect.top) / rect.height) * LOGICAL_CANVAS_HEIGHT;
+    const surface = surfaceRef.current;
+    if (!surface) return null;
+    const rect = surface.getBoundingClientRect();
+    const localX = clientX - rect.left - rect.width / 2;
+    const localY = clientY - rect.top - rect.height / 2;
+    const contentX = (localX - viewport.offsetX) / viewport.scale;
+    const contentY = (localY - viewport.offsetY) / viewport.scale;
+    const normalizedX = ((contentX + rect.width / 2) / rect.width) * LOGICAL_CANVAS_WIDTH;
+    const normalizedY = ((contentY + rect.height / 2) / rect.height) * LOGICAL_CANVAS_HEIGHT;
     return {
-      x: clamp(x, 0, LOGICAL_CANVAS_WIDTH),
-      y: clamp(y, 0, LOGICAL_CANVAS_HEIGHT),
+      x: clamp(normalizedX, 0, LOGICAL_CANVAS_WIDTH),
+      y: clamp(normalizedY, 0, LOGICAL_CANVAS_HEIGHT),
     };
   };
 
@@ -369,7 +467,7 @@ export function CanvasBoard({
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const context = canvas.getContext("2d");
+    const context = canvas.getContext("2d", { willReadFrequently: true });
     if (!context) return;
     const scaleX = canvas.width / LOGICAL_CANVAS_WIDTH;
     const scaleY = canvas.height / LOGICAL_CANVAS_HEIGHT;
@@ -395,8 +493,6 @@ export function CanvasBoard({
 
   const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
     if (disabled) return;
-    const point = getCanvasPoint(event.clientX, event.clientY);
-    if (!point) return;
 
     event.currentTarget.setPointerCapture(event.pointerId);
     pointersRef.current.set(event.pointerId, {
@@ -440,14 +536,30 @@ export function CanvasBoard({
       return;
     }
 
+    const point = getCanvasPoint(event.clientX, event.clientY);
+    if (!point) return;
+
     activePointerIdRef.current = event.pointerId;
-    if (viewport.scale > 1 && event.pointerType !== "touch") {
-      panStartRef.current = {
-        x: event.clientX,
-        y: event.clientY,
-        offsetX: viewport.offsetX,
-        offsetY: viewport.offsetY,
+
+    if (tool === "fill") {
+      const strokeId = nanoid();
+      const fillStroke: Stroke = {
+        strokeId,
+        roomId,
+        userId,
+        tool: "fill",
+        brushStyle: "classic",
+        color: fillColor,
+        fillColor: null,
+        size: 1,
+        points: [point],
+        timestamp: Date.now(),
       };
+      setStrokes((prev) => [...prev, fillStroke]);
+      socket.emit(SOCKET_EVENTS.STROKE_START, { roomId, stroke: fillStroke });
+      socket.emit(SOCKET_EVENTS.STROKE_END, { roomId, strokeId });
+      queueCursorEmit(point, false);
+      activePointerIdRef.current = null;
       return;
     }
 
@@ -624,24 +736,23 @@ export function CanvasBoard({
   return (
     <div className="space-y-2 sm:space-y-3">
       <div
-        className={`flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-slate-200 bg-white/90 px-3 py-2 text-[11px] text-slate-500 shadow-sm sm:text-xs ${compact ? "px-2.5 py-1.5" : ""}`}
+        className={`flex flex-wrap items-center justify-between gap-2 rounded-[1.4rem] border-2 border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 text-[11px] text-[color:var(--text-muted)] shadow-[var(--shadow)] sm:text-xs ${compact ? "px-2.5 py-1.5" : ""}`}
       >
         <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2 py-1 font-semibold text-slate-700">
-            <Move size={compact ? 12 : 14} /> Pan with two fingers
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-[color:var(--border)] bg-[color:var(--accent)] px-2.5 py-1 font-semibold text-[color:var(--text-main)]">
+            <Move size={compact ? 12 : 14} /> Pan with Shift-drag or two fingers
           </span>
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2 py-1 font-semibold text-slate-700">
-            <ZoomIn size={compact ? 12 : 14} />{" "}
-            {Math.round(viewport.scale * 100)}%
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-[color:var(--border)] bg-[#91d7ff] px-2.5 py-1 font-semibold text-[color:var(--text-main)]">
+            <ZoomIn size={compact ? 12 : 14} /> {Math.round(viewport.scale * 100)}%
           </span>
         </div>
-        <div className="flex items-center gap-1.5 text-slate-500">
+        <div className="flex items-center gap-1.5 text-[color:var(--text-muted)]">
           <ZoomOut size={compact ? 12 : 14} /> Pinch or Ctrl/Cmd + wheel
         </div>
       </div>
       <div
         ref={surfaceRef}
-        className="relative overflow-hidden rounded-[26px] border border-slate-200 bg-slate-100 shadow-sm sm:rounded-[30px]"
+        className="relative overflow-hidden rounded-[26px] border-2 border-[color:var(--border)] bg-[#bfe8ff] shadow-[var(--shadow)] sm:rounded-[30px]"
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}

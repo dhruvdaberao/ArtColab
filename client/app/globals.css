@@ -4,28 +4,28 @@
 
 :root {
   color-scheme: light;
-  --bg: #f5f0e2;
-  --bg-elevated: #fbf7ee;
-  --surface: #fffbf2;
-  --surface-soft: #f0e8d2;
-  --surface-muted: #e5ddc4;
-  --primary: #2f2345;
-  --primary-strong: #231731;
-  --accent: #e5c86f;
-  --accent-strong: #d9b74c;
-  --text-main: #191713;
-  --text-muted: #60584a;
-  --border: #1f1a17;
-  --danger: #9a4d52;
-  --danger-soft: #f4d9d8;
-  --success: #2f6b53;
-  --success-soft: #dcefe5;
-  --shadow: 8px 8px 0 rgba(31, 26, 23, 0.12);
+  --bg: #f6efdf;
+  --bg-elevated: #fff9ea;
+  --surface: #fffdf4;
+  --surface-soft: #f3ead3;
+  --surface-muted: #e9dfc0;
+  --primary: #161616;
+  --primary-strong: #000000;
+  --accent: #ffe45c;
+  --accent-strong: #ffd60a;
+  --text-main: #161616;
+  --text-muted: #5e564c;
+  --border: #161616;
+  --danger: #ff4d4f;
+  --danger-soft: #ffe1e2;
+  --success: #15803d;
+  --success-soft: #dcfce7;
+  --shadow: 8px 8px 0 rgba(22, 22, 22, 0.12);
 }
 
 body {
   min-height: 100vh;
-  background: radial-gradient(circle at top left, #fbf6ea, #f5f0e2 48%, #ece3cb);
+  background: radial-gradient(circle at top left, #fff8df, #f6efdf 48%, #ece0bd);
   color: var(--text-main);
   @apply antialiased;
 }
@@ -47,7 +47,7 @@ body {
 
   .comic-input:focus {
     background: #fffdf7;
-    box-shadow: 0 0 0 3px rgba(47, 35, 69, 0.16);
+    box-shadow: 0 0 0 3px rgba(28, 117, 188, 0.16);
   }
 
   .comic-select {
@@ -69,13 +69,13 @@ body {
   .status-danger {
     border-color: color-mix(in srgb, var(--danger) 32%, white 68%);
     background: var(--danger-soft);
-    color: #7c2d2f;
+    color: #991b1b;
   }
 
   .status-success {
     border-color: color-mix(in srgb, var(--success) 28%, white 72%);
     background: var(--success-soft);
-    color: #21533e;
+    color: #166534;
   }
 }
 
