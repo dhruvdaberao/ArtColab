@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { getMe, guestLogin, loginUser, logoutUser, registerUser, setAuthToken, type SessionUser } from '@/lib/api';
+import { getStoredDisplayName, setStoredDisplayName } from '@/lib/guest';
 
 type AuthContextValue = {
   user: SessionUser | null;
@@ -22,7 +23,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const refresh = async () => {
     const res = await getMe();
     setUser(res.user);
-    if (res.user?.username) localStorage.setItem('cloudcanvas-display-name', res.user.username);
+    if (res.user?.username) setStoredDisplayName(res.user.username);
   };
 
   useEffect(() => {
@@ -33,27 +34,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const res = await guestLogin();
     setAuthToken(res.token);
     setUser(res.user);
-    localStorage.setItem('cloudcanvas-display-name', res.user.username);
+    setStoredDisplayName(getStoredDisplayName() || res.user.username);
   };
 
   const login = async (identifier: string, password: string) => {
-    const res = await loginUser({ identifier, password });
+    const guestToken = typeof window !== 'undefined' ? localStorage.getItem('cloudcanvas-auth-token') : null;
+    const res = await loginUser({ identifier, password, guestToken, guestDisplayName: getStoredDisplayName() || undefined });
     setAuthToken(res.token);
     setUser({ ...res.user, role: 'user' });
-    localStorage.setItem('cloudcanvas-display-name', res.user.username);
+    setStoredDisplayName(getStoredDisplayName() || res.user.username);
   };
 
   const register = async (email: string, username: string, password: string, confirmPassword: string) => {
-    const res = await registerUser({ email, username, password, confirmPassword });
+    const guestToken = typeof window !== 'undefined' ? localStorage.getItem('cloudcanvas-auth-token') : null;
+    const res = await registerUser({ email, username, password, confirmPassword, guestToken, guestDisplayName: getStoredDisplayName() || undefined });
     setAuthToken(res.token);
     setUser({ ...res.user, role: 'user' });
-    localStorage.setItem('cloudcanvas-display-name', res.user.username);
+    setStoredDisplayName(getStoredDisplayName() || res.user.username);
   };
 
   const logout = async () => {
     await logoutUser();
     setAuthToken(null);
-    localStorage.removeItem('cloudcanvas-display-name');
+    setStoredDisplayName('');
     setUser(null);
   };
 

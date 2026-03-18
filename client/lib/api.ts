@@ -69,6 +69,7 @@ const withNetworkErrorHandling = async <T>(requestFn: () => Promise<T>, fallback
 };
 
 const authToken = () => (typeof window !== 'undefined' ? localStorage.getItem('cloudcanvas-auth-token') : null);
+const guestDisplayName = () => (typeof window !== 'undefined' ? localStorage.getItem('cloudcanvas-display-name')?.trim() || null : null);
 
 const request = async <T>(path: string, options: RequestInit = {}, fallback = 'Request failed.'): Promise<T> => {
   return withNetworkErrorHandling(async () => {
@@ -79,6 +80,10 @@ const request = async <T>(path: string, options: RequestInit = {}, fallback = 'R
     }
     if (token) {
       headers.set('Authorization', `Bearer ${token}`);
+    }
+    const displayName = guestDisplayName();
+    if (displayName) {
+      headers.set('X-Guest-Display-Name', displayName);
     }
 
     const response = await fetch(`${API_URL}${path}`, {
@@ -131,10 +136,10 @@ export const getRoom = async (roomId: string): Promise<RoomResponse> => request(
 
 export const guestLogin = async (): Promise<{ token: string; user: SessionUser }> => request('/api/auth/guest', { method: 'POST' }, 'Failed to continue as guest.');
 
-export const registerUser = async (payload: { email: string; username: string; password: string; confirmPassword: string }) =>
+export const registerUser = async (payload: { email: string; username: string; password: string; confirmPassword: string; guestToken?: string | null; guestDisplayName?: string }) =>
   request<{ token: string; user: SessionUser }>('/api/auth/register', { method: 'POST', body: JSON.stringify(payload) }, 'Failed to create account.');
 
-export const loginUser = async (payload: { identifier: string; password: string }) =>
+export const loginUser = async (payload: { identifier: string; password: string; guestToken?: string | null; guestDisplayName?: string }) =>
   request<{ token: string; user: SessionUser }>('/api/auth/login', { method: 'POST', body: JSON.stringify(payload) }, 'Login failed.');
 
 export const getMe = async () => request<{ user: SessionUser | null }>('/api/auth/me', { method: 'GET' }, 'Failed to load session.');

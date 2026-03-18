@@ -2,12 +2,14 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { FormEvent, useState } from 'react';
+import { FormEvent, useEffect, useState } from 'react';
 import { Palette } from 'lucide-react';
 import { useAuth } from '@/components/auth-provider';
+import { GuestDisplayNameModal } from '@/components/guest-display-name-modal';
 import { UserAvatarMenu } from '@/components/user-avatar-menu';
 import { Button, Card, Input, SecondaryButton } from '@/components/ui';
 import { createRoom, joinRoom } from '@/lib/api';
+import { getStoredDisplayName, resolveSessionDisplayName, setStoredDisplayName } from '@/lib/guest';
 
 export default function HomePage() {
   const router = useRouter();
@@ -23,19 +25,71 @@ export default function HomePage() {
   const [isJoining, setIsJoining] = useState(false);
   const [isGuesting, setIsGuesting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pendingAction, setPendingAction] = useState<'create' | 'join' | null>(null);
 
-  const saveDisplayName = (name: string) => {
-    const fallback = user?.username || `Guest-${Math.floor(Math.random() * 9000) + 1000}`;
-    localStorage.setItem('cloudcanvas-display-name', name.trim() || fallback);
+  useEffect(() => {
+    if (user) {
+      setDisplayName(resolveSessionDisplayName(user));
+    }
+  }, [user]);
+
+  const persistDisplayName = (name: string) => {
+    const normalized = name.trim();
+    if (user?.role === 'user') return user.username;
+    return setStoredDisplayName(normalized);
+  };
+
+  const ensureDisplayName = () => {
+    if (user?.role === 'user') return user.username;
+    const normalized = displayName.trim() || getStoredDisplayName();
+    if (normalized) {
+      setDisplayName(normalized);
+      persistDisplayName(normalized);
+      return normalized;
+    }
+    setPendingAction('create');
+    return null;
   };
 
   const onCreate = async (event: FormEvent) => {
-    event.preventDefault(); setIsCreating(true); setError(null);
-    try { saveDisplayName(displayName); const data = await createRoom({ name: createName.trim(), visibility: createVisibility, password: createVisibility === 'private' ? createPassword : undefined }); router.push(`/room/${data.room.roomId}`); } catch (err) { setError((err as Error).message || 'Unable to create room.'); } finally { setIsCreating(false); }
+    event.preventDefault();
+    const sessionName = ensureDisplayName();
+    if (!sessionName) {
+      setError('Please enter a display name before creating a room.');
+      return;
+    }
+    setIsCreating(true);
+    setError(null);
+    try {
+      const data = await createRoom({ name: createName.trim(), visibility: createVisibility, password: createVisibility === 'private' ? createPassword : undefined });
+      router.push(`/room/${data.room.roomId}`);
+    } catch (err) {
+      setError((err as Error).message || 'Unable to create room.');
+    } finally {
+      setIsCreating(false);
+    }
   };
+
   const onJoin = async (event: FormEvent) => {
-    event.preventDefault(); setIsJoining(true); setError(null);
-    try { saveDisplayName(displayName); const data = await joinRoom({ name: joinName.trim(), visibility: joinVisibility, password: joinVisibility === 'private' ? joinPassword : undefined }); router.push(`/room/${data.roomId}`); } catch (err) { setError((err as Error).message || 'Unable to join room.'); } finally { setIsJoining(false); }
+    event.preventDefault();
+    const normalized = user?.role === 'user' ? user.username : displayName.trim() || getStoredDisplayName();
+    if (!normalized) {
+      setPendingAction('join');
+      setError('Please enter a display name before joining a room.');
+      return;
+    }
+    setDisplayName(normalized);
+    persistDisplayName(normalized);
+    setIsJoining(true);
+    setError(null);
+    try {
+      const data = await joinRoom({ name: joinName.trim(), visibility: joinVisibility, password: joinVisibility === 'private' ? joinPassword : undefined });
+      router.push(`/room/${data.roomId}`);
+    } catch (err) {
+      setError((err as Error).message || 'Unable to join room.');
+    } finally {
+      setIsJoining(false);
+    }
   };
 
   if (loading) return <main className="grid min-h-screen place-items-center text-lg font-semibold text-gray-800">Loading Art Colab…</main>;
@@ -47,14 +101,26 @@ export default function HomePage() {
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-4 py-8 sm:px-8">
       <div className="mb-4 flex items-center justify-between"><div className="inline-flex items-center gap-2 rounded-full border-2 border-black bg-[#f3e49a] px-4 py-2 text-sm font-semibold text-black"><Palette className="h-4 w-4" /> Art Colab Workspace</div><UserAvatarMenu /></div>
-      <Card className="space-y-6 bg-[#fffdf7]"><div className="flex flex-wrap items-center justify-between gap-3"><div><h1 className="text-3xl font-black text-slate-900">Welcome back, {user.username}</h1><p className="text-sm text-slate-600">Create a room, join one, or manage your existing spaces.</p></div><div className="flex flex-wrap gap-2"><Link href="/browse-rooms"><SecondaryButton>Browse rooms</SecondaryButton></Link><Link href="/manage-rooms"><SecondaryButton>Manage rooms</SecondaryButton></Link></div></div>
-        <label className="block text-sm font-semibold text-slate-700">Display name for this session<Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} className="mt-1" placeholder={user.username} /></label>
+      <Card className="space-y-6 bg-[#fffdf7]"><div className="flex flex-wrap items-center justify-between gap-3"><div><h1 className="text-3xl font-black text-slate-900">Welcome back, {resolveSessionDisplayName(user)}</h1><p className="text-sm text-slate-600">Create a room, join one, or manage your existing spaces.</p></div><div className="flex flex-wrap gap-2"><Link href="/browse-rooms"><SecondaryButton>Browse rooms</SecondaryButton></Link><Link href="/manage-rooms"><SecondaryButton>Manage rooms</SecondaryButton></Link></div></div>
+        <label className="block text-sm font-semibold text-slate-700">Display name for this session<Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} className="mt-1" placeholder={resolveSessionDisplayName(user)} disabled={user.role === 'user'} /></label>
         <div className="grid gap-4 lg:grid-cols-2">
           <Card className="space-y-3"><h2 className="text-xl font-bold text-slate-900">Create room</h2><form className="space-y-3" onSubmit={onCreate}><Input placeholder="Room name" value={createName} onChange={(e) => setCreateName(e.target.value)} required /><select className="comic-input" value={createVisibility} onChange={(e) => setCreateVisibility(e.target.value as 'public' | 'private')}><option value="public">Public</option><option value="private">Private</option></select>{createVisibility === 'private' && <Input type="password" placeholder="Room password" value={createPassword} onChange={(e) => setCreatePassword(e.target.value)} /> }<Button type="submit" disabled={isCreating || isJoining} className="w-full">{isCreating ? 'Creating room…' : 'Create room'}</Button></form></Card>
-          <Card className="space-y-3"><h2 className="text-xl font-bold text-slate-900">Join room</h2><form className="space-y-3" onSubmit={onJoin}><Input placeholder="Room name" value={joinName} onChange={(e) => setJoinName(e.target.value)} required /><select className="comic-input" value={joinVisibility} onChange={(e) => setJoinVisibility(e.target.value as 'public' | 'private')}><option value="public">Public</option><option value="private">Private</option></select>{joinVisibility === 'private' && <Input type="password" placeholder="Room password" value={joinPassword} onChange={(e) => setJoinPassword(e.target.value)} /> }<SecondaryButton type="submit" disabled={isCreating || isJoining} className="w-full">{isJoining ? 'Joining room…' : 'Join room'}</SecondaryButton></form></Card>
+          <Card className="space-y-3"><h2 className="text-xl font-bold text-slate-900">Join room</h2><form className="space-y-3" onSubmit={onJoin}><Input placeholder="Room name" value={joinName} onChange={(e) => setJoinName(e.target.value)} required /><select className="comic-input" value={joinVisibility} onChange={(e) => setJoinVisibility(e.target.value as 'public' | 'private')}><option value="public">Public</option><option value="private">Private</option></select>{joinVisibility === 'private' && <Input type="password" placeholder="Room password" value={joinPassword} onChange={(e) => setJoinPassword(e.target.value)} /> }<Button type="submit" disabled={isCreating || isJoining} className="w-full">{isJoining ? 'Joining room…' : 'Join room'}</Button></form></Card>
         </div>
         {error && <p className="rounded-xl border-2 border-black bg-[#fbe4e0] px-3 py-2 text-sm text-red-700">{error}</p>}
       </Card>
+      <GuestDisplayNameModal
+        open={pendingAction !== null && user.role === 'guest'}
+        initialValue={displayName}
+        confirmLabel={pendingAction === 'join' ? 'Save and join' : 'Save and create'}
+        onCancel={() => setPendingAction(null)}
+        onConfirm={(name) => {
+          persistDisplayName(name);
+          setDisplayName(name);
+          setError(null);
+          setPendingAction(null);
+        }}
+      />
     </main>
   );
 }

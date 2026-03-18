@@ -13,6 +13,20 @@ const toErrorMessage = (error: unknown): string => {
   return String(error);
 };
 
+
+const guestDisplayNameFromRequest = (req: Request) => {
+  const candidate = req.header('X-Guest-Display-Name')?.trim();
+  return candidate && candidate.length <= 32 ? candidate : null;
+};
+
+const requireGuestDisplayName = (req: Request, res: Response) => {
+  if (req.auth?.role === 'user') return true;
+  if (guestDisplayNameFromRequest(req)) return true;
+  res.status(400).json({ success: false, message: 'Please enter a display name before joining or creating a room.' });
+  return false;
+};
+
+
 export const roomsRouter = (roomManager: RoomManager) => {
   const router = Router();
 
@@ -22,12 +36,14 @@ export const roomsRouter = (roomManager: RoomManager) => {
       return res.status(400).json({ success: false, message: parsedBody.error.issues[0]?.message ?? 'Invalid create room payload.' });
     }
 
+    if (!requireGuestDisplayName(req, res)) return;
+
     const name = parsedBody.data.name.trim();
     const visibility = parsedBody.data.visibility;
     const owner = {
       ownerType: req.auth?.role === 'user' ? 'user' : 'guest',
       ownerId: req.auth?.sub ?? 'anonymous',
-      ownerName: req.auth?.username ?? 'Guest'
+      ownerName: req.auth?.role === 'user' ? req.auth.username : guestDisplayNameFromRequest(req) ?? 'Guest'
     } as const;
 
     try {
@@ -74,6 +90,8 @@ export const roomsRouter = (roomManager: RoomManager) => {
     if (!parsedBody.success) {
       return res.status(400).json({ success: false, message: parsedBody.error.issues[0]?.message ?? 'Invalid join room payload.' });
     }
+
+    if (!requireGuestDisplayName(req, res)) return;
 
     const name = parsedBody.data.name.trim();
     try {

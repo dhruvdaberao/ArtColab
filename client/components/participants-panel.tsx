@@ -1,17 +1,11 @@
 import type { Participant } from "@cloudcanvas/shared";
+import { getAvatarInitials } from "@/lib/guest";
 
 interface ParticipantsPanelProps {
   participants: Participant[];
   userId: string;
 }
 
-const initialsFor = (name: string) =>
-  name
-    .trim()
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? "")
-    .join("") || "G";
 
 export function ParticipantsPanel({ participants, userId }: ParticipantsPanelProps) {
   return (
@@ -27,7 +21,7 @@ export function ParticipantsPanel({ participants, userId }: ParticipantsPanelPro
             return (
               <li key={participant.socketId} className="flex items-center gap-3 rounded-2xl border border-fuchsia-100 bg-fuchsia-50/60 px-3 py-2.5 transition-all hover:scale-[1.01] hover:bg-fuchsia-50">
                 <span className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full border border-white bg-white text-xs font-semibold text-purple-700 shadow-sm">
-                  {participant.avatarUrl ? <img src={participant.avatarUrl} alt={participant.displayName} className="h-full w-full object-cover" /> : initialsFor(participant.displayName)}
+                  {participant.avatarUrl ? <img src={participant.avatarUrl} alt={participant.displayName} className="h-full w-full object-cover" /> : getAvatarInitials(participant.displayName)}
                 </span>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-semibold text-purple-800">{participant.displayName}</p>
