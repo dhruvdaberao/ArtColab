@@ -298,7 +298,6 @@ interface CanvasBoardProps {
   cursors: Record<string, CursorPayload>;
   setStrokes: React.Dispatch<React.SetStateAction<Stroke[]>>;
   disabled?: boolean;
-  resetViewSignal: number;
   compact?: boolean;
 }
 
@@ -317,7 +316,6 @@ export function CanvasBoard({
   cursors,
   setStrokes,
   disabled = false,
-  resetViewSignal,
   compact = false,
 }: CanvasBoardProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -500,10 +498,6 @@ export function CanvasBoard({
     strokes.forEach((stroke) => renderStroke(context, stroke));
     if (previewStroke) renderStroke(context, previewStroke, true);
   }, [canvasVersion, previewStroke, strokes]);
-
-  useEffect(() => {
-    setViewport({ scale: 1, offsetX: 0, offsetY: 0 });
-  }, [resetViewSignal]);
 
   useEffect(
     () => () => {
@@ -789,7 +783,7 @@ export function CanvasBoard({
       </div>
       <div
         ref={surfaceRef}
-        className="relative overflow-hidden rounded-[26px] border-2 border-[color:var(--border)] bg-[#bfe8ff] shadow-[var(--shadow)] sm:rounded-[30px]"
+        className="relative overflow-hidden rounded-[26px] border border-white/55 bg-[#bfe8ff] shadow-[0_30px_60px_rgba(15,23,42,0.16)] sm:rounded-[30px]"
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
@@ -799,7 +793,7 @@ export function CanvasBoard({
       >
         <div
           style={viewportStyle}
-          className="relative aspect-[12/7] w-full transition-transform duration-75 ease-out"
+          className="relative aspect-[12/7] min-h-[54svh] w-full transition-transform duration-75 ease-out sm:min-h-[60svh] xl:min-h-[calc(100dvh-13rem)]"
         >
           <canvas
             ref={canvasRef}
