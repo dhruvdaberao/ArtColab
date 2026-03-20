@@ -46,6 +46,18 @@ const isShapeTool = (tool: DrawingTool): tool is ShapeKind =>
 const MIN_POINT_DISTANCE = 0.75;
 const MAX_APPEND_BATCH = 30;
 const APPEND_FLUSH_THRESHOLD = 4;
+const TAP_SHAPE_THRESHOLD = 8;
+
+const DEFAULT_SHAPE_SIZE: Record<ShapeKind, { width: number; height: number }> =
+  {
+    line: { width: 96, height: 0 },
+    rectangle: { width: 128, height: 80 },
+    square: { width: 92, height: 92 },
+    circle: { width: 92, height: 92 },
+    ellipse: { width: 128, height: 80 },
+    triangle: { width: 110, height: 92 },
+    star: { width: 108, height: 108 },
+  };
 
 const appendPointIfNeeded = (
   points: Stroke["points"],
@@ -344,6 +356,48 @@ const drawStrokeSegment = (
   renderStroke(ctx, { ...stroke, points: segmentPoints });
 };
 
+const cloneStroke = (stroke: Stroke): Stroke => ({
+  ...stroke,
+  points: [...stroke.points],
+  shape: stroke.shape
+    ? {
+        ...stroke.shape,
+        start: { ...stroke.shape.start },
+        end: { ...stroke.shape.end },
+      }
+    : undefined,
+});
+
+const getCommittedShapeStroke = (stroke: Stroke): Stroke => {
+  if (!stroke.shape) return cloneStroke(stroke);
+  const { start, end, kind } = stroke.shape;
+  const deltaX = end.x - start.x;
+  const deltaY = end.y - start.y;
+  const distance = Math.hypot(deltaX, deltaY);
+
+  if (distance >= TAP_SHAPE_THRESHOLD) return cloneStroke(stroke);
+
+  const fallback = DEFAULT_SHAPE_SIZE[kind];
+  const halfWidth = fallback.width / 2;
+  const halfHeight = fallback.height / 2;
+  const center = { x: start.x, y: start.y };
+
+  return {
+    ...cloneStroke(stroke),
+    shape: {
+      ...stroke.shape,
+      start: {
+        x: clamp(center.x - halfWidth, 0, LOGICAL_CANVAS_WIDTH),
+        y: clamp(center.y - halfHeight, 0, LOGICAL_CANVAS_HEIGHT),
+      },
+      end: {
+        x: clamp(center.x + halfWidth, 0, LOGICAL_CANVAS_WIDTH),
+        y: clamp(center.y + halfHeight, 0, LOGICAL_CANVAS_HEIGHT),
+      },
+    },
+  };
+};
+
 interface CanvasBoardProps {
   roomId: string;
   userId: string;
@@ -386,6 +440,7 @@ function CanvasBoardComponent({
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const committedCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const surfaceRef = useRef<HTMLDivElement | null>(null);
+  const boardFrameRef = useRef<HTMLDivElement | null>(null);
   const drawingRef = useRef(false);
   const currentStrokeId = useRef("");
   const pendingPointsRef = useRef<Stroke["points"]>([]);
@@ -454,11 +509,7 @@ function CanvasBoardComponent({
       if (!scaled) return;
       resetCommittedSurface(scaled.context, canvas);
       nextStrokes.forEach((stroke) => renderStroke(scaled.context, stroke));
-      committedStrokesRef.current = nextStrokes.map((stroke) => ({
-        ...stroke,
-        points: [...stroke.points],
-        shape: stroke.shape ? { ...stroke.shape } : undefined,
-      }));
+      committedStrokesRef.current = nextStrokes.map(cloneStroke);
     },
     [],
   );
@@ -482,11 +533,7 @@ function CanvasBoardComponent({
       renderStroke(scaled.context, stroke);
       committedStrokesRef.current = [
         ...committedStrokesRef.current,
-        {
-          ...stroke,
-          points: [...stroke.points],
-          shape: stroke.shape ? { ...stroke.shape } : undefined,
-        },
+        cloneStroke(stroke),
       ];
       return true;
     },
@@ -564,11 +611,7 @@ function CanvasBoardComponent({
       return false;
     }
 
-    committedStrokesRef.current = nextStrokes.map((stroke) => ({
-      ...stroke,
-      points: [...stroke.points],
-      shape: stroke.shape ? { ...stroke.shape } : undefined,
-    }));
+    committedStrokesRef.current = nextStrokes.map(cloneStroke);
     return true;
   }, []);
 
@@ -581,6 +624,22 @@ function CanvasBoardComponent({
       if (!canvas || !committedCanvas) return;
       const context = canvas.getContext("2d", { willReadFrequently: true });
       if (!context) return;
+      if (canvas.width < 1 || canvas.height < 1) {
+        console.warn("[canvas-board] skipped render for invalid display canvas", {
+          roomId,
+          width: canvas.width,
+          height: canvas.height,
+        });
+        return;
+      }
+      if (committedCanvas.width < 1 || committedCanvas.height < 1) {
+        console.warn("[canvas-board] committed canvas missing backing surface, re-syncing", {
+          roomId,
+          width: committedCanvas.width,
+          height: committedCanvas.height,
+        });
+        syncCommittedCanvas(strokesRef.current);
+      }
       context.setTransform(1, 0, 0, 1, 0, 0);
       context.clearRect(0, 0, canvas.width, canvas.height);
       context.drawImage(committedCanvas, 0, 0);
@@ -592,7 +651,7 @@ function CanvasBoardComponent({
       const previewStroke = previewStrokeRef.current;
       if (previewStroke) renderStroke(context, previewStroke, true);
     });
-  }, []);
+  }, [roomId, syncCommittedCanvas]);
 
   const queueCursorEmit = (
     point: { x: number; y: number },
@@ -615,8 +674,9 @@ function CanvasBoardComponent({
 
   const normalizeViewport = (next: Viewport) => {
     const surface = surfaceRef.current;
-    if (!surface) return next;
-    const rect = surface.getBoundingClientRect();
+    const boardFrame = boardFrameRef.current;
+    if (!surface || !boardFrame) return next;
+    const rect = boardFrame.getBoundingClientRect();
     const scaledWidth = rect.width * next.scale;
     const scaledHeight = rect.height * next.scale;
     const maxOffsetX = Math.max(0, (scaledWidth - rect.width) / 2);
@@ -629,9 +689,17 @@ function CanvasBoardComponent({
   };
 
   const getCanvasPoint = (clientX: number, clientY: number) => {
-    const surface = surfaceRef.current;
-    if (!surface) return null;
-    const rect = surface.getBoundingClientRect();
+    const boardFrame = boardFrameRef.current;
+    if (!boardFrame) return null;
+    const rect = boardFrame.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) {
+      console.warn("[canvas-board] invalid board frame dimensions while mapping pointer", {
+        roomId,
+        width: rect.width,
+        height: rect.height,
+      });
+      return null;
+    }
     const viewport = viewportRef.current;
     const localX = clientX - rect.left - rect.width / 2;
     const localY = clientY - rect.top - rect.height / 2;
@@ -648,9 +716,9 @@ function CanvasBoardComponent({
   };
 
   const zoomAtPoint = (clientX: number, clientY: number, nextScale: number) => {
-    const surface = surfaceRef.current;
-    if (!surface) return;
-    const rect = surface.getBoundingClientRect();
+    const boardFrame = boardFrameRef.current;
+    if (!boardFrame) return;
+    const rect = boardFrame.getBoundingClientRect();
     setViewport((current) => {
       const clampedScale = clamp(nextScale, MIN_SCALE, MAX_SCALE);
       const pointerX = clientX - rect.left;
@@ -717,13 +785,30 @@ function CanvasBoardComponent({
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    const boardFrame = boardFrameRef.current;
+    if (!canvas || !boardFrame) return;
     const syncCanvasResolution = () => {
-      const rect = canvas.getBoundingClientRect();
+      const rect = boardFrame.getBoundingClientRect();
       const dpr = window.devicePixelRatio || 1;
       const nextWidth = Math.max(1, Math.round(rect.width * dpr));
       const nextHeight = Math.max(1, Math.round(rect.height * dpr));
+      if (rect.width <= 0 || rect.height <= 0) {
+        console.warn("[canvas-board] board frame has invalid dimensions", {
+          roomId,
+          width: rect.width,
+          height: rect.height,
+          dpr,
+        });
+      }
       if (canvas.width !== nextWidth || canvas.height !== nextHeight) {
+        console.info("[canvas-board] syncing canvas resolution", {
+          roomId,
+          cssWidth: rect.width,
+          cssHeight: rect.height,
+          pixelWidth: nextWidth,
+          pixelHeight: nextHeight,
+          dpr,
+        });
         canvas.width = nextWidth;
         canvas.height = nextHeight;
         setCanvasVersion((version) => version + 1);
@@ -731,13 +816,13 @@ function CanvasBoardComponent({
     };
     syncCanvasResolution();
     const observer = new ResizeObserver(syncCanvasResolution);
-    observer.observe(canvas);
+    observer.observe(boardFrame);
     window.addEventListener("resize", syncCanvasResolution);
     return () => {
       observer.disconnect();
       window.removeEventListener("resize", syncCanvasResolution);
     };
-  }, []);
+  }, [roomId]);
 
   const resetTransientInteraction = useCallback(
     (options?: { releasePointerCapture?: boolean }) => {
@@ -1065,13 +1150,14 @@ function CanvasBoardComponent({
       previewStroke?.shape &&
       activePointerIdRef.current === event.pointerId
     ) {
-      const committed: Stroke = {
+      const committed = getCommittedShapeStroke({
         ...previewStroke,
         shape: { ...previewStroke.shape, end: point },
         timestamp: Date.now(),
-      };
+      });
       previewStrokeRef.current = null;
       setStrokes((prev) => [...prev, committed]);
+      commitStrokeToCommittedCanvas(committed);
       getSocket().emit(SOCKET_EVENTS.STROKE_START, {
         roomId,
         stroke: committed,
@@ -1124,52 +1210,57 @@ function CanvasBoardComponent({
           {Math.round(viewport.scale * 100)}%
         </div>
         <div
-          style={viewportStyle}
-          className="relative aspect-[12/7] h-full w-full will-change-transform"
+          ref={boardFrameRef}
+          className="relative aspect-[12/7] h-full w-full overflow-hidden"
         >
-          <canvas ref={committedCanvasRef} className="hidden" aria-hidden />
-          <canvas
-            ref={canvasRef}
-            className="h-full w-full rounded-[20px] bg-white sm:rounded-[22px]"
-          />
-          <div className="pointer-events-none absolute inset-0">
-            {Object.values(cursors)
-              .filter(
-                (cursor) =>
-                  cursor.userId !== userId &&
-                  Date.now() - cursor.updatedAt < 4000,
-              )
-              .map((cursor) => (
-                <div
-                  key={cursor.userId}
-                  className="absolute -translate-x-1/2 -translate-y-1/2 transition-all duration-150 ease-out"
-                  style={{
-                    left: `${(cursor.x / LOGICAL_CANVAS_WIDTH) * 100}%`,
-                    top: `${(cursor.y / LOGICAL_CANVAS_HEIGHT) * 100}%`,
-                  }}
-                >
-                  <div className="flex flex-col items-center gap-1">
-                    <div
-                      className={`flex items-center justify-center overflow-hidden rounded-full border-2 border-white bg-slate-900 text-white shadow-md ring-1 ring-slate-200 ${compact ? "h-7 w-7 text-[10px]" : "h-8 w-8 text-[11px] sm:h-9 sm:w-9"}`}
-                    >
-                      {cursor.avatarUrl ? (
-                        <img
-                          src={cursor.avatarUrl}
-                          alt={cursor.displayName}
-                          className="h-full w-full object-cover"
-                        />
-                      ) : (
-                        <span className="font-semibold leading-none">
-                          {getAvatarInitials(cursor.displayName)}
-                        </span>
-                      )}
+          <div
+            style={viewportStyle}
+            className="absolute inset-0 will-change-transform"
+          >
+            <canvas ref={committedCanvasRef} className="hidden" aria-hidden />
+            <canvas
+              ref={canvasRef}
+              className="h-full w-full rounded-[20px] bg-white sm:rounded-[22px]"
+            />
+            <div className="pointer-events-none absolute inset-0">
+              {Object.values(cursors)
+                .filter(
+                  (cursor) =>
+                    cursor.userId !== userId &&
+                    Date.now() - cursor.updatedAt < 4000,
+                )
+                .map((cursor) => (
+                  <div
+                    key={cursor.userId}
+                    className="absolute -translate-x-1/2 -translate-y-1/2 transition-all duration-150 ease-out"
+                    style={{
+                      left: `${(cursor.x / LOGICAL_CANVAS_WIDTH) * 100}%`,
+                      top: `${(cursor.y / LOGICAL_CANVAS_HEIGHT) * 100}%`,
+                    }}
+                  >
+                    <div className="flex flex-col items-center gap-1">
+                      <div
+                        className={`flex items-center justify-center overflow-hidden rounded-full border-2 border-white bg-slate-900 text-white shadow-md ring-1 ring-slate-200 ${compact ? "h-7 w-7 text-[10px]" : "h-8 w-8 text-[11px] sm:h-9 sm:w-9"}`}
+                      >
+                        {cursor.avatarUrl ? (
+                          <img
+                            src={cursor.avatarUrl}
+                            alt={cursor.displayName}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <span className="font-semibold leading-none">
+                            {getAvatarInitials(cursor.displayName)}
+                          </span>
+                        )}
+                      </div>
+                      <span className="max-w-[92px] rounded-full bg-white/95 px-2 py-0.5 text-center text-[10px] font-black leading-none text-[color:var(--text-main)] shadow-sm">
+                        {cursor.displayName}
+                      </span>
                     </div>
-                    <span className="max-w-[92px] rounded-full bg-white/95 px-2 py-0.5 text-center text-[10px] font-black leading-none text-[color:var(--text-main)] shadow-sm">
-                      {cursor.displayName}
-                    </span>
                   </div>
-                </div>
-              ))}
+                ))}
+            </div>
           </div>
         </div>
       </div>

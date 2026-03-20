@@ -105,6 +105,13 @@ export const registerSocketHandlers = (
       };
 
       socket.join(parsed.data.roomId);
+      console.info("[socket:join] participant joined room", {
+        roomId: parsed.data.roomId,
+        socketId: socket.id,
+        userId: parsed.data.userId,
+        existingStrokeCount: room.strokes.length,
+        existingParticipantCount: room.participants.length,
+      });
       const updatedRoom = roomManager.addParticipant(
         parsed.data.roomId,
         participant,
@@ -181,6 +188,13 @@ export const registerSocketHandlers = (
         return;
       }
       const stroke: Stroke = { ...parsed.data.stroke, timestamp: Date.now() };
+      console.info("[socket:stroke:start] storing stroke", {
+        roomId: parsed.data.roomId,
+        strokeId: stroke.strokeId,
+        tool: stroke.tool,
+        pointCount: stroke.points.length,
+        hasShape: Boolean(stroke.shape),
+      });
       roomManager.addStroke(parsed.data.roomId, stroke);
       socket
         .to(parsed.data.roomId)
@@ -204,7 +218,14 @@ export const registerSocketHandlers = (
         parsed.data.strokeId,
         parsed.data.points,
       );
-      if (!appended) return;
+      if (!appended) {
+        console.warn("[socket:stroke:append] missing stroke during append", {
+          roomId: parsed.data.roomId,
+          strokeId: parsed.data.strokeId,
+          pointCount: parsed.data.points.length,
+        });
+        return;
+      }
       socket.to(parsed.data.roomId).emit(SOCKET_EVENTS.STROKE_EVENT, {
         type: SOCKET_EVENTS.STROKE_APPEND,
         strokeId: parsed.data.strokeId,
@@ -343,6 +364,13 @@ export const registerSocketHandlers = (
         socket.emit(SOCKET_EVENTS.ROOM_EXPIRED, { roomId: parsed.data.roomId });
         return;
       }
+      console.info("[socket:room-state] sending room hydration", {
+        roomId: parsed.data.roomId,
+        socketId: socket.id,
+        updatedAt: room.updatedAt,
+        strokeCount: room.strokes.length,
+        participantCount: room.participants.length,
+      });
       socket.emit(SOCKET_EVENTS.ROOM_STATE, { room });
     });
 
