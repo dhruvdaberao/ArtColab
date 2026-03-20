@@ -29,6 +29,7 @@ export function useRoomSocket(
   const [hasJoined, setHasJoined] = useState(false);
   const [redoCounts, setRedoCounts] = useState<Record<string, number>>({});
   const joinedRoomRef = useRef<string | null>(null);
+  const strokeIndexRef = useRef<Map<string, number>>(new Map());
 
   const leaveRoom = useCallback(() => {
     if (joinedRoomRef.current)
@@ -85,6 +86,9 @@ export function useRoomSocket(
     };
     const applyRoom = (room: RoomState) => {
       joinedRoomRef.current = roomId;
+      strokeIndexRef.current = new Map(
+        room.strokes.map((stroke, index) => [stroke.strokeId, index]),
+      );
       setParticipants(room.participants);
       setStrokes(room.strokes);
       setChatMessages(room.chatMessages ?? []);
@@ -110,17 +114,25 @@ export function useRoomSocket(
       );
     const onStrokeEvent = (event: any) => {
       if (event.type === SOCKET_EVENTS.STROKE_START) {
-        setStrokes((prev) => [...prev, event.stroke]);
+        setStrokes((prev) => {
+          strokeIndexRef.current.set(event.stroke.strokeId, prev.length);
+          return [...prev, event.stroke];
+        });
         setRedoCounts((prev) => ({ ...prev, [event.stroke.userId]: 0 }));
       }
       if (event.type === SOCKET_EVENTS.STROKE_APPEND)
-        setStrokes((prev) =>
-          prev.map((stroke) =>
-            stroke.strokeId === event.strokeId
-              ? { ...stroke, points: [...stroke.points, ...event.points] }
-              : stroke,
-          ),
-        );
+        setStrokes((prev) => {
+          const strokeIndex = strokeIndexRef.current.get(event.strokeId);
+          if (strokeIndex === undefined) return prev;
+          const target = prev[strokeIndex];
+          if (!target) return prev;
+          const next = [...prev];
+          next[strokeIndex] = {
+            ...target,
+            points: [...target.points, ...event.points],
+          };
+          return next;
+        });
     };
 
     getSocket().on("connect", onConnect);
@@ -149,6 +161,7 @@ export function useRoomSocket(
         setMode(nextMode),
     );
     getSocket().on(SOCKET_EVENTS.BOARD_CLEARED, () => {
+      strokeIndexRef.current = new Map();
       setStrokes([]);
       setRedoCounts({});
     });
@@ -161,9 +174,13 @@ export function useRoomSocket(
         strokeId: string;
         userId: string;
       }) => {
-        setStrokes((prev) =>
-          prev.filter((stroke) => stroke.strokeId !== strokeId),
-        );
+        setStrokes((prev) => {
+          const next = prev.filter((stroke) => stroke.strokeId !== strokeId);
+          strokeIndexRef.current = new Map(
+            next.map((stroke, index) => [stroke.strokeId, index]),
+          );
+          return next;
+        });
         setRedoCounts((prev) => ({
           ...prev,
           [strokeUserId]: (prev[strokeUserId] ?? 0) + 1,
@@ -179,7 +196,10 @@ export function useRoomSocket(
         stroke: Stroke;
         userId: string;
       }) => {
-        setStrokes((prev) => [...prev, stroke]);
+        setStrokes((prev) => {
+          strokeIndexRef.current.set(stroke.strokeId, prev.length);
+          return [...prev, stroke];
+        });
         setRedoCounts((prev) => ({
           ...prev,
           [strokeUserId]: Math.max(0, (prev[strokeUserId] ?? 0) - 1),

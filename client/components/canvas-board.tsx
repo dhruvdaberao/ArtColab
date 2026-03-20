@@ -10,7 +10,7 @@ import type {
   Stroke,
 } from "@cloudcanvas/shared";
 import { nanoid } from "nanoid";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { getAvatarInitials } from "@/lib/guest";
 
 const LOGICAL_CANVAS_WIDTH = 1200;
@@ -144,16 +144,8 @@ const applyFloodFill = (
   const transform = ctx.getTransform();
   const pixelWidth = Math.max(1, Math.round(width * transform.a));
   const pixelHeight = Math.max(1, Math.round(height * transform.d));
-  const startX = clamp(
-    Math.round(startPoint.x * transform.a),
-    0,
-    pixelWidth - 1,
-  );
-  const startY = clamp(
-    Math.round(startPoint.y * transform.d),
-    0,
-    pixelHeight - 1,
-  );
+  const startX = clamp(Math.round(startPoint.x * transform.a), 0, pixelWidth - 1);
+  const startY = clamp(Math.round(startPoint.y * transform.d), 0, pixelHeight - 1);
   const image = ctx.getImageData(0, 0, pixelWidth, pixelHeight);
   const { data } = image;
   const startIndex = (startY * pixelWidth + startX) * 4;
@@ -229,6 +221,7 @@ const renderStroke = (
     ctx.restore();
     return;
   }
+
   if (!stroke.points.length) return;
   const activeBrushStyle = stroke.brushStyle ?? "classic";
   ctx.save();
@@ -237,8 +230,9 @@ const renderStroke = (
   const strokeColor = stroke.tool === "eraser" ? "#ffffff" : stroke.color;
   ctx.strokeStyle = strokeColor;
   ctx.lineWidth = stroke.size;
-  if (activeBrushStyle === "dotted")
+  if (activeBrushStyle === "dotted") {
     ctx.setLineDash([1, Math.max(6, stroke.size * 1.35)]);
+  }
   if (activeBrushStyle === "crayon") {
     ctx.globalAlpha = 0.82;
     ctx.lineWidth = stroke.size * 1.15;
@@ -302,7 +296,7 @@ interface CanvasBoardProps {
   onSurfaceInteract?: () => void;
 }
 
-export function CanvasBoard({
+function CanvasBoardComponent({
   roomId,
   userId,
   displayName,
@@ -326,8 +320,11 @@ export function CanvasBoard({
   const drawingRef = useRef(false);
   const currentStrokeId = useRef("");
   const pendingPointsRef = useRef<Stroke["points"]>([]);
+  const draftStrokeRef = useRef<Stroke | null>(null);
   const activePointerIdRef = useRef<number | null>(null);
   const emitCursorRef = useRef<number | null>(null);
+  const renderFrameRef = useRef<number | null>(null);
+  const pointsSinceFlushRef = useRef(0);
   const pointersRef = useRef<PointerMap>(new Map());
   const panStartRef = useRef<{
     x: number;
@@ -345,6 +342,7 @@ export function CanvasBoard({
     startCenterX: number;
     startCenterY: number;
   } | null>(null);
+  const strokesRef = useRef(strokes);
   const [canvasVersion, setCanvasVersion] = useState(0);
   const [viewport, setViewport] = useState<Viewport>({
     scale: 1,
@@ -352,6 +350,11 @@ export function CanvasBoard({
     offsetY: 0,
   });
   const [previewStroke, setPreviewStroke] = useState<Stroke | null>(null);
+
+  useEffect(() => {
+    strokesRef.current = strokes;
+  }, [strokes]);
+
   const viewportStyle = useMemo<React.CSSProperties>(
     () => ({
       transform: `translate(${viewport.offsetX}px, ${viewport.offsetY}px) scale(${viewport.scale})`,
@@ -359,6 +362,28 @@ export function CanvasBoard({
     }),
     [viewport.offsetX, viewport.offsetY, viewport.scale],
   );
+
+  const queueRender = () => {
+    if (renderFrameRef.current !== null) return;
+    renderFrameRef.current = requestAnimationFrame(() => {
+      renderFrameRef.current = null;
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const context = canvas.getContext("2d", { willReadFrequently: true });
+      if (!context) return;
+      const scaleX = canvas.width / LOGICAL_CANVAS_WIDTH;
+      const scaleY = canvas.height / LOGICAL_CANVAS_HEIGHT;
+      context.setTransform(1, 0, 0, 1, 0, 0);
+      context.clearRect(0, 0, canvas.width, canvas.height);
+      context.setTransform(scaleX, 0, 0, scaleY, 0, 0);
+      context.fillStyle = "#ffffff";
+      context.fillRect(0, 0, LOGICAL_CANVAS_WIDTH, LOGICAL_CANVAS_HEIGHT);
+      strokesRef.current.forEach((stroke) => renderStroke(context, stroke));
+      const draftStroke = draftStrokeRef.current;
+      if (draftStroke) renderStroke(context, draftStroke, true);
+      if (previewStroke) renderStroke(context, previewStroke, true);
+    });
+  };
 
   const queueCursorEmit = (
     point: { x: number; y: number },
@@ -436,6 +461,7 @@ export function CanvasBoard({
     if (!pendingPointsRef.current.length || !currentStrokeId.current) return;
     const pointsToSend = pendingPointsRef.current;
     pendingPointsRef.current = [];
+    pointsSinceFlushRef.current = 0;
     getSocket().emit(SOCKET_EVENTS.STROKE_APPEND, {
       roomId,
       strokeId: currentStrokeId.current,
@@ -452,6 +478,8 @@ export function CanvasBoard({
     });
     currentStrokeId.current = "";
     drawingRef.current = false;
+    draftStrokeRef.current = null;
+    queueRender();
   };
 
   useEffect(() => {
@@ -479,19 +507,7 @@ export function CanvasBoard({
   }, []);
 
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const context = canvas.getContext("2d", { willReadFrequently: true });
-    if (!context) return;
-    const scaleX = canvas.width / LOGICAL_CANVAS_WIDTH;
-    const scaleY = canvas.height / LOGICAL_CANVAS_HEIGHT;
-    context.setTransform(1, 0, 0, 1, 0, 0);
-    context.clearRect(0, 0, canvas.width, canvas.height);
-    context.setTransform(scaleX, 0, 0, scaleY, 0, 0);
-    context.fillStyle = "#ffffff";
-    context.fillRect(0, 0, LOGICAL_CANVAS_WIDTH, LOGICAL_CANVAS_HEIGHT);
-    strokes.forEach((stroke) => renderStroke(context, stroke));
-    if (previewStroke) renderStroke(context, previewStroke, true);
+    queueRender();
   }, [canvasVersion, previewStroke, strokes]);
 
   useEffect(() => {
@@ -501,6 +517,7 @@ export function CanvasBoard({
   useEffect(
     () => () => {
       if (emitCursorRef.current) cancelAnimationFrame(emitCursorRef.current);
+      if (renderFrameRef.current) cancelAnimationFrame(renderFrameRef.current);
     },
     [],
   );
@@ -624,11 +641,14 @@ export function CanvasBoard({
       timestamp: Date.now(),
     };
     pendingPointsRef.current = [point];
+    pointsSinceFlushRef.current = 1;
+    draftStrokeRef.current = nextStroke;
     setStrokes((prev) => [...prev, nextStroke]);
     getSocket().emit(SOCKET_EVENTS.STROKE_START, {
       roomId,
       stroke: nextStroke,
     });
+    queueRender();
     queueCursorEmit(point, true);
   };
 
@@ -636,11 +656,12 @@ export function CanvasBoard({
     const point = getCanvasPoint(event.clientX, event.clientY);
     if (!point) return;
 
-    if (pointersRef.current.has(event.pointerId))
+    if (pointersRef.current.has(event.pointerId)) {
       pointersRef.current.set(event.pointerId, {
         x: event.clientX,
         y: event.clientY,
       });
+    }
 
     if (gestureRef.current) {
       const first = pointersRef.current.get(gestureRef.current.firstId);
@@ -676,19 +697,18 @@ export function CanvasBoard({
         normalizeViewport({
           scale: viewport.scale,
           offsetX:
-            panStartRef.current.offsetX +
-            (event.clientX - panStartRef.current.x),
+            panStartRef.current.offsetX + (event.clientX - panStartRef.current.x),
           offsetY:
-            panStartRef.current.offsetY +
-            (event.clientY - panStartRef.current.y),
+            panStartRef.current.offsetY + (event.clientY - panStartRef.current.y),
         }),
       );
       return;
     }
 
     queueCursorEmit(point, drawingRef.current);
-    if (!drawingRef.current || activePointerIdRef.current !== event.pointerId)
+    if (!drawingRef.current || activePointerIdRef.current !== event.pointerId) {
       return;
+    }
 
     if (previewStroke?.shape) {
       setPreviewStroke((current) =>
@@ -699,22 +719,23 @@ export function CanvasBoard({
       return;
     }
 
+    if (!draftStrokeRef.current) return;
+    draftStrokeRef.current = {
+      ...draftStrokeRef.current,
+      points: [...draftStrokeRef.current.points, point],
+    };
     pendingPointsRef.current.push(point);
-    setStrokes((prev) =>
-      prev.map((stroke) =>
-        stroke.strokeId === currentStrokeId.current
-          ? { ...stroke, points: [...stroke.points, point] }
-          : stroke,
-      ),
-    );
-    if (pendingPointsRef.current.length >= 4) flushPendingPoints();
+    pointsSinceFlushRef.current += 1;
+    queueRender();
+    if (pointsSinceFlushRef.current >= 4) {
+      flushPendingPoints();
+    }
   };
 
   const handlePointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
     const point = getCanvasPoint(event.clientX, event.clientY);
     pointersRef.current.delete(event.pointerId);
-    if (gestureRef.current && pointersRef.current.size < 2)
-      gestureRef.current = null;
+    if (gestureRef.current && pointersRef.current.size < 2) gestureRef.current = null;
     if (panStartRef.current && activePointerIdRef.current === event.pointerId) {
       panStartRef.current = null;
       activePointerIdRef.current = null;
@@ -722,10 +743,7 @@ export function CanvasBoard({
     }
     if (!point) return;
 
-    if (
-      previewStroke?.shape &&
-      activePointerIdRef.current === event.pointerId
-    ) {
+    if (previewStroke?.shape && activePointerIdRef.current === event.pointerId) {
       const committed: Stroke = {
         ...previewStroke,
         shape: { ...previewStroke.shape, end: point },
@@ -762,10 +780,10 @@ export function CanvasBoard({
   };
 
   return (
-    <div className="h-full min-h-0">
+    <div className="h-full min-h-0 p-1.5 sm:p-2">
       <div
         ref={surfaceRef}
-        className="relative h-full overflow-hidden rounded-[24px] border border-[color:var(--border)]/10 bg-[#cbe8ff] shadow-[0_18px_45px_rgba(26,26,26,0.14)] sm:rounded-[28px]"
+        className="relative h-full overflow-hidden rounded-[24px] bg-[#c7e8ff] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.45),0_20px_50px_rgba(15,23,42,0.16)] sm:rounded-[26px]"
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
@@ -778,11 +796,11 @@ export function CanvasBoard({
         </div>
         <div
           style={viewportStyle}
-          className="relative aspect-[12/7] h-full w-full transition-transform duration-75 ease-out"
+          className="relative aspect-[12/7] h-full w-full will-change-transform"
         >
           <canvas
             ref={canvasRef}
-            className="h-full w-full rounded-[24px] bg-white sm:rounded-[28px]"
+            className="h-full w-full rounded-[22px] bg-white sm:rounded-[24px]"
           />
           <div className="pointer-events-none absolute inset-0">
             {Object.values(cursors)
@@ -828,3 +846,5 @@ export function CanvasBoard({
     </div>
   );
 }
+
+export const CanvasBoard = memo(CanvasBoardComponent);
