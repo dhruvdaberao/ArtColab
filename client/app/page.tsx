@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 import { useAuth } from "@/components/auth-provider";
-import { GuestDisplayNameModal } from "@/components/guest-display-name-modal";
 import { InfoCardsSection } from "@/components/info-cards";
 import { FroddleLogo } from "@/components/froddle-logo";
 import { SiteHeader } from "@/components/site-header";
@@ -17,6 +16,7 @@ import {
 } from "@/components/ui";
 import { createRoom, joinRoom } from "@/lib/api";
 import {
+  ensureGuestDisplayName,
   getStoredDisplayName,
   resolveSessionDisplayName,
   setStoredDisplayName,
@@ -41,9 +41,6 @@ export default function HomePage() {
   const [isJoining, setIsJoining] = useState(false);
   const [isGuesting, setIsGuesting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [pendingAction, setPendingAction] = useState<"create" | "join" | null>(
-    null,
-  );
 
   useEffect(() => {
     if (user) setDisplayName(resolveSessionDisplayName(user));
@@ -55,25 +52,18 @@ export default function HomePage() {
     return setStoredDisplayName(normalized);
   };
 
-  const ensureDisplayName = (action: "create" | "join") => {
+  const ensureDisplayName = () => {
     if (user?.role === "user") return user.username;
-    const normalized = displayName.trim() || getStoredDisplayName();
-    if (normalized) {
-      setDisplayName(normalized);
-      persistDisplayName(normalized);
-      return normalized;
-    }
-    setPendingAction(action);
-    return null;
+    const normalized =
+      displayName.trim() || getStoredDisplayName() || ensureGuestDisplayName();
+    setDisplayName(normalized);
+    persistDisplayName(normalized);
+    return normalized;
   };
 
   const onCreate = async (event: FormEvent) => {
     event.preventDefault();
-    const sessionName = ensureDisplayName("create");
-    if (!sessionName) {
-      setError("Please add a display name before creating a room.");
-      return;
-    }
+    const sessionName = ensureDisplayName();
     setIsCreating(true);
     setError(null);
     try {
@@ -96,11 +86,7 @@ export default function HomePage() {
 
   const onJoin = async (event: FormEvent) => {
     event.preventDefault();
-    const normalized = ensureDisplayName("join");
-    if (!normalized) {
-      setError("Please add a display name before joining a room.");
-      return;
-    }
+    const normalized = ensureDisplayName();
     setDisplayName(normalized);
     setIsJoining(true);
     setError(null);
@@ -319,21 +305,6 @@ export default function HomePage() {
       <section className="mt-6">
         <InfoCardsSection />
       </section>
-
-      <GuestDisplayNameModal
-        open={pendingAction !== null && user.role === "guest"}
-        initialValue={displayName}
-        confirmLabel={
-          pendingAction === "join" ? "Save and join" : "Save and create"
-        }
-        onCancel={() => setPendingAction(null)}
-        onConfirm={(name) => {
-          persistDisplayName(name);
-          setDisplayName(name);
-          setError(null);
-          setPendingAction(null);
-        }}
-      />
     </main>
   );
 }
