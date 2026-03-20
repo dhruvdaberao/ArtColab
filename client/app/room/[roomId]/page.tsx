@@ -795,6 +795,10 @@ export default function RoomPage() {
         name: roomMeta.roomId,
         visibility: "private",
         password,
+        guestDisplayName:
+          user?.role === "guest"
+            ? ensureGuestDisplayName(displayName)
+            : undefined,
       });
       grantRoomAccess(roomMeta.roomId);
       rememberRoomPageHint({

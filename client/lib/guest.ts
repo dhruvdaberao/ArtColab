@@ -1,24 +1,26 @@
 import type { SessionUser } from "./api";
 
 export const GUEST_DISPLAY_NAME_STORAGE_KEY = "cloudcanvas-display-name";
+const MAX_GUEST_NAME_LENGTH = 32;
+
+const normalizeGuestDisplayName = (name: string | null | undefined) =>
+  (name ?? "").trim().slice(0, MAX_GUEST_NAME_LENGTH);
 
 export const getStoredDisplayName = () =>
   typeof window === "undefined"
     ? ""
-    : (localStorage.getItem(GUEST_DISPLAY_NAME_STORAGE_KEY)?.trim() ?? "");
+    : normalizeGuestDisplayName(
+        localStorage.getItem(GUEST_DISPLAY_NAME_STORAGE_KEY),
+      );
 
-const createGuestDisplayName = () =>
-  `Guest ${Math.floor(1000 + Math.random() * 9000)}`;
-
-export const ensureGuestDisplayName = () => {
-  const existing = getStoredDisplayName();
-  if (existing) return existing;
-  return setStoredDisplayName(createGuestDisplayName());
+export const createGuestDisplayName = () => {
+  const suffix = Math.floor(1000 + Math.random() * 9000);
+  return `Guest_${suffix}`;
 };
 
 export const setStoredDisplayName = (name: string) => {
   if (typeof window === "undefined") return "";
-  const normalized = name.trim();
+  const normalized = normalizeGuestDisplayName(name);
   if (normalized) {
     localStorage.setItem(GUEST_DISPLAY_NAME_STORAGE_KEY, normalized);
   } else {
@@ -27,13 +29,23 @@ export const setStoredDisplayName = (name: string) => {
   return normalized;
 };
 
+export const ensureGuestDisplayName = (preferredName?: string | null) => {
+  const preferred = normalizeGuestDisplayName(preferredName);
+  if (preferred) return setStoredDisplayName(preferred);
+
+  const existing = getStoredDisplayName();
+  if (existing) return existing;
+
+  return setStoredDisplayName(createGuestDisplayName());
+};
+
 export const resolveSessionDisplayName = (
   user: SessionUser | null | undefined,
 ) => {
   if (user?.role === "user") return user.username;
   const stored = getStoredDisplayName();
   if (stored) return stored;
-  if (user?.username?.trim()) return user.username.trim();
+  if (user?.username?.trim()) return ensureGuestDisplayName(user.username);
   return ensureGuestDisplayName();
 };
 

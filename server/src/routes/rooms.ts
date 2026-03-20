@@ -41,16 +41,12 @@ const guestDisplayNameFromRequest = (req: Request) => {
     : null;
 };
 
-const requireGuestDisplayName = (req: Request, res: Response) => {
-  if (req.auth?.role === "user") return true;
-  if (guestDisplayNameFromRequest(req)) return true;
-  res
-    .status(400)
-    .json({
-      success: false,
-      message: "Please enter a display name before joining or creating a room.",
-    });
-  return false;
+const createGuestDisplayName = () =>
+  `Guest_${Math.floor(1000 + Math.random() * 9000)}`;
+
+const resolveGuestDisplayName = (req: Request) => {
+  if (req.auth?.role === "user") return req.auth.username;
+  return guestDisplayNameFromRequest(req) ?? createGuestDisplayName();
 };
 
 const resolveRoomMeta = async (
@@ -90,17 +86,12 @@ export const roomsRouter = (roomManager: RoomManager) => {
   router.post("/create", optionalAuth, async (req: Request, res: Response) => {
     const parsedBody = createRoomSchema.safeParse(req.body ?? {});
     if (!parsedBody.success) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message:
-            parsedBody.error.issues[0]?.message ??
-            "Invalid create room payload.",
-        });
+      return res.status(400).json({
+        success: false,
+        message:
+          parsedBody.error.issues[0]?.message ?? "Invalid create room payload.",
+      });
     }
-
-    if (!requireGuestDisplayName(req, res)) return;
 
     const name = parsedBody.data.name.trim();
     const visibility = parsedBody.data.visibility;
@@ -110,7 +101,7 @@ export const roomsRouter = (roomManager: RoomManager) => {
       ownerName:
         req.auth?.role === "user"
           ? req.auth.username
-          : (guestDisplayNameFromRequest(req) ?? "Guest"),
+          : resolveGuestDisplayName(req),
     } as const;
 
     console.info("[rooms:create] create requested", {
@@ -194,29 +185,23 @@ export const roomsRouter = (roomManager: RoomManager) => {
         roomName: name,
         error,
       });
-      return res
-        .status(500)
-        .json({
-          success: false,
-          message: "Failed to create room.",
-          error: errorMessage,
-        });
+      return res.status(500).json({
+        success: false,
+        message: "Failed to create room.",
+        error: errorMessage,
+      });
     }
   });
 
   router.post("/join", optionalAuth, async (req: Request, res: Response) => {
     const parsedBody = joinRoomHttpSchema.safeParse(req.body ?? {});
     if (!parsedBody.success) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message:
-            parsedBody.error.issues[0]?.message ?? "Invalid join room payload.",
-        });
+      return res.status(400).json({
+        success: false,
+        message:
+          parsedBody.error.issues[0]?.message ?? "Invalid join room payload.",
+      });
     }
-
-    if (!requireGuestDisplayName(req, res)) return;
 
     const name = parsedBody.data.name.trim();
     console.info("[rooms:join] join requested", {
@@ -241,12 +226,10 @@ export const roomsRouter = (roomManager: RoomManager) => {
           expectedVisibility: roomMeta.visibility,
           requestedVisibility: parsedBody.data.visibility,
         });
-        return res
-          .status(400)
-          .json({
-            success: false,
-            message: "Room visibility selection does not match.",
-          });
+        return res.status(400).json({
+          success: false,
+          message: "Room visibility selection does not match.",
+        });
       }
       if (roomMeta.visibility === "private") {
         const ok =
@@ -294,13 +277,11 @@ export const roomsRouter = (roomManager: RoomManager) => {
         roomIdentifier: name,
         error,
       });
-      return res
-        .status(500)
-        .json({
-          success: false,
-          message: "Failed to join room.",
-          error: toErrorMessage(error),
-        });
+      return res.status(500).json({
+        success: false,
+        message: "Failed to join room.",
+        error: toErrorMessage(error),
+      });
     }
   });
 
@@ -326,13 +307,11 @@ export const roomsRouter = (roomManager: RoomManager) => {
         ),
       });
     } catch (error) {
-      return res
-        .status(500)
-        .json({
-          success: false,
-          message: "Failed to browse rooms.",
-          error: toErrorMessage(error),
-        });
+      return res.status(500).json({
+        success: false,
+        message: "Failed to browse rooms.",
+        error: toErrorMessage(error),
+      });
     }
   });
 
@@ -388,12 +367,10 @@ export const roomsRouter = (roomManager: RoomManager) => {
           .status(404)
           .json({ success: false, message: "Room not found." });
       if (!req.auth || meta.ownerId !== req.auth.sub)
-        return res
-          .status(403)
-          .json({
-            success: false,
-            message: "Only room owner can update room settings.",
-          });
+        return res.status(403).json({
+          success: false,
+          message: "Only room owner can update room settings.",
+        });
 
       const updates: Partial<
         Pick<RoomJoinSource, "name" | "visibility"> & {
@@ -453,12 +430,10 @@ export const roomsRouter = (roomManager: RoomManager) => {
           .status(404)
           .json({ success: false, message: "Room not found." });
       if (!req.auth || meta.ownerId !== req.auth.sub)
-        return res
-          .status(403)
-          .json({
-            success: false,
-            message: "Only room owner can delete this room.",
-          });
+        return res.status(403).json({
+          success: false,
+          message: "Only room owner can delete this room.",
+        });
       roomManager.deleteRoom(parsedId.data);
       if (isMongoReady()) await Room.deleteOne({ roomId: parsedId.data });
       return res.json({ success: true });
@@ -489,13 +464,11 @@ export const roomsRouter = (roomManager: RoomManager) => {
       console.warn("[rooms:get] invalid room id", {
         roomId: req.params.roomId,
       });
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "Invalid room ID format.",
-          error: "INVALID_ROOM_ID",
-        });
+      return res.status(400).json({
+        success: false,
+        message: "Invalid room ID format.",
+        error: "INVALID_ROOM_ID",
+      });
     }
 
     try {
@@ -512,13 +485,11 @@ export const roomsRouter = (roomManager: RoomManager) => {
           roomFound: Boolean(room),
           metaFound: Boolean(meta),
         });
-        return res
-          .status(404)
-          .json({
-            success: false,
-            message: "Room does not exist or has expired.",
-            error: "ROOM_NOT_FOUND",
-          });
+        return res.status(404).json({
+          success: false,
+          message: "Room does not exist or has expired.",
+          error: "ROOM_NOT_FOUND",
+        });
       }
 
       if (req.auth?.role === "user" && isMongoReady()) {
@@ -545,13 +516,11 @@ export const roomsRouter = (roomManager: RoomManager) => {
         roomId: parsedId.data,
         error,
       });
-      return res
-        .status(500)
-        .json({
-          success: false,
-          message: "Failed to fetch room.",
-          error: errorMessage,
-        });
+      return res.status(500).json({
+        success: false,
+        message: "Failed to fetch room.",
+        error: errorMessage,
+      });
     }
   });
 

@@ -10,12 +10,7 @@ import { RoomPasswordModal } from "@/components/room-password-modal";
 import { SiteHeader } from "@/components/site-header";
 import { Badge, Button, Card, Input, SecondaryButton } from "@/components/ui";
 import { browseRooms, joinRoom, type RoomListItem } from "@/lib/api";
-import {
-  ensureGuestDisplayName,
-  getStoredDisplayName,
-  resolveSessionDisplayName,
-  setStoredDisplayName,
-} from "@/lib/guest";
+import { ensureGuestDisplayName, resolveSessionDisplayName } from "@/lib/guest";
 import { grantRoomAccess } from "@/lib/room-access";
 import { rememberRoomEntryHint } from "@/lib/room-entry";
 
@@ -26,6 +21,7 @@ export default function BrowseRoomsPage() {
   const [rooms, setRooms] = useState<RoomListItem[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [target, setTarget] = useState<RoomListItem | null>(null);
+  const [guestName, setGuestName] = useState("");
 
   useEffect(() => {
     browseRooms(query)
@@ -33,19 +29,40 @@ export default function BrowseRoomsPage() {
       .catch((e) => setError((e as Error).message));
   }, [query]);
 
-  const ensureGuestName = () => {
-    if (user?.role === "user") return true;
-    setStoredDisplayName(getStoredDisplayName() || ensureGuestDisplayName());
-    return true;
+  useEffect(() => {
+    if (user?.role === "guest") {
+      setGuestName(resolveSessionDisplayName(user));
+    } else {
+      setGuestName("");
+    }
+  }, [user]);
+
+  const ensureGuestIdentity = () => {
+    if (user?.role === "user") return undefined;
+    const nextName = ensureGuestDisplayName(guestName);
+    setGuestName(nextName);
+    return nextName;
+  };
+
+  const completeJoin = (room: RoomListItem) => async (password?: string) => {
+    const guestDisplayName = ensureGuestIdentity();
+    const data = await joinRoom({
+      name: room.roomId,
+      visibility: room.visibility,
+      password,
+      guestDisplayName,
+    });
+    if (data.room.visibility === "private") {
+      grantRoomAccess(data.room.roomId);
+    }
+    rememberRoomEntryHint(data.room);
+    router.push(`/room/${data.room.roomId}`);
   };
 
   const startJoin = async (room: RoomListItem) => {
-    ensureGuestName();
     setError(null);
     if (room.visibility === "public") {
-      const data = await joinRoom({ name: room.roomId, visibility: "public" });
-      rememberRoomEntryHint(data.room);
-      router.push(`/room/${data.room.roomId}`);
+      await completeJoin(room)();
       return;
     }
     setTarget(room);
@@ -84,6 +101,23 @@ export default function BrowseRoomsPage() {
             {rooms.length} room{rooms.length === 1 ? "" : "s"} available.
           </p>
         </div>
+
+        {user?.role === "guest" && (
+          <label className="block rounded-[1.5rem] border border-[color:var(--border)] bg-[color:var(--surface-soft)] px-4 py-3 text-sm font-semibold text-[color:var(--text-main)]">
+            Enter name (optional)
+            <Input
+              placeholder="Leave blank to join as an auto-generated guest"
+              value={guestName}
+              onChange={(event) => setGuestName(event.target.value)}
+              className="mt-2"
+              maxLength={32}
+            />
+            <span className="mt-2 block text-xs font-medium text-[color:var(--text-muted)]">
+              Join is never blocked. If this stays empty, Froddle assigns a
+              guest name automatically.
+            </span>
+          </label>
+        )}
 
         <label className="block text-sm font-semibold text-[color:var(--text-main)]">
           Search rooms
@@ -158,14 +192,7 @@ export default function BrowseRoomsPage() {
         onCancel={() => setTarget(null)}
         onSubmit={async (password) => {
           if (!target) return;
-          const data = await joinRoom({
-            name: target.roomId,
-            visibility: "private",
-            password,
-          });
-          grantRoomAccess(data.room.roomId);
-          rememberRoomEntryHint(data.room);
-          router.push(`/room/${data.room.roomId}`);
+          await completeJoin(target)(password);
         }}
       />
     </main>
