@@ -191,7 +191,7 @@ export function ColorWheelPicker({
       onPointerDown={onClose}
     >
       <div
-        className="flex max-h-[min(92vh,560px)] w-full max-w-[340px] flex-col overflow-hidden rounded-[26px] border border-white/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(246,249,255,0.98))] p-3.5 shadow-[0_26px_80px_rgba(15,23,42,0.24)] sm:max-w-[680px] sm:p-4"
+        className="flex max-h-[min(96dvh,540px)] w-full max-w-[min(100vw-1rem,640px)] flex-col overflow-hidden rounded-[24px] border border-white/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(246,249,255,0.98))] px-3 pb-3 pt-2.5 shadow-[0_26px_80px_rgba(15,23,42,0.24)] sm:max-h-[min(92vh,560px)] sm:max-w-[680px] sm:p-4"
         onPointerDown={(event) => event.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-3">
@@ -211,10 +211,10 @@ export function ColorWheelPicker({
           </button>
         </div>
 
-        <div className="mt-4 flex-1 overflow-y-auto pr-1">
-          <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_220px]">
-            <div className="rounded-[22px] border border-white/80 bg-white/80 p-3 shadow-[0_12px_26px_rgba(15,23,42,0.08)]">
-              <div className="relative mx-auto aspect-square w-full max-w-[220px] sm:max-w-[230px]">
+        <div className="mt-3 flex-1 overflow-hidden">
+          <div className="grid h-full gap-2 overflow-hidden landscape:grid-cols-[minmax(0,1fr)_minmax(170px,210px)] sm:gap-3 sm:grid-cols-[minmax(0,1fr)_220px]">
+            <div className="flex min-h-0 flex-col rounded-[22px] border border-white/80 bg-white/80 p-2.5 shadow-[0_12px_26px_rgba(15,23,42,0.08)] sm:p-3">
+              <div className="relative mx-auto aspect-square w-full max-w-[min(64vw,220px)] landscape:max-w-[min(50vh,190px)] sm:max-w-[230px]">
                 <div
                   ref={wheelRef}
                   className="absolute inset-0 rounded-full"
@@ -247,16 +247,16 @@ export function ColorWheelPicker({
                   style={{ ...squareThumbStyle, backgroundColor: preview }}
                 />
               </div>
-              <p className="mt-3 text-center text-xs text-slate-500">
+              <p className="mt-2 text-center text-[11px] leading-4 text-slate-500 sm:mt-3 sm:text-xs">
                 Drag the ring for hue and the center square for shade.
               </p>
             </div>
 
-            <div className="space-y-3">
-              <div className="rounded-[20px] border border-white/80 bg-white/88 p-3 shadow-sm">
+            <div className="flex min-h-0 flex-col gap-2 sm:gap-3">
+              <div className="rounded-[20px] border border-white/80 bg-white/88 p-2.5 shadow-sm sm:p-3">
                 <div className="flex items-center gap-3">
                   <span
-                    className="h-14 w-14 shrink-0 rounded-full border border-slate-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.75),0_12px_26px_rgba(15,23,42,0.14)]"
+                    className="aspect-square h-[clamp(2.75rem,10vw,3.5rem)] shrink-0 rounded-full border border-slate-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.75),0_12px_26px_rgba(15,23,42,0.14)]"
                     style={{ backgroundColor: preview }}
                   />
                   <div className="min-w-0">
@@ -273,7 +273,7 @@ export function ColorWheelPicker({
                 </div>
               </div>
 
-              <label className="block rounded-[20px] border border-white/80 bg-white/88 px-3 py-3 text-sm shadow-sm">
+              <label className="block rounded-[20px] border border-white/80 bg-white/88 px-3 py-2.5 text-sm shadow-sm">
                 <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
                   Hex
                 </span>
@@ -289,7 +289,7 @@ export function ColorWheelPicker({
                 />
               </label>
               {!!quickSwatches.length && (
-                <div className="rounded-[20px] border border-white/80 bg-white/88 p-3 shadow-sm">
+                <div className="rounded-[20px] border border-white/80 bg-white/88 p-2.5 shadow-sm sm:p-3">
                   <div className="flex items-center justify-between gap-2">
                     <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
                       Quick picks
@@ -298,7 +298,7 @@ export function ColorWheelPicker({
                       Recent + saved
                     </span>
                   </div>
-                  <div className="mt-3 flex flex-wrap gap-2">
+                  <div className="mt-2 flex flex-wrap gap-2">
                     {quickSwatches.map((color) => {
                       const selected = color === preview;
                       return (

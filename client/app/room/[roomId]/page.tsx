@@ -116,11 +116,11 @@ type ColorPickerTarget = "stroke" | "fill" | null;
 const sidebarShell =
   "rounded-[24px] border border-black/5 bg-white/78 p-1.5 shadow-[0_16px_38px_rgba(15,23,42,0.12)] backdrop-blur-xl";
 const railButtonBase =
-  "group flex h-11 w-11 items-center justify-center rounded-[18px] border border-black/5 bg-white/92 text-[color:var(--text-main)] shadow-[0_6px_16px_rgba(15,23,42,0.08)] transition hover:-translate-y-0.5 hover:bg-[color:var(--surface-soft)] disabled:cursor-not-allowed disabled:opacity-40 sm:h-12 sm:w-12";
+  "group inline-flex h-11 w-11 touch-manipulation select-none items-center justify-center rounded-[18px] border border-black/5 bg-white/92 text-[color:var(--text-main)] shadow-[0_6px_16px_rgba(15,23,42,0.08)] transition hover:-translate-y-0.5 hover:bg-[color:var(--surface-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--brand-blue)]/35 disabled:cursor-not-allowed disabled:opacity-40 sm:h-12 sm:w-12";
 const floatingPanelCard =
   "rounded-[20px] border border-black/5 bg-white/95 p-3 shadow-[0_22px_44px_rgba(15,23,42,0.18)] backdrop-blur-xl";
 const floatingPanelBody =
-  "min-h-0 flex-1 overflow-y-auto pr-1 [-ms-overflow-style:none] [scrollbar-width:thin]";
+  "min-h-0 flex-1 overflow-y-auto pr-1 [-ms-overflow-style:none] [scrollbar-width:thin] touch-pan-y";
 const controlLabel =
   "text-[10px] font-semibold uppercase tracking-[0.18em] text-[color:var(--text-muted)]";
 const railBadge =
@@ -174,6 +174,7 @@ export default function RoomPage() {
   const [isPortraitViewport, setIsPortraitViewport] = useState(false);
   const [immersiveUiRetryNeeded, setImmersiveUiRetryNeeded] = useState(false);
   const [activeToolPanel, setActiveToolPanel] = useState<ToolPanel>("brush");
+  const [roomMetaLoaded, setRoomMetaLoaded] = useState(false);
   const [activeFunctionPanel, setActiveFunctionPanel] =
     useState<FunctionPanel>(null);
   const [activeColorPicker, setActiveColorPicker] =
@@ -238,6 +239,7 @@ export default function RoomPage() {
       setRoomLoadError("Missing room code.");
       setRoomReady(false);
       setRoomMeta(null);
+      setRoomMetaLoaded(true);
       setIsRoomLoading(false);
       return;
     }
@@ -245,12 +247,14 @@ export default function RoomPage() {
       setRoomLoadError("Invalid room code.");
       setRoomReady(false);
       setRoomMeta(null);
+      setRoomMetaLoaded(true);
       setIsRoomLoading(false);
       return;
     }
     let cancelled = false;
     setRoomLoadError(null);
     setRoomReady(false);
+    setRoomMetaLoaded(false);
     setIsRoomLoading(true);
     getRoom(roomId)
       .then((data) => {
@@ -262,6 +266,7 @@ export default function RoomPage() {
         )
           setRoomReady(false);
         else setRoomReady(true);
+        setRoomMetaLoaded(true);
         setIsRoomLoading(false);
       })
       .catch((error: Error) => {
@@ -269,6 +274,7 @@ export default function RoomPage() {
         console.error("[room-page] failed to load room", { roomId, error });
         setRoomMeta(null);
         setRoomLoadError(error.message || "Unable to load room.");
+        setRoomMetaLoaded(true);
         setIsRoomLoading(false);
       });
     return () => {
@@ -382,7 +388,10 @@ export default function RoomPage() {
         }
       }
       orientationLockedRef.current = false;
-      if (document.fullscreenElement) {
+      if (
+        document.fullscreenElement &&
+        document.fullscreenElement === document.documentElement
+      ) {
         try {
           await document.exitFullscreen();
         } catch {
@@ -542,6 +551,14 @@ export default function RoomPage() {
     roomReady,
     syncViewportState,
   ]);
+
+  useEffect(() => {
+    if (!roomId || !userId || !isValidRoomId) return;
+    const socket = getSocket();
+    if (!socket.connected && !socket.active) {
+      socket.connect();
+    }
+  }, [isValidRoomId, roomId, userId]);
 
   const avatarUrl = user?.profileImage;
   const {
@@ -1166,17 +1183,6 @@ export default function RoomPage() {
     );
   };
 
-  if (isRoomLoading)
-    return (
-      <main className="flex min-h-screen items-center justify-center p-6">
-        <Card className="max-w-md space-y-3 p-8 text-center">
-          <h1 className="text-2xl font-semibold">Loading room</h1>
-          <p className="text-slate-600">
-            Checking the room link and loading the latest room details.
-          </p>
-        </Card>
-      </main>
-    );
   if (roomLoadError || expired)
     return (
       <main className="flex min-h-screen items-center justify-center p-6">
@@ -1257,6 +1263,7 @@ export default function RoomPage() {
             <button
               type="button"
               className={railButtonBase}
+              onPointerDown={(event) => event.preventDefault()}
               onClick={() =>
                 getSocket().emit(SOCKET_EVENTS.STROKE_UNDO, { roomId, userId })
               }
@@ -1268,6 +1275,7 @@ export default function RoomPage() {
             <button
               type="button"
               className={railButtonBase}
+              onPointerDown={(event) => event.preventDefault()}
               onClick={() =>
                 getSocket().emit(SOCKET_EVENTS.STROKE_REDO, { roomId, userId })
               }
@@ -1279,6 +1287,7 @@ export default function RoomPage() {
             <button
               type="button"
               className={railButtonBase}
+              onPointerDown={(event) => event.preventDefault()}
               onClick={download}
               disabled={!hasJoined}
               aria-label="Export board"
@@ -1288,6 +1297,7 @@ export default function RoomPage() {
             <button
               type="button"
               className={railButtonBase}
+              onPointerDown={(event) => event.preventDefault()}
               onClick={() => setIsClearModalOpen(true)}
               disabled={!hasJoined}
               aria-label="Clear board"
@@ -1297,6 +1307,7 @@ export default function RoomPage() {
             <button
               type="button"
               className={railButtonBase}
+              onPointerDown={(event) => event.preventDefault()}
               onClick={() => {
                 navigator.clipboard.writeText(window.location.href);
                 pushToast("Room link copied.");
@@ -1308,6 +1319,7 @@ export default function RoomPage() {
             <button
               type="button"
               className={`${railButtonBase} relative ${activeFunctionPanel === "chat" ? "bg-[color:var(--brand-blue)] text-white" : ""}`}
+              onPointerDown={(event) => event.preventDefault()}
               onClick={(event) => {
                 event.stopPropagation();
                 setActiveToolPanel(null);
@@ -1328,6 +1340,7 @@ export default function RoomPage() {
             <button
               type="button"
               className={`${railButtonBase} text-[color:var(--brand-red)]`}
+              onPointerDown={(event) => event.preventDefault()}
               onClick={() => setIsExitModalOpen(true)}
               aria-label="Leave room"
             >
@@ -1342,6 +1355,23 @@ export default function RoomPage() {
               className={`pointer-events-none absolute left-3 top-3 z-30 rounded-full px-3 py-1.5 text-[11px] font-semibold shadow-sm ${error || status === "reconnecting" || status === "disconnected" ? "bg-[color:var(--danger-soft)] text-[#8f2323]" : "bg-white/92 text-[color:var(--text-muted)]"}`}
             >
               {connectionMessage}
+            </div>
+          )}
+
+          {isRoomLoading && !roomMetaLoaded && (
+            <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center bg-[linear-gradient(180deg,rgba(244,249,255,0.92),rgba(231,244,253,0.74))] backdrop-blur-[2px]">
+              <div className="rounded-[24px] border border-white/70 bg-white/88 px-5 py-4 text-center shadow-[0_18px_42px_rgba(15,23,42,0.14)]">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">
+                  Preparing room
+                </p>
+                <h1 className="mt-1 text-lg font-black text-slate-900">
+                  Opening your canvas…
+                </h1>
+                <p className="mt-1 text-sm text-slate-500">
+                  Warming realtime sync, room details, and the drawing surface
+                  in parallel.
+                </p>
+              </div>
             </div>
           )}
 
@@ -1392,7 +1422,7 @@ export default function RoomPage() {
               {
                 id: "brush",
                 icon: Brush,
-                active: activeToolPanel === "brush",
+                active: tool === "pen",
                 onClick: () => {
                   setTool("pen");
                   openToolPanel("brush");
@@ -1402,7 +1432,7 @@ export default function RoomPage() {
               {
                 id: "eraser",
                 icon: Eraser,
-                active: activeToolPanel === "eraser",
+                active: tool === "eraser",
                 onClick: () => {
                   setTool("eraser");
                   openToolPanel("eraser");
@@ -1412,7 +1442,7 @@ export default function RoomPage() {
               {
                 id: "fill",
                 icon: PaintBucket,
-                active: activeToolPanel === "fill",
+                active: tool === "fill",
                 onClick: () => {
                   setTool("fill");
                   openToolPanel("fill");
@@ -1422,7 +1452,7 @@ export default function RoomPage() {
               {
                 id: "shapes",
                 icon: Shapes,
-                active: activeToolPanel === "shapes",
+                active: isShapeTool,
                 onClick: () => openToolPanel("shapes"),
                 label: "Shapes",
               },
@@ -1445,6 +1475,7 @@ export default function RoomPage() {
                 key={id}
                 type="button"
                 className={`${railButtonBase} ${active ? "bg-[color:var(--brand-blue)] text-white" : ""}`}
+                onPointerDown={(event) => event.preventDefault()}
                 onClick={(event) => {
                   event.stopPropagation();
                   onClick();

@@ -45,6 +45,7 @@ const isShapeTool = (tool: DrawingTool): tool is ShapeKind =>
 
 const MIN_POINT_DISTANCE = 0.75;
 const MAX_APPEND_BATCH = 30;
+const APPEND_FLUSH_THRESHOLD = 4;
 
 const appendPointIfNeeded = (
   points: Stroke["points"],
@@ -302,6 +303,44 @@ const renderStroke = (
   ctx.restore();
 };
 
+const getScaledContext = (canvas: HTMLCanvasElement) => {
+  const context = canvas.getContext("2d", { willReadFrequently: true });
+  if (!context) return null;
+  const scaleX = canvas.width / LOGICAL_CANVAS_WIDTH;
+  const scaleY = canvas.height / LOGICAL_CANVAS_HEIGHT;
+  context.setTransform(1, 0, 0, 1, 0, 0);
+  return { context, scaleX, scaleY };
+};
+
+const resetCommittedSurface = (
+  context: CanvasRenderingContext2D,
+  canvas: HTMLCanvasElement,
+) => {
+  context.setTransform(1, 0, 0, 1, 0, 0);
+  context.clearRect(0, 0, canvas.width, canvas.height);
+  const scaleX = canvas.width / LOGICAL_CANVAS_WIDTH;
+  const scaleY = canvas.height / LOGICAL_CANVAS_HEIGHT;
+  context.setTransform(scaleX, 0, 0, scaleY, 0, 0);
+  context.fillStyle = "#ffffff";
+  context.fillRect(0, 0, LOGICAL_CANVAS_WIDTH, LOGICAL_CANVAS_HEIGHT);
+};
+
+const drawStrokeSegment = (
+  ctx: CanvasRenderingContext2D,
+  stroke: Stroke,
+  startIndex: number,
+) => {
+  if (stroke.tool === "fill" || stroke.shape || stroke.points.length <= 1) {
+    renderStroke(ctx, stroke);
+    return;
+  }
+
+  const segmentStart = Math.max(0, startIndex - 1);
+  const segmentPoints = stroke.points.slice(segmentStart);
+  if (!segmentPoints.length) return;
+  renderStroke(ctx, { ...stroke, points: segmentPoints });
+};
+
 interface CanvasBoardProps {
   roomId: string;
   userId: string;
@@ -370,6 +409,7 @@ function CanvasBoardComponent({
     startCenterY: number;
   } | null>(null);
   const strokesRef = useRef(strokes);
+  const committedStrokesRef = useRef<Stroke[]>([]);
   const [canvasVersion, setCanvasVersion] = useState(0);
   const [viewport, setViewport] = useState<Viewport>({
     scale: 1,
@@ -395,27 +435,108 @@ function CanvasBoardComponent({
     [viewport.offsetX, viewport.offsetY, viewport.scale],
   );
 
-  const syncCommittedCanvas = useCallback(() => {
+  const syncCommittedCanvas = useCallback(
+    (nextStrokes: Stroke[] = strokesRef.current) => {
+      const canvas = committedCanvasRef.current;
+      const displayCanvas = canvasRef.current;
+      if (!canvas || !displayCanvas) return;
+      if (
+        canvas.width !== displayCanvas.width ||
+        canvas.height !== displayCanvas.height
+      ) {
+        canvas.width = displayCanvas.width;
+        canvas.height = displayCanvas.height;
+      }
+      const scaled = getScaledContext(canvas);
+      if (!scaled) return;
+      resetCommittedSurface(scaled.context, canvas);
+      nextStrokes.forEach((stroke) => renderStroke(scaled.context, stroke));
+      committedStrokesRef.current = nextStrokes.map((stroke) => ({
+        ...stroke,
+        points: [...stroke.points],
+        shape: stroke.shape ? { ...stroke.shape } : undefined,
+      }));
+    },
+    [],
+  );
+
+  const applyIncrementalStrokeUpdates = useCallback((nextStrokes: Stroke[]) => {
     const canvas = committedCanvasRef.current;
     const displayCanvas = canvasRef.current;
-    if (!canvas || !displayCanvas) return;
-    if (
-      canvas.width !== displayCanvas.width ||
-      canvas.height !== displayCanvas.height
-    ) {
-      canvas.width = displayCanvas.width;
-      canvas.height = displayCanvas.height;
+    if (!canvas || !displayCanvas) return false;
+    const previous = committedStrokesRef.current;
+    if (!previous.length && !nextStrokes.length) return true;
+    if (!previous.length || nextStrokes.length < previous.length) return false;
+
+    let diffIndex = -1;
+    for (let index = 0; index < nextStrokes.length; index += 1) {
+      const prevStroke = previous[index];
+      const nextStroke = nextStrokes[index];
+      if (!prevStroke) {
+        diffIndex = index;
+        break;
+      }
+      const sameIdentity = prevStroke.strokeId === nextStroke.strokeId;
+      const sameShape =
+        JSON.stringify(prevStroke.shape ?? null) ===
+        JSON.stringify(nextStroke.shape ?? null);
+      if (
+        sameIdentity &&
+        prevStroke.points.length === nextStroke.points.length &&
+        prevStroke.color === nextStroke.color &&
+        prevStroke.fillColor === nextStroke.fillColor &&
+        prevStroke.tool === nextStroke.tool &&
+        prevStroke.size === nextStroke.size &&
+        sameShape
+      )
+        continue;
+      diffIndex = index;
+      break;
     }
-    const context = canvas.getContext("2d", { willReadFrequently: true });
-    if (!context) return;
-    const scaleX = canvas.width / LOGICAL_CANVAS_WIDTH;
-    const scaleY = canvas.height / LOGICAL_CANVAS_HEIGHT;
-    context.setTransform(1, 0, 0, 1, 0, 0);
-    context.clearRect(0, 0, canvas.width, canvas.height);
-    context.setTransform(scaleX, 0, 0, scaleY, 0, 0);
-    context.fillStyle = "#ffffff";
-    context.fillRect(0, 0, LOGICAL_CANVAS_WIDTH, LOGICAL_CANVAS_HEIGHT);
-    strokesRef.current.forEach((stroke) => renderStroke(context, stroke));
+
+    if (diffIndex === -1) {
+      if (nextStrokes.length !== previous.length) diffIndex = previous.length;
+      else return true;
+    }
+
+    const scaled = getScaledContext(canvas);
+    if (!scaled) return false;
+
+    const prevStroke = previous[diffIndex];
+    const nextStroke = nextStrokes[diffIndex];
+    const isSingleAppend =
+      diffIndex === nextStrokes.length - 1 &&
+      previous.length + 1 === nextStrokes.length &&
+      !prevStroke &&
+      !!nextStroke;
+
+    const isTailGrowth =
+      diffIndex === nextStrokes.length - 1 &&
+      previous.length === nextStrokes.length &&
+      !!prevStroke &&
+      !!nextStroke &&
+      prevStroke.strokeId === nextStroke.strokeId &&
+      prevStroke.points.length < nextStroke.points.length &&
+      !prevStroke.shape &&
+      !nextStroke.shape &&
+      prevStroke.tool !== "fill";
+
+    if (isSingleAppend && nextStroke) {
+      scaled.context.setTransform(scaled.scaleX, 0, 0, scaled.scaleY, 0, 0);
+      renderStroke(scaled.context, nextStroke);
+    } else if (isTailGrowth && prevStroke && nextStroke) {
+      scaled.context.setTransform(scaled.scaleX, 0, 0, scaled.scaleY, 0, 0);
+      drawStrokeSegment(scaled.context, nextStroke, prevStroke.points.length);
+    } else {
+      return false;
+    }
+
+    committedStrokesRef.current = nextStrokes.map((stroke) => ({
+      ...stroke,
+      points: [...stroke.points],
+      shape: stroke.shape ? { ...stroke.shape } : undefined,
+    }));
+    return true;
   }, []);
 
   const queueRender = useCallback(() => {
@@ -517,9 +638,8 @@ function CanvasBoardComponent({
     if (!pendingPointsRef.current.length || !currentStrokeId.current) return;
     while (pendingPointsRef.current.length) {
       const pointsToSend = pendingPointsRef.current.slice(0, MAX_APPEND_BATCH);
-      pendingPointsRef.current = pendingPointsRef.current.slice(
-        MAX_APPEND_BATCH,
-      );
+      pendingPointsRef.current =
+        pendingPointsRef.current.slice(MAX_APPEND_BATCH);
       getSocket().emit(SOCKET_EVENTS.STROKE_APPEND, {
         roomId,
         strokeId: currentStrokeId.current,
@@ -616,9 +736,21 @@ function CanvasBoardComponent({
   );
 
   useEffect(() => {
-    syncCommittedCanvas();
+    syncCommittedCanvas(strokes);
     queueRender();
-  }, [canvasVersion, strokes, syncCommittedCanvas, queueRender]);
+  }, [canvasVersion, syncCommittedCanvas, queueRender]);
+
+  useEffect(() => {
+    if (!applyIncrementalStrokeUpdates(strokes)) {
+      syncCommittedCanvas(strokes);
+    }
+    queueRender();
+  }, [
+    applyIncrementalStrokeUpdates,
+    queueRender,
+    strokes,
+    syncCommittedCanvas,
+  ]);
 
   useEffect(() => {
     resetTransientInteraction();
@@ -633,6 +765,7 @@ function CanvasBoardComponent({
     () => () => {
       if (emitCursorRef.current) cancelAnimationFrame(emitCursorRef.current);
       if (renderFrameRef.current) cancelAnimationFrame(renderFrameRef.current);
+      committedStrokesRef.current = [];
       resetTransientInteraction();
     },
     [resetTransientInteraction],
@@ -707,6 +840,10 @@ function CanvasBoardComponent({
         timestamp: Date.now(),
       };
       setStrokes((prev) => [...prev, fillStroke]);
+      committedStrokesRef.current = [
+        ...committedStrokesRef.current,
+        fillStroke,
+      ];
       getSocket().emit(SOCKET_EVENTS.STROKE_START, {
         roomId,
         stroke: fillStroke,
@@ -876,7 +1013,7 @@ function CanvasBoardComponent({
     pendingPointsRef.current = pendingPoints;
     pointsSinceFlushRef.current = pendingPoints.length;
     queueRender();
-    if (pendingPointsRef.current.length >= 6) {
+    if (pendingPointsRef.current.length >= APPEND_FLUSH_THRESHOLD) {
       flushPendingPoints();
     }
   };
