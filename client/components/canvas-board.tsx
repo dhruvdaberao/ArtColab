@@ -324,6 +324,7 @@ function CanvasBoardComponent({
   onSurfaceInteract,
 }: CanvasBoardProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const committedCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const surfaceRef = useRef<HTMLDivElement | null>(null);
   const drawingRef = useRef(false);
   const currentStrokeId = useRef("");
@@ -376,28 +377,50 @@ function CanvasBoardComponent({
     [viewport.offsetX, viewport.offsetY, viewport.scale],
   );
 
-  const queueRender = () => {
+  const syncCommittedCanvas = useCallback(() => {
+    const canvas = committedCanvasRef.current;
+    const displayCanvas = canvasRef.current;
+    if (!canvas || !displayCanvas) return;
+    if (
+      canvas.width !== displayCanvas.width ||
+      canvas.height !== displayCanvas.height
+    ) {
+      canvas.width = displayCanvas.width;
+      canvas.height = displayCanvas.height;
+    }
+    const context = canvas.getContext("2d", { willReadFrequently: true });
+    if (!context) return;
+    const scaleX = canvas.width / LOGICAL_CANVAS_WIDTH;
+    const scaleY = canvas.height / LOGICAL_CANVAS_HEIGHT;
+    context.setTransform(1, 0, 0, 1, 0, 0);
+    context.clearRect(0, 0, canvas.width, canvas.height);
+    context.setTransform(scaleX, 0, 0, scaleY, 0, 0);
+    context.fillStyle = "#ffffff";
+    context.fillRect(0, 0, LOGICAL_CANVAS_WIDTH, LOGICAL_CANVAS_HEIGHT);
+    strokesRef.current.forEach((stroke) => renderStroke(context, stroke));
+  }, []);
+
+  const queueRender = useCallback(() => {
     if (renderFrameRef.current !== null) return;
     renderFrameRef.current = requestAnimationFrame(() => {
       renderFrameRef.current = null;
       const canvas = canvasRef.current;
-      if (!canvas) return;
+      const committedCanvas = committedCanvasRef.current;
+      if (!canvas || !committedCanvas) return;
       const context = canvas.getContext("2d", { willReadFrequently: true });
       if (!context) return;
-      const scaleX = canvas.width / LOGICAL_CANVAS_WIDTH;
-      const scaleY = canvas.height / LOGICAL_CANVAS_HEIGHT;
       context.setTransform(1, 0, 0, 1, 0, 0);
       context.clearRect(0, 0, canvas.width, canvas.height);
+      context.drawImage(committedCanvas, 0, 0);
+      const scaleX = canvas.width / LOGICAL_CANVAS_WIDTH;
+      const scaleY = canvas.height / LOGICAL_CANVAS_HEIGHT;
       context.setTransform(scaleX, 0, 0, scaleY, 0, 0);
-      context.fillStyle = "#ffffff";
-      context.fillRect(0, 0, LOGICAL_CANVAS_WIDTH, LOGICAL_CANVAS_HEIGHT);
-      strokesRef.current.forEach((stroke) => renderStroke(context, stroke));
       const draftStroke = draftStrokeRef.current;
       if (draftStroke) renderStroke(context, draftStroke, true);
       const previewStroke = previewStrokeRef.current;
       if (previewStroke) renderStroke(context, previewStroke, true);
     });
-  };
+  }, []);
 
   const queueCursorEmit = (
     point: { x: number; y: number },
@@ -515,7 +538,7 @@ function CanvasBoardComponent({
     drawingRef.current = false;
     draftStrokeRef.current = null;
     queueRender();
-  }, [commitDraftStroke, roomId]);
+  }, [commitDraftStroke, queueRender, roomId]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -541,9 +564,27 @@ function CanvasBoardComponent({
     };
   }, []);
 
+  const resetTransientInteraction = useCallback(() => {
+    drawingRef.current = false;
+    currentStrokeId.current = "";
+    pendingPointsRef.current = [];
+    draftStrokeRef.current = null;
+    previewStrokeRef.current = null;
+    activePointerIdRef.current = null;
+    panStartRef.current = null;
+    gestureRef.current = null;
+    pointersRef.current.clear();
+  }, []);
+
   useEffect(() => {
+    syncCommittedCanvas();
     queueRender();
-  }, [canvasVersion, strokes]);
+  }, [canvasVersion, strokes, syncCommittedCanvas, queueRender]);
+
+  useEffect(() => {
+    resetTransientInteraction();
+    queueRender();
+  }, [tool, resetTransientInteraction, queueRender]);
 
   useEffect(() => {
     setViewport({ scale: 1, offsetX: 0, offsetY: 0 });
@@ -553,8 +594,9 @@ function CanvasBoardComponent({
     () => () => {
       if (emitCursorRef.current) cancelAnimationFrame(emitCursorRef.current);
       if (renderFrameRef.current) cancelAnimationFrame(renderFrameRef.current);
+      resetTransientInteraction();
     },
-    [],
+    [resetTransientInteraction],
   );
 
   const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
@@ -847,6 +889,7 @@ function CanvasBoardComponent({
           style={viewportStyle}
           className="relative aspect-[12/7] h-full w-full will-change-transform"
         >
+          <canvas ref={committedCanvasRef} className="hidden" aria-hidden />
           <canvas
             ref={canvasRef}
             className="h-full w-full rounded-[20px] bg-white sm:rounded-[22px]"
