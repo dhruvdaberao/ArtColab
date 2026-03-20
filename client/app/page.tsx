@@ -22,6 +22,7 @@ import {
   setStoredDisplayName,
 } from "@/lib/guest";
 import { grantRoomAccess } from "@/lib/room-access";
+import { rememberRoomEntryHint } from "@/lib/room-entry";
 
 export default function HomePage() {
   const router = useRouter();
@@ -76,6 +77,7 @@ export default function HomePage() {
       if (data.room.visibility === "private") {
         grantRoomAccess(data.room.roomId);
       }
+      rememberRoomEntryHint(data.room);
       router.push(`/room/${data.room.roomId}`);
     } catch (err) {
       setError((err as Error).message || "Unable to create room.");
@@ -100,6 +102,7 @@ export default function HomePage() {
       if (data.room.visibility === "private") {
         grantRoomAccess(data.room.roomId);
       }
+      rememberRoomEntryHint(data.room);
       router.push(`/room/${data.room.roomId}`);
     } catch (err) {
       setError((err as Error).message || "Unable to join room.");

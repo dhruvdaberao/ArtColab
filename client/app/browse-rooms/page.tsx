@@ -17,6 +17,7 @@ import {
   setStoredDisplayName,
 } from "@/lib/guest";
 import { grantRoomAccess } from "@/lib/room-access";
+import { rememberRoomEntryHint } from "@/lib/room-entry";
 
 export default function BrowseRoomsPage() {
   const router = useRouter();
@@ -43,6 +44,7 @@ export default function BrowseRoomsPage() {
     setError(null);
     if (room.visibility === "public") {
       const data = await joinRoom({ name: room.roomId, visibility: "public" });
+      rememberRoomEntryHint(data.room);
       router.push(`/room/${data.room.roomId}`);
       return;
     }
@@ -162,6 +164,7 @@ export default function BrowseRoomsPage() {
             password,
           });
           grantRoomAccess(data.room.roomId);
+          rememberRoomEntryHint(data.room);
           router.push(`/room/${data.room.roomId}`);
         }}
       />

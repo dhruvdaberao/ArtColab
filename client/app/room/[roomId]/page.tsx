@@ -50,6 +50,7 @@ import {
   hasRoomAccessGrant,
   revokeRoomAccess,
 } from "@/lib/room-access";
+import { readRoomEntryHint, rememberRoomPageHint } from "@/lib/room-entry";
 import {
   ensureGuestDisplayName,
   getAvatarInitials,
@@ -151,14 +152,28 @@ export default function RoomPage() {
   const [size, setSize] = useState(4);
   const [userId, setUserId] = useState("");
   const [displayName, setDisplayName] = useState("Guest");
-  const [roomReady, setRoomReady] = useState(false);
+  const roomEntryHint = useMemo(() => readRoomEntryHint(roomId), [roomId]);
+  const [roomReady, setRoomReady] = useState(() =>
+    roomEntryHint
+      ? roomEntryHint.visibility !== "private" ||
+        hasRoomAccessGrant(roomEntryHint.roomId)
+      : false,
+  );
   const [roomMeta, setRoomMeta] = useState<{
     roomId: string;
     name: string;
     visibility: "public" | "private";
-  } | null>(null);
+  } | null>(() =>
+    roomEntryHint
+      ? {
+          roomId: roomEntryHint.roomId,
+          name: roomEntryHint.name,
+          visibility: roomEntryHint.visibility,
+        }
+      : null,
+  );
   const [roomLoadError, setRoomLoadError] = useState<string | null>(null);
-  const [isRoomLoading, setIsRoomLoading] = useState(true);
+  const [isRoomLoading, setIsRoomLoading] = useState(() => !roomEntryHint);
   const [privateRoomPassword, setPrivateRoomPassword] = useState("");
   const [privateRoomError, setPrivateRoomError] = useState<string | null>(null);
   const [isUnlockingPrivateRoom, setIsUnlockingPrivateRoom] = useState(false);
@@ -174,7 +189,9 @@ export default function RoomPage() {
   const [isPortraitViewport, setIsPortraitViewport] = useState(false);
   const [immersiveUiRetryNeeded, setImmersiveUiRetryNeeded] = useState(false);
   const [activeToolPanel, setActiveToolPanel] = useState<ToolPanel>("brush");
-  const [roomMetaLoaded, setRoomMetaLoaded] = useState(false);
+  const [roomMetaLoaded, setRoomMetaLoaded] = useState(() =>
+    Boolean(roomEntryHint),
+  );
   const [activeFunctionPanel, setActiveFunctionPanel] =
     useState<FunctionPanel>(null);
   const [activeColorPicker, setActiveColorPicker] =
@@ -220,6 +237,21 @@ export default function RoomPage() {
   );
 
   useEffect(() => {
+    if (!roomEntryHint) return;
+    setRoomMeta({
+      roomId: roomEntryHint.roomId,
+      name: roomEntryHint.name,
+      visibility: roomEntryHint.visibility,
+    });
+    setRoomMetaLoaded(true);
+    setIsRoomLoading(false);
+    setRoomReady(
+      roomEntryHint.visibility !== "private" ||
+        hasRoomAccessGrant(roomEntryHint.roomId),
+    );
+  }, [roomEntryHint]);
+
+  useEffect(() => {
     const existing = localStorage.getItem("cloudcanvas-user-id");
     if (existing) setUserId(existing);
     else {
@@ -259,6 +291,7 @@ export default function RoomPage() {
     getRoom(roomId)
       .then((data) => {
         if (cancelled) return;
+        rememberRoomPageHint(data.room);
         setRoomMeta(data.room);
         if (
           data.room.visibility === "private" &&
@@ -758,12 +791,21 @@ export default function RoomPage() {
     try {
       setIsUnlockingPrivateRoom(true);
       setPrivateRoomError(null);
-      await joinRoom({
+      const response = await joinRoom({
         name: roomMeta.roomId,
         visibility: "private",
         password,
       });
       grantRoomAccess(roomMeta.roomId);
+      rememberRoomPageHint({
+        roomId: response.room.roomId,
+        name: response.room.name,
+        visibility: response.room.visibility,
+        createdAt: response.room.createdAt,
+        updatedAt: response.room.updatedAt,
+        lastActiveAt: response.room.lastActiveAt,
+        expiresAt: null,
+      });
       setRoomReady(true);
       setPrivateRoomPassword("");
       pushToast(`Unlocked private room ${roomMeta.roomId}.`);
