@@ -77,6 +77,12 @@ const toolButton =
   "inline-flex min-h-10 items-center justify-center gap-2 rounded-2xl border-2 border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 text-xs font-black text-[color:var(--text-main)] shadow-[0_4px_0_rgba(26,26,26,0.08)] transition hover:-translate-y-0.5 hover:bg-[color:var(--surface-soft)] hover:shadow-[0_6px_0_rgba(26,26,26,0.08)] disabled:cursor-not-allowed disabled:opacity-40 sm:text-sm";
 const selectedToolButton =
   "bg-[color:var(--brand-blue)] text-[color:var(--surface)] shadow-[0_5px_0_rgba(26,26,26,0.16)]";
+const utilityButtonClass =
+  `${toolButton} min-w-0 w-full justify-start px-3.5 py-2.5 text-sm leading-none sm:min-h-11 sm:px-4`;
+const utilityButtonIconClass = "shrink-0";
+const utilityButtonLabelClass = "truncate text-left font-black";
+const clearButtonClass =
+  `${utilityButtonClass} bg-[color:var(--brand-red)] text-white hover:bg-[#e33a48] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--surface)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--brand-red)]`;
 const sectionClass =
   "flex flex-wrap items-center gap-2 rounded-[1.5rem] border border-[color:var(--border)] bg-[color:var(--bg-elevated)] p-2.5";
 const labelClass =
@@ -137,12 +143,30 @@ export function Toolbar({
 
   const utilityButtons = (
     <div className="grid gap-2 min-[480px]:grid-cols-2 xl:grid-cols-1">
-      <button type="button" className={toolButton} onClick={onUndo} disabled={disabled || !canUndo}><Undo2 size={16} /> Undo</button>
-      <button type="button" className={toolButton} onClick={onRedo} disabled={disabled || !canRedo}><Redo2 size={16} /> Redo</button>
-      <button type="button" className={toolButton} onClick={onDownload} disabled={disabled}><Download size={16} /> Export</button>
-      <button type="button" className={toolButton} onClick={onResetView} disabled={disabled}><ZoomIn size={16} /> Reset view</button>
-      <button type="button" className={toolButton} onClick={onCopyImage} disabled={disabled}><Copy size={16} /> Copy</button>
-      <button type="button" className={`${toolButton} bg-[color:var(--brand-red)] text-white hover:bg-[color:var(--brand-red)]`} onClick={onClear} disabled={disabled}><Trash2 size={16} /> Clear</button>
+      <button type="button" className={utilityButtonClass} onClick={onUndo} disabled={disabled || !canUndo}>
+        <Undo2 size={16} className={utilityButtonIconClass} />
+        <span className={utilityButtonLabelClass}>Undo</span>
+      </button>
+      <button type="button" className={utilityButtonClass} onClick={onRedo} disabled={disabled || !canRedo}>
+        <Redo2 size={16} className={utilityButtonIconClass} />
+        <span className={utilityButtonLabelClass}>Redo</span>
+      </button>
+      <button type="button" className={utilityButtonClass} onClick={onDownload} disabled={disabled}>
+        <Download size={16} className={utilityButtonIconClass} />
+        <span className={utilityButtonLabelClass}>Export</span>
+      </button>
+      <button type="button" className={utilityButtonClass} onClick={onResetView} disabled={disabled}>
+        <ZoomIn size={16} className={utilityButtonIconClass} />
+        <span className={utilityButtonLabelClass}>Reset view</span>
+      </button>
+      <button type="button" className={utilityButtonClass} onClick={onCopyImage} disabled={disabled}>
+        <Copy size={16} className={utilityButtonIconClass} />
+        <span className={utilityButtonLabelClass}>Copy</span>
+      </button>
+      <button type="button" className={clearButtonClass} onClick={onClear} disabled={disabled}>
+        <Trash2 size={16} className={utilityButtonIconClass} />
+        <span className={utilityButtonLabelClass}>Clear</span>
+      </button>
     </div>
   );
 

@@ -11,6 +11,8 @@ export default function manifest(): MetadataRoute.Manifest {
     start_url: "/",
     scope: "/",
     display: "standalone",
+    display_override: ["window-controls-overlay", "standalone"],
+    orientation: "any",
     background_color: "#f8f4e8",
     theme_color: "#19a7ff",
     icons: [
@@ -18,12 +20,19 @@ export default function manifest(): MetadataRoute.Manifest {
         src: frogIcon.src,
         sizes: "1200x1200",
         type: "image/png",
-        purpose: "any maskable" as any,
+        purpose: "any",
       },
       {
         src: frogIcon.src,
         sizes: "1200x1200",
         type: "image/png",
+        purpose: "any",
+      },
+      {
+        src: frogIcon.src,
+        sizes: "1200x1200",
+        type: "image/png",
+        purpose: "maskable",
       },
     ],
   };

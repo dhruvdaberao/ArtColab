@@ -13,6 +13,11 @@ export const metadata: Metadata = {
     "Playful real-time collaborative drawing rooms with frog-powered energy",
   applicationName: "Froddle",
   manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Froddle",
+  },
   icons: {
     icon: [{ url: frogIcon.src, type: "image/png", sizes: "1200x1200" }],
     apple: [{ url: frogIcon.src, type: "image/png", sizes: "1200x1200" }],
@@ -22,6 +27,7 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: "#19a7ff",
+  colorScheme: "light",
 };
 
 export default function RootLayout({
