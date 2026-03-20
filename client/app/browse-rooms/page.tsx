@@ -5,13 +5,13 @@ import { useRouter } from "next/navigation";
 import { Lock, Search, Users } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/components/auth-provider";
-import { GuestDisplayNameModal } from "@/components/guest-display-name-modal";
 import { InfoCardsSection } from "@/components/info-cards";
 import { RoomPasswordModal } from "@/components/room-password-modal";
 import { SiteHeader } from "@/components/site-header";
 import { Badge, Button, Card, Input, SecondaryButton } from "@/components/ui";
 import { browseRooms, joinRoom, type RoomListItem } from "@/lib/api";
 import {
+  ensureGuestDisplayName,
   getStoredDisplayName,
   resolveSessionDisplayName,
   setStoredDisplayName,
@@ -25,8 +25,6 @@ export default function BrowseRoomsPage() {
   const [rooms, setRooms] = useState<RoomListItem[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [target, setTarget] = useState<RoomListItem | null>(null);
-  const [showNameModal, setShowNameModal] = useState(false);
-  const [pendingRoom, setPendingRoom] = useState<RoomListItem | null>(null);
 
   useEffect(() => {
     browseRooms(query)
@@ -36,17 +34,12 @@ export default function BrowseRoomsPage() {
 
   const ensureGuestName = () => {
     if (user?.role === "user") return true;
-    if (getStoredDisplayName()) return true;
-    setError("Please enter a display name before joining a room.");
-    setShowNameModal(true);
-    return false;
+    setStoredDisplayName(getStoredDisplayName() || ensureGuestDisplayName());
+    return true;
   };
 
   const startJoin = async (room: RoomListItem) => {
-    if (!ensureGuestName()) {
-      setPendingRoom(room);
-      return;
-    }
+    ensureGuestName();
     setError(null);
     if (room.visibility === "public") {
       const data = await joinRoom({ name: room.roomId, visibility: "public" });
@@ -170,25 +163,6 @@ export default function BrowseRoomsPage() {
           });
           grantRoomAccess(data.room.roomId);
           router.push(`/room/${data.room.roomId}`);
-        }}
-      />
-      <GuestDisplayNameModal
-        open={showNameModal && user?.role === "guest"}
-        initialValue={getStoredDisplayName()}
-        confirmLabel="Save name"
-        onCancel={() => {
-          setShowNameModal(false);
-          setPendingRoom(null);
-        }}
-        onConfirm={async (name) => {
-          setStoredDisplayName(name);
-          setError(null);
-          setShowNameModal(false);
-          if (pendingRoom) {
-            const room = pendingRoom;
-            setPendingRoom(null);
-            await startJoin(room);
-          }
         }}
       />
     </main>
