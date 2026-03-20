@@ -10,7 +10,6 @@ import type {
   Stroke,
 } from "@cloudcanvas/shared";
 import { nanoid } from "nanoid";
-import { Move, ZoomIn, ZoomOut } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { getAvatarInitials } from "@/lib/guest";
 
@@ -300,6 +299,7 @@ interface CanvasBoardProps {
   disabled?: boolean;
   resetViewSignal: number;
   compact?: boolean;
+  onSurfaceInteract?: () => void;
 }
 
 export function CanvasBoard({
@@ -319,6 +319,7 @@ export function CanvasBoard({
   disabled = false,
   resetViewSignal,
   compact = false,
+  onSurfaceInteract,
 }: CanvasBoardProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const surfaceRef = useRef<HTMLDivElement | null>(null);
@@ -351,14 +352,6 @@ export function CanvasBoard({
     offsetY: 0,
   });
   const [previewStroke, setPreviewStroke] = useState<Stroke | null>(null);
-  const zoomPercent = Math.round(viewport.scale * 100);
-  const panHint = compact
-    ? "Pan: Shift-drag or two fingers"
-    : "Pan with Shift-drag or two fingers";
-  const zoomHint = compact
-    ? "Pinch or Ctrl/Cmd + wheel to zoom"
-    : "Zoom with pinch or Ctrl/Cmd + wheel";
-
   const viewportStyle = useMemo<React.CSSProperties>(
     () => ({
       transform: `translate(${viewport.offsetX}px, ${viewport.offsetY}px) scale(${viewport.scale})`,
@@ -515,6 +508,7 @@ export function CanvasBoard({
   const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
     if (disabled) return;
 
+    onSurfaceInteract?.();
     event.currentTarget.setPointerCapture(event.pointerId);
     pointersRef.current.set(event.pointerId, {
       x: event.clientX,
@@ -768,28 +762,10 @@ export function CanvasBoard({
   };
 
   return (
-    <div className="space-y-2 sm:space-y-3">
-      <div
-        className={`grid gap-2 rounded-[1.4rem] border-2 border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 text-[11px] text-[color:var(--text-muted)] shadow-[var(--shadow)] sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:gap-3 sm:text-xs ${compact ? "px-2.5 py-2" : ""}`}
-      >
-        <div className="flex min-w-0 flex-wrap items-center gap-2">
-          <span className="inline-flex min-h-9 max-w-full flex-wrap items-center gap-1.5 rounded-full border border-[color:var(--border)] bg-[color:var(--accent)] px-3 py-1.5 font-semibold leading-tight text-[color:var(--text-main)]">
-            <Move size={compact ? 12 : 14} className="shrink-0" />
-            <span className="break-words">{panHint}</span>
-          </span>
-          <span className="inline-flex min-h-9 items-center gap-1.5 rounded-full border border-[color:var(--border)] bg-[#91d7ff] px-3 py-1.5 font-semibold text-[color:var(--text-main)]">
-            <ZoomIn size={compact ? 12 : 14} className="shrink-0" />
-            {zoomPercent}%
-          </span>
-        </div>
-        <div className="flex min-w-0 items-start gap-1.5 rounded-2xl border border-dashed border-[color:var(--border)]/25 bg-white/70 px-3 py-2 leading-tight text-[color:var(--text-muted)] sm:max-w-[20rem] sm:justify-self-end">
-          <ZoomOut size={compact ? 12 : 14} className="mt-0.5 shrink-0" />
-          <span className="break-words">{zoomHint}</span>
-        </div>
-      </div>
+    <div className="h-full min-h-0">
       <div
         ref={surfaceRef}
-        className="relative overflow-hidden rounded-[26px] border-2 border-[color:var(--border)] bg-[#bfe8ff] shadow-[var(--shadow)] sm:rounded-[30px]"
+        className="relative h-full overflow-hidden rounded-[24px] border border-[color:var(--border)]/10 bg-[#cbe8ff] shadow-[0_18px_45px_rgba(26,26,26,0.14)] sm:rounded-[28px]"
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
@@ -797,13 +773,16 @@ export function CanvasBoard({
         onWheel={handleWheel}
         style={{ touchAction: "none" }}
       >
+        <div className="pointer-events-none absolute left-3 top-3 z-10 rounded-full bg-[rgba(12,22,34,0.74)] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-white shadow-lg">
+          {Math.round(viewport.scale * 100)}%
+        </div>
         <div
           style={viewportStyle}
-          className="relative aspect-[12/7] w-full transition-transform duration-75 ease-out"
+          className="relative aspect-[12/7] h-full w-full transition-transform duration-75 ease-out"
         >
           <canvas
             ref={canvasRef}
-            className="h-full w-full rounded-[26px] bg-white sm:rounded-[30px]"
+            className="h-full w-full rounded-[24px] bg-white sm:rounded-[28px]"
           />
           <div className="pointer-events-none absolute inset-0">
             {Object.values(cursors)
