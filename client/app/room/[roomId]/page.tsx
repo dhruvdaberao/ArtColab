@@ -31,18 +31,17 @@ import { CanvasBoard } from "@/components/canvas-board";
 import { ConfirmModal } from "@/components/confirm-modal";
 import { ParticipantsPanel } from "@/components/participants-panel";
 import { ToastStack, type ToastMessage } from "@/components/toast";
-import { Badge, Button, Card, SecondaryButton } from "@/components/ui";
+import { Button, Card, SecondaryButton } from "@/components/ui";
 import { getSocket } from "@/lib/socket";
 import { useRoomSocket } from "@/hooks/use-room-socket";
 import { getRoom, joinRoom } from "@/lib/api";
-import { resolveSessionDisplayName } from "@/lib/guest";
 import { useAuth } from "@/components/auth-provider";
-import { UserAvatarMenu } from "@/components/user-avatar-menu";
 import {
   grantRoomAccess,
   hasRoomAccessGrant,
   revokeRoomAccess,
 } from "@/lib/room-access";
+import { getAvatarInitials, resolveSessionDisplayName } from "@/lib/guest";
 
 const REACTIONS = [
   { emoji: "❤️", label: "Appreciate" },
@@ -92,8 +91,8 @@ const sidebarShell =
   "rounded-[28px] border border-[color:var(--border)]/10 bg-white/80 p-2 shadow-[0_18px_50px_rgba(26,26,26,0.12)] backdrop-blur";
 const railButtonBase =
   "group flex h-12 w-12 items-center justify-center rounded-2xl border border-[color:var(--border)]/10 bg-white text-[color:var(--text-main)] shadow-[0_6px_18px_rgba(26,26,26,0.08)] transition hover:-translate-y-0.5 hover:bg-[color:var(--surface-soft)] disabled:cursor-not-allowed disabled:opacity-40";
-const panelCard =
-  "rounded-[24px] border border-[color:var(--border)]/10 bg-white/95 p-4 shadow-[0_20px_40px_rgba(26,26,26,0.12)] backdrop-blur";
+const floatingPanelCard =
+  "rounded-[22px] border border-[color:var(--border)]/10 bg-white/96 p-3 shadow-[0_18px_40px_rgba(26,26,26,0.18)] backdrop-blur-xl";
 const controlLabel =
   "text-[10px] font-semibold uppercase tracking-[0.18em] text-[color:var(--text-muted)]";
 
@@ -147,6 +146,9 @@ export default function RoomPage() {
   const colorInputRef = useRef<HTMLInputElement | null>(null);
   const fillColorInputRef = useRef<HTMLInputElement | null>(null);
   const orientationLockedRef = useRef(false);
+  const toolPanelRef = useRef<HTMLDivElement | null>(null);
+  const functionPanelRef = useRef<HTMLDivElement | null>(null);
+  const participantsPanelRef = useRef<HTMLDivElement | null>(null);
   const { user } = useAuth();
 
   const pushToast = useCallback((message: string) => {
@@ -358,12 +360,34 @@ export default function RoomPage() {
   const canRedo = redoCount > 0;
   const isShapeTool = SHAPE_OPTIONS.some((shape) => shape.tool === tool);
 
+  const closeFloatingPanels = useCallback(
+    (options: { keep?: "tool" | "function" | "participants" | null } = {}) => {
+      if (options.keep !== "tool") setActiveToolPanel(null);
+      if (options.keep !== "function") setActiveFunctionPanel(null);
+      if (options.keep !== "participants") setShowParticipants(false);
+    },
+    [],
+  );
+
   useEffect(() => {
     if (tool === "pen") setActiveToolPanel("brush");
     else if (tool === "eraser") setActiveToolPanel("eraser");
     else if (tool === "fill") setActiveToolPanel("fill");
     else if (isShapeTool) setActiveToolPanel("shapes");
   }, [isShapeTool, tool]);
+
+  useEffect(() => {
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target as Node | null;
+      if (!target) return;
+      if (toolPanelRef.current?.contains(target)) return;
+      if (functionPanelRef.current?.contains(target)) return;
+      if (participantsPanelRef.current?.contains(target)) return;
+      closeFloatingPanels();
+    };
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => document.removeEventListener("pointerdown", handlePointerDown);
+  }, [closeFloatingPanels]);
 
   const clearBoard = () => {
     getSocket().emit(SOCKET_EVENTS.BOARD_CLEAR, { roomId });
@@ -810,274 +834,192 @@ export default function RoomPage() {
     );
 
   const roomTitle = roomMeta?.name || `Room ${roomId}`;
-  const showDrawerPanels = isTouchWorkspace;
+  const participantPreview = participants.slice(0, 4);
+  const connectionMessage =
+    error ||
+    (status === "connecting" && "Connecting to the collaboration server…") ||
+    (status === "reconnecting" &&
+      "Realtime connection dropped. Trying to reconnect…") ||
+    (status === "disconnected" &&
+      "Realtime connection is offline right now. We’ll reconnect automatically when possible.") ||
+    null;
 
   return (
     <main
-      className={`relative ${isTouchWorkspace ? "h-dvh overflow-hidden p-2 sm:p-3" : "min-h-screen overflow-hidden px-3 py-3 sm:px-5 sm:py-5 lg:px-6"}`}
+      className={`relative overflow-hidden ${isTouchWorkspace ? "h-dvh p-1.5 sm:p-2" : "min-h-screen p-3 sm:p-4 lg:p-5"}`}
     >
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,#ffffff_0%,rgba(255,255,255,0.75)_22%,rgba(248,244,232,0)_60%)]" />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,#ffffff_0%,rgba(255,255,255,0.68)_20%,rgba(248,244,232,0)_56%)]" />
       <div
-        className={`relative mx-auto ${isTouchWorkspace ? "flex h-full max-w-none flex-col" : "flex min-h-screen max-w-[1800px] flex-col"}`}
+        className={`relative mx-auto flex min-h-0 overflow-hidden rounded-[28px] border border-white/70 bg-[linear-gradient(150deg,rgba(12,26,43,0.08),rgba(255,255,255,0.78))] shadow-[0_30px_80px_rgba(26,26,26,0.16)] ${isTouchWorkspace ? "h-full max-w-none" : "min-h-[calc(100vh-2.5rem)] max-w-[1800px]"}`}
       >
-        <section
-          className={`relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-[30px] border border-white/70 bg-[linear-gradient(145deg,rgba(17,24,39,0.04),rgba(255,255,255,0.82))] shadow-[0_30px_80px_rgba(26,26,26,0.18)] ${isTouchWorkspace ? "h-full p-2" : "p-2"}`}
-        >
-          <div className="flex items-center gap-2 rounded-[22px] border border-[color:var(--border)]/10 bg-white/85 px-3 py-2 backdrop-blur">
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-black text-[color:var(--text-main)] sm:text-base">
-                {roomTitle}
-              </p>
-              <div className="mt-0.5 flex items-center gap-2 text-[11px] text-[color:var(--text-muted)]">
-                <span>{roomId}</span>
-                <span className="h-1 w-1 rounded-full bg-[color:var(--text-muted)]/50" />
-                <span className="capitalize">
-                  {roomMeta?.visibility ?? "public"}
-                </span>
-                <span className="h-1 w-1 rounded-full bg-[color:var(--text-muted)]/50" />
-                <button
-                  type="button"
-                  className="inline-flex items-center gap-1 rounded-full bg-[color:var(--surface-soft)] px-2 py-1 font-semibold text-[color:var(--text-main)]"
-                  onClick={() => setShowParticipants((value) => !value)}
-                >
-                  <Users size={12} />
-                  {participants.length}
-                </button>
-                {mode === "guess-mode" && (
-                  <>
-                    <span className="h-1 w-1 rounded-full bg-[color:var(--text-muted)]/50" />
-                    <span>Guess mode</span>
-                  </>
-                )}
-              </div>
-            </div>
-            {!isTouchWorkspace && (
-              <Badge className="hidden sm:inline-flex border-[color:var(--border)]/15 bg-white/80">
-                {roomMeta?.visibility ?? "public"}
-              </Badge>
-            )}
-            <UserAvatarMenu />
-          </div>
-
-          {(error || status !== "connected") && (
-            <div
-              className={`mt-2 status-banner ${error || status === "reconnecting" || status === "disconnected" ? "status-danger" : ""}`}
-            >
-              {error ||
-                (status === "connecting" &&
-                  "Connecting to the collaboration server…") ||
-                (status === "reconnecting" &&
-                  "Realtime connection dropped. Trying to reconnect…") ||
-                (status === "disconnected" &&
-                  "Realtime connection is offline right now. We’ll reconnect automatically when possible.")}
-            </div>
-          )}
-
-          <div
-            className={`relative mt-2 flex min-h-0 flex-1 gap-2 ${isTouchWorkspace ? "grid grid-cols-[60px_minmax(0,1fr)_60px]" : "grid lg:grid-cols-[88px_minmax(0,1fr)_88px] xl:grid-cols-[300px_minmax(0,1fr)_300px]"}`}
+        <section className="relative flex min-h-0 flex-1 items-stretch gap-2 p-2">
+          <aside
+            className={`relative z-30 flex shrink-0 ${isTouchWorkspace ? "w-[58px]" : "w-[76px] xl:w-[84px]"}`}
           >
-            <aside className="relative z-20 min-h-0">
-              <div
-                className={`flex h-full ${isTouchWorkspace ? "flex-col items-center" : "xl:grid xl:grid-cols-[72px_minmax(0,1fr)] xl:gap-3"}`}
+            <div
+              className={`${sidebarShell} flex h-full w-full flex-col items-center gap-2 py-2`}
+            >
+              <button
+                type="button"
+                className={railButtonBase}
+                onClick={() =>
+                  getSocket().emit(SOCKET_EVENTS.STROKE_UNDO, {
+                    roomId,
+                    userId,
+                  })
+                }
+                disabled={!hasJoined || !canUndo}
+                aria-label="Undo"
               >
-                <div
-                  className={`${sidebarShell} flex flex-col items-center gap-2 ${!isTouchWorkspace ? "xl:sticky xl:top-0 xl:h-fit" : "h-full justify-start"}`}
-                >
-                  <button
-                    type="button"
-                    className={railButtonBase}
-                    onClick={() =>
-                      getSocket().emit(SOCKET_EVENTS.STROKE_UNDO, {
-                        roomId,
-                        userId,
-                      })
-                    }
-                    disabled={!hasJoined || !canUndo}
-                    aria-label="Undo"
-                  >
-                    <Undo2 size={18} />
-                  </button>
-                  <button
-                    type="button"
-                    className={railButtonBase}
-                    onClick={() =>
-                      getSocket().emit(SOCKET_EVENTS.STROKE_REDO, {
-                        roomId,
-                        userId,
-                      })
-                    }
-                    disabled={!hasJoined || !canRedo}
-                    aria-label="Redo"
-                  >
-                    <Redo2 size={18} />
-                  </button>
-                  <button
-                    type="button"
-                    className={railButtonBase}
-                    onClick={download}
-                    disabled={!hasJoined}
-                    aria-label="Export board"
-                  >
-                    <Download size={18} />
-                  </button>
-                  <button
-                    type="button"
-                    className={railButtonBase}
-                    onClick={() => setIsClearModalOpen(true)}
-                    disabled={!hasJoined}
-                    aria-label="Clear board"
-                  >
-                    <Trash2 size={18} />
-                  </button>
-                  <button
-                    type="button"
-                    className={railButtonBase}
-                    onClick={() => {
-                      navigator.clipboard.writeText(window.location.href);
-                      pushToast("Room link copied.");
-                    }}
-                    aria-label="Copy room link"
-                  >
-                    <Link2 size={18} />
-                  </button>
-                  <button
-                    type="button"
-                    className={`${railButtonBase} ${activeFunctionPanel === "chat" ? "bg-[color:var(--brand-blue)] text-white" : ""}`}
-                    onClick={() =>
-                      setActiveFunctionPanel((value) =>
-                        value === "chat" ? null : "chat",
-                      )
-                    }
-                    aria-label="Open chat"
-                  >
-                    <MessageSquare size={18} />
-                  </button>
-                  <button
-                    type="button"
-                    className={`${railButtonBase} text-[color:var(--brand-red)]`}
-                    onClick={() => setIsExitModalOpen(true)}
-                    aria-label="Leave room"
-                  >
-                    <LogOut size={18} />
-                  </button>
+                <Undo2 size={18} />
+              </button>
+              <button
+                type="button"
+                className={railButtonBase}
+                onClick={() =>
+                  getSocket().emit(SOCKET_EVENTS.STROKE_REDO, {
+                    roomId,
+                    userId,
+                  })
+                }
+                disabled={!hasJoined || !canRedo}
+                aria-label="Redo"
+              >
+                <Redo2 size={18} />
+              </button>
+              <button
+                type="button"
+                className={railButtonBase}
+                onClick={download}
+                disabled={!hasJoined}
+                aria-label="Export board"
+              >
+                <Download size={18} />
+              </button>
+              <button
+                type="button"
+                className={railButtonBase}
+                onClick={() => setIsClearModalOpen(true)}
+                disabled={!hasJoined}
+                aria-label="Clear board"
+              >
+                <Trash2 size={18} />
+              </button>
+              <button
+                type="button"
+                className={railButtonBase}
+                onClick={() => {
+                  navigator.clipboard.writeText(window.location.href);
+                  pushToast("Room link copied.");
+                }}
+                aria-label="Copy room link"
+              >
+                <Link2 size={18} />
+              </button>
+              <button
+                type="button"
+                className={`${railButtonBase} ${activeFunctionPanel === "chat" ? "bg-[color:var(--brand-blue)] text-white" : ""}`}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setShowParticipants(false);
+                  setActiveToolPanel(null);
+                  setActiveFunctionPanel((value) =>
+                    value === "chat" ? null : "chat",
+                  );
+                }}
+                aria-label="Open chat"
+              >
+                <MessageSquare size={18} />
+              </button>
+              <div className="mt-auto" />
+              <button
+                type="button"
+                className={`${railButtonBase} text-[color:var(--brand-red)]`}
+                onClick={() => setIsExitModalOpen(true)}
+                aria-label="Leave room"
+              >
+                <LogOut size={18} />
+              </button>
+            </div>
+          </aside>
+
+          <section className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-[24px] border border-[color:var(--border)]/10 bg-[linear-gradient(180deg,rgba(219,240,255,0.9),rgba(241,248,253,0.92))]">
+            <div className="pointer-events-none absolute inset-x-0 top-0 z-20 p-2 sm:p-3">
+              <div className="pointer-events-auto flex items-start justify-between gap-2 rounded-[18px] border border-[color:var(--border)]/10 bg-white/78 px-3 py-2 shadow-[0_10px_28px_rgba(26,26,26,0.1)] backdrop-blur-md">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-black text-[color:var(--text-main)] sm:text-[15px]">
+                    {roomTitle}
+                  </p>
+                  <div className="mt-0.5 flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
+                    <span>{roomId}</span>
+                    <span className="h-1 w-1 rounded-full bg-[color:var(--text-muted)]/45" />
+                    <span className="capitalize">
+                      {roomMeta?.visibility ?? "public"}
+                    </span>
+                    {mode === "guess-mode" && (
+                      <>
+                        <span className="h-1 w-1 rounded-full bg-[color:var(--text-muted)]/45" />
+                        <span>Guess mode</span>
+                      </>
+                    )}
+                  </div>
                 </div>
-                {!showDrawerPanels && (
-                  <div className="hidden min-h-0 flex-1 xl:block">
+                <div className="flex items-start gap-2">
+                  {connectionMessage && (
                     <div
-                      className={`${panelCard} flex h-full min-h-0 flex-col`}
+                      className={`max-w-[220px] rounded-full px-2.5 py-1 text-[10px] font-semibold shadow-sm ${error || status === "reconnecting" || status === "disconnected" ? "bg-[color:var(--danger-soft)] text-[#8f2323]" : "bg-[color:var(--surface-soft)] text-[color:var(--text-muted)]"}`}
                     >
-                      <div className="mb-3 flex items-start justify-between gap-3">
-                        <div>
-                          <p className={controlLabel}>Room chat</p>
-                          <h2 className="mt-1 text-lg font-black text-[color:var(--text-main)]">
-                            Discuss the sketch
-                          </h2>
-                        </div>
-                        <button
-                          type="button"
-                          className="rounded-full p-1 text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-soft)]"
-                          onClick={() => setActiveFunctionPanel(null)}
+                      {connectionMessage}
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    className="flex items-center gap-2 rounded-full border border-[color:var(--border)]/10 bg-white/90 px-2 py-1.5 shadow-sm"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setActiveToolPanel(null);
+                      setActiveFunctionPanel(null);
+                      setShowParticipants((value) => !value);
+                    }}
+                    aria-label="Show participants"
+                  >
+                    <div className="flex -space-x-2">
+                      {participantPreview.map((participant) => (
+                        <span
+                          key={participant.socketId}
+                          className="flex h-7 w-7 items-center justify-center overflow-hidden rounded-full border-2 border-white bg-[color:var(--surface-soft)] text-[10px] font-bold text-[color:var(--text-main)] shadow-sm"
                         >
-                          <X size={16} />
-                        </button>
-                      </div>
-                      {activeFunctionPanel === "chat" ? (
-                        <>
-                          <div className="min-h-0 flex-1 space-y-2 overflow-y-auto rounded-[20px] border border-[color:var(--border)]/10 bg-[color:var(--bg-elevated)] p-3 text-sm">
-                            {chatMessages.length === 0 ? (
-                              <p className="text-xs text-[color:var(--text-muted)]">
-                                No messages yet. Introduce the sketch or share
-                                feedback.
-                              </p>
-                            ) : (
-                              chatMessages.map((message) => (
-                                <div
-                                  key={message.messageId}
-                                  className="rounded-2xl bg-white px-3 py-2 shadow-sm"
-                                >
-                                  <p className="text-xs font-semibold text-[color:var(--text-muted)]">
-                                    {message.displayName}
-                                  </p>
-                                  <p className="mt-1 text-sm text-[color:var(--text-main)]">
-                                    {message.text}
-                                  </p>
-                                </div>
-                              ))
-                            )}
-                            <div ref={chatEndRef} />
-                          </div>
-                          <div className="mt-3 flex flex-col gap-2">
-                            <input
-                              value={chatDraft}
-                              onChange={(e) =>
-                                setChatDraft(e.target.value.slice(0, 240))
-                              }
-                              onKeyDown={(e) => e.key === "Enter" && sendChat()}
-                              className="w-full rounded-2xl border border-[color:var(--border)]/10 bg-white px-3 py-2.5 text-sm outline-none focus:border-[color:var(--brand-blue)]"
-                              placeholder={
-                                mode === "guess-mode"
-                                  ? "Guess the drawing..."
-                                  : "Send a message"
-                              }
+                          {participant.avatarUrl ? (
+                            <img
+                              src={participant.avatarUrl}
+                              alt={participant.displayName}
+                              className="h-full w-full object-cover"
                             />
-                            <Button
-                              onClick={sendChat}
-                              className="min-h-10 rounded-2xl text-sm"
-                            >
-                              Send
-                            </Button>
-                          </div>
-                        </>
-                      ) : (
-                        <div className="rounded-[20px] bg-[color:var(--bg-elevated)] p-4 text-sm text-[color:var(--text-muted)]">
-                          Open chat from the session rail to keep the canvas
-                          unobstructed.
-                        </div>
+                          ) : (
+                            getAvatarInitials(participant.displayName)
+                          )}
+                        </span>
+                      ))}
+                      {participantPreview.length === 0 && (
+                        <span className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-[color:var(--surface-soft)] text-[color:var(--text-muted)]">
+                          <Users size={12} />
+                        </span>
                       )}
                     </div>
-                  </div>
-                )}
+                    <span className="text-xs font-semibold text-[color:var(--text-main)]">
+                      {participants.length}
+                    </span>
+                  </button>
+                </div>
               </div>
-            </aside>
+            </div>
 
-            <section className="relative min-h-0">
-              <div className="relative flex h-full min-h-0 flex-col">
-                {showParticipants && (
-                  <div
-                    className={`absolute left-0 top-0 z-30 ${isTouchWorkspace ? "right-0" : "w-full max-w-sm"}`}
-                  >
-                    <div className={`${panelCard} p-3`}>
-                      <div className="mb-2 flex items-center justify-between gap-3 px-1">
-                        <div>
-                          <p className={controlLabel}>Live room</p>
-                          <p className="text-sm font-black text-[color:var(--text-main)]">
-                            Participants
-                          </p>
-                        </div>
-                        <button
-                          type="button"
-                          className="rounded-full p-1 text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-soft)]"
-                          onClick={() => setShowParticipants(false)}
-                        >
-                          <X size={16} />
-                        </button>
-                      </div>
-                      <ParticipantsPanel
-                        participants={participants}
-                        userId={userId}
-                        compact
-                      />
-                    </div>
-                  </div>
-                )}
-                {landscapeHintNeeded && isTouchWorkspace && (
-                  <div className="absolute inset-x-3 top-3 z-20 rounded-[20px] border border-[color:var(--border)]/10 bg-white/92 px-4 py-3 text-xs font-semibold text-[color:var(--text-main)] shadow-[0_16px_30px_rgba(26,26,26,0.16)]">
-                    Froddle opens the room in a landscape-first workspace. If
-                    your browser ignores orientation lock, rotating the device
-                    wider will maximize board space.
-                  </div>
-                )}
-                <div className="relative flex-1 min-h-0 rounded-[28px] border border-[color:var(--border)]/10 bg-[linear-gradient(160deg,#d9efff_0%,#eef9ff_45%,#f6fafc_100%)] p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]">
+            <div className="relative flex min-h-0 flex-1 items-stretch px-2 pb-2 pt-16 sm:px-3 sm:pb-3 sm:pt-[4.5rem]">
+              <div
+                className="relative min-h-0 flex-1"
+                onPointerDown={() => closeFloatingPanels()}
+              >
+                <div className="relative flex h-full min-h-0 flex-col rounded-[24px] border border-[color:var(--border)]/10 bg-[linear-gradient(160deg,#d9efff_0%,#eef9ff_45%,#f6fafc_100%)] p-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] sm:p-2">
                   <CanvasBoard
                     roomId={roomId}
                     userId={userId || "pending"}
@@ -1095,21 +1037,9 @@ export default function RoomPage() {
                     disabled={!hasJoined}
                     resetViewSignal={resetViewSignal}
                     compact={isTouchWorkspace}
+                    onSurfaceInteract={() => closeFloatingPanels()}
                   />
-                  {strokes.length === 0 && (
-                    <div className="pointer-events-none absolute inset-0 grid place-items-center p-4 sm:p-8">
-                      <div className="max-w-sm rounded-[24px] border border-[color:var(--border)]/10 bg-white/90 px-5 py-4 text-center shadow-[0_18px_40px_rgba(26,26,26,0.14)] backdrop-blur">
-                        <p className="text-sm font-semibold text-[color:var(--text-main)]">
-                          Board-first collaborative drawing
-                        </p>
-                        <p className="mt-1 text-xs text-[color:var(--text-muted)]">
-                          The board stays centered while tool and room controls
-                          stay docked on fixed rails.
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                  <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-[28px]">
+                  <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-[24px]">
                     {reactionBursts.map((burst) => (
                       <div
                         key={burst.id}
@@ -1122,139 +1052,244 @@ export default function RoomPage() {
                   </div>
                 </div>
               </div>
-            </section>
+            </div>
 
-            <aside className="relative z-20 min-h-0">
-              <div
-                className={`flex h-full ${isTouchWorkspace ? "flex-col items-center" : "xl:grid xl:grid-cols-[minmax(0,1fr)_72px] xl:gap-3"}`}
-              >
-                {!showDrawerPanels && (
-                  <div className="hidden min-h-0 flex-1 xl:block">
-                    <div
-                      className={`${panelCard} h-full min-h-0 overflow-y-auto`}
-                    >
-                      <div className="mb-4 flex items-start justify-between gap-3">
-                        <div>
-                          <p className={controlLabel}>Drawing tools</p>
-                          <h2 className="mt-1 text-lg font-black text-[color:var(--text-main)]">
-                            {activeToolPanel === "brush"
-                              ? "Brush settings"
-                              : activeToolPanel === "eraser"
-                                ? "Eraser settings"
-                                : activeToolPanel === "fill"
-                                  ? "Fill settings"
-                                  : activeToolPanel === "shapes"
-                                    ? "Shape settings"
-                                    : activeToolPanel === "reactions"
-                                      ? "Quick reactions"
-                                      : "Tool panel"}
-                          </h2>
-                        </div>
-                        {activeToolPanel && (
-                          <button
-                            type="button"
-                            className="rounded-full p-1 text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-soft)]"
-                            onClick={() => setActiveToolPanel(null)}
-                          >
-                            <X size={16} />
-                          </button>
-                        )}
-                      </div>
-                      {renderToolPanelContent()}
-                    </div>
-                  </div>
-                )}
-                <div
-                  className={`${sidebarShell} flex flex-col items-center gap-2 ${!isTouchWorkspace ? "xl:sticky xl:top-0 xl:order-2 xl:h-fit" : "h-full justify-start"}`}
-                >
-                  <button
-                    type="button"
-                    className={`${railButtonBase} ${activeToolPanel === "brush" ? "bg-[color:var(--brand-blue)] text-white" : ""}`}
-                    onClick={() => {
-                      setTool("pen");
-                      setActiveToolPanel("brush");
-                    }}
-                    aria-label="Brush tool"
-                  >
-                    <Brush size={18} />
-                  </button>
-                  <button
-                    type="button"
-                    className={`${railButtonBase} ${activeToolPanel === "eraser" ? "bg-[color:var(--brand-blue)] text-white" : ""}`}
-                    onClick={() => {
-                      setTool("eraser");
-                      setActiveToolPanel("eraser");
-                    }}
-                    aria-label="Eraser tool"
-                  >
-                    <Eraser size={18} />
-                  </button>
-                  <button
-                    type="button"
-                    className={`${railButtonBase} ${activeToolPanel === "fill" ? "bg-[color:var(--brand-blue)] text-white" : ""}`}
-                    onClick={() => {
-                      setTool("fill");
-                      setFillEnabled(true);
-                      setActiveToolPanel("fill");
-                    }}
-                    aria-label="Fill tool"
-                  >
-                    <PaintBucket size={18} />
-                  </button>
-                  <button
-                    type="button"
-                    className={`${railButtonBase} ${activeToolPanel === "shapes" ? "bg-[color:var(--brand-blue)] text-white" : ""}`}
-                    onClick={() => {
-                      if (!isShapeTool) setTool("rectangle");
-                      setActiveToolPanel("shapes");
-                    }}
-                    aria-label="Shapes tool"
-                  >
-                    <Shapes size={18} />
-                  </button>
-                  <button
-                    type="button"
-                    className={`${railButtonBase} ${activeToolPanel === "reactions" ? "bg-[color:var(--brand-blue)] text-white" : ""}`}
-                    onClick={() =>
-                      setActiveToolPanel((value) =>
-                        value === "reactions" ? null : "reactions",
-                      )
-                    }
-                    aria-label="Reactions"
-                  >
-                    <Sparkles size={18} />
-                  </button>
-                  <button
-                    type="button"
-                    className={railButtonBase}
-                    onClick={() => setResetViewSignal((value) => value + 1)}
-                    aria-label="Reset view"
-                  >
-                    <PencilRuler size={18} />
-                  </button>
+            {landscapeHintNeeded && isTouchWorkspace && (
+              <div className="pointer-events-none absolute inset-0 z-40 grid place-items-center bg-[rgba(12,22,34,0.44)] p-4">
+                <div className="pointer-events-auto max-w-xs rounded-[24px] border border-white/20 bg-[rgba(12,22,34,0.9)] px-5 py-4 text-center text-white shadow-2xl backdrop-blur">
+                  <p className="text-sm font-black">
+                    Landscape workspace enabled
+                  </p>
+                  <p className="mt-1 text-xs text-white/80">
+                    If your browser ignores orientation lock, rotate wider to
+                    reveal the full board workspace.
+                  </p>
                 </div>
               </div>
-            </aside>
-          </div>
+            )}
 
-          {showDrawerPanels && activeToolPanel && (
-            <div className="pointer-events-none absolute inset-x-[4.75rem] bottom-3 z-40 flex justify-center">
+            {showParticipants && (
               <div
-                className={`${panelCard} pointer-events-auto w-full max-w-md max-h-[45dvh] overflow-y-auto p-3`}
+                className="absolute right-3 top-[4.8rem] z-40"
+                ref={participantsPanelRef}
+              >
+                <div
+                  className={`${floatingPanelCard} w-[min(320px,calc(100vw-8rem))]`}
+                >
+                  <div className="mb-2 flex items-center justify-between gap-3">
+                    <div>
+                      <p className={controlLabel}>Live room</p>
+                      <p className="text-sm font-black text-[color:var(--text-main)]">
+                        Participants
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      className="rounded-full p-1 text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-soft)]"
+                      onClick={() => setShowParticipants(false)}
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+                  <ParticipantsPanel
+                    participants={participants}
+                    userId={userId}
+                    compact
+                  />
+                </div>
+              </div>
+            )}
+
+            {activeFunctionPanel === "chat" && (
+              <div
+                className={`absolute left-3 z-40 ${isTouchWorkspace ? "top-auto bottom-3" : "top-[4.8rem]"}`}
+                ref={functionPanelRef}
+              >
+                <div
+                  className={`${floatingPanelCard} flex w-[min(340px,calc(100vw-8rem))] max-h-[min(58vh,520px)] flex-col`}
+                >
+                  <div className="mb-3 flex items-start justify-between gap-3">
+                    <div>
+                      <p className={controlLabel}>Room chat</p>
+                      <h2 className="mt-1 text-base font-black text-[color:var(--text-main)]">
+                        Discuss the sketch
+                      </h2>
+                    </div>
+                    <button
+                      type="button"
+                      className="rounded-full p-1 text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-soft)]"
+                      onClick={() => setActiveFunctionPanel(null)}
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+                  <div className="min-h-0 flex-1 space-y-2 overflow-y-auto rounded-[18px] border border-[color:var(--border)]/10 bg-[color:var(--bg-elevated)] p-3 text-sm">
+                    {chatMessages.length === 0 ? (
+                      <p className="text-xs text-[color:var(--text-muted)]">
+                        No messages yet. Introduce the sketch or share feedback.
+                      </p>
+                    ) : (
+                      chatMessages.map((message) => (
+                        <div
+                          key={message.messageId}
+                          className="rounded-2xl bg-white px-3 py-2 shadow-sm"
+                        >
+                          <p className="text-xs font-semibold text-[color:var(--text-muted)]">
+                            {message.displayName}
+                          </p>
+                          <p className="mt-1 text-sm text-[color:var(--text-main)]">
+                            {message.text}
+                          </p>
+                        </div>
+                      ))
+                    )}
+                    <div ref={chatEndRef} />
+                  </div>
+                  <div className="mt-3 flex gap-2">
+                    <input
+                      value={chatDraft}
+                      onChange={(e) =>
+                        setChatDraft(e.target.value.slice(0, 240))
+                      }
+                      onKeyDown={(e) => e.key === "Enter" && sendChat()}
+                      className="w-full rounded-2xl border border-[color:var(--border)]/10 bg-white px-3 py-2.5 text-sm outline-none focus:border-[color:var(--brand-blue)]"
+                      placeholder={
+                        mode === "guess-mode"
+                          ? "Guess the drawing..."
+                          : "Send a message"
+                      }
+                    />
+                    <Button
+                      onClick={sendChat}
+                      className="min-h-10 rounded-2xl px-4 text-sm"
+                    >
+                      Send
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </section>
+
+          <aside
+            className={`relative z-30 flex shrink-0 ${isTouchWorkspace ? "w-[58px]" : "w-[76px] xl:w-[84px]"}`}
+          >
+            <div
+              className={`${sidebarShell} flex h-full w-full flex-col items-center gap-2 py-2`}
+            >
+              <button
+                type="button"
+                className={`${railButtonBase} ${activeToolPanel === "brush" ? "bg-[color:var(--brand-blue)] text-white" : ""}`}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setActiveFunctionPanel(null);
+                  setShowParticipants(false);
+                  setTool("pen");
+                  setActiveToolPanel((value) =>
+                    value === "brush" ? null : "brush",
+                  );
+                }}
+                aria-label="Brush tool"
+              >
+                <Brush size={18} />
+              </button>
+              <button
+                type="button"
+                className={`${railButtonBase} ${activeToolPanel === "eraser" ? "bg-[color:var(--brand-blue)] text-white" : ""}`}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setActiveFunctionPanel(null);
+                  setShowParticipants(false);
+                  setTool("eraser");
+                  setActiveToolPanel((value) =>
+                    value === "eraser" ? null : "eraser",
+                  );
+                }}
+                aria-label="Eraser tool"
+              >
+                <Eraser size={18} />
+              </button>
+              <button
+                type="button"
+                className={`${railButtonBase} ${activeToolPanel === "fill" ? "bg-[color:var(--brand-blue)] text-white" : ""}`}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setActiveFunctionPanel(null);
+                  setShowParticipants(false);
+                  setTool("fill");
+                  setFillEnabled(true);
+                  setActiveToolPanel((value) =>
+                    value === "fill" ? null : "fill",
+                  );
+                }}
+                aria-label="Fill tool"
+              >
+                <PaintBucket size={18} />
+              </button>
+              <button
+                type="button"
+                className={`${railButtonBase} ${activeToolPanel === "shapes" ? "bg-[color:var(--brand-blue)] text-white" : ""}`}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setActiveFunctionPanel(null);
+                  setShowParticipants(false);
+                  if (!isShapeTool) setTool("rectangle");
+                  setActiveToolPanel((value) =>
+                    value === "shapes" ? null : "shapes",
+                  );
+                }}
+                aria-label="Shapes tool"
+              >
+                <Shapes size={18} />
+              </button>
+              <button
+                type="button"
+                className={`${railButtonBase} ${activeToolPanel === "reactions" ? "bg-[color:var(--brand-blue)] text-white" : ""}`}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setActiveFunctionPanel(null);
+                  setShowParticipants(false);
+                  setActiveToolPanel((value) =>
+                    value === "reactions" ? null : "reactions",
+                  );
+                }}
+                aria-label="Reactions"
+              >
+                <Sparkles size={18} />
+              </button>
+              <div className="mt-auto" />
+              <button
+                type="button"
+                className={railButtonBase}
+                onClick={() => setResetViewSignal((value) => value + 1)}
+                aria-label="Reset view"
+              >
+                <PencilRuler size={18} />
+              </button>
+            </div>
+          </aside>
+
+          {activeToolPanel && (
+            <div
+              className={`absolute right-[calc(${isTouchWorkspace ? "58px" : "76px"}+1rem)] top-[4.8rem] z-40 ${isTouchWorkspace ? "max-w-[calc(100vw-8.5rem)]" : ""}`}
+              ref={toolPanelRef}
+            >
+              <div
+                className={`${floatingPanelCard} w-[min(340px,calc(100vw-9rem))] max-h-[min(62vh,560px)] overflow-y-auto`}
               >
                 <div className="mb-3 flex items-start justify-between gap-3">
                   <div>
-                    <p className={controlLabel}>Quick tool panel</p>
+                    <p className={controlLabel}>Drawing tools</p>
                     <h2 className="mt-1 text-base font-black text-[color:var(--text-main)]">
                       {activeToolPanel === "brush"
-                        ? "Brush"
+                        ? "Brush settings"
                         : activeToolPanel === "eraser"
-                          ? "Eraser"
+                          ? "Eraser settings"
                           : activeToolPanel === "fill"
-                            ? "Fill"
+                            ? "Fill settings"
                             : activeToolPanel === "shapes"
-                              ? "Shapes"
-                              : "Reactions"}
+                              ? "Shape settings"
+                              : "Quick reactions"}
                     </h2>
                   </div>
                   <button
@@ -1266,70 +1301,6 @@ export default function RoomPage() {
                   </button>
                 </div>
                 {renderToolPanelContent()}
-              </div>
-            </div>
-          )}
-          {showDrawerPanels && activeFunctionPanel === "chat" && (
-            <div className="pointer-events-none absolute inset-x-[4.75rem] top-20 z-40 flex justify-center">
-              <div
-                className={`${panelCard} pointer-events-auto flex w-full max-w-md max-h-[42dvh] flex-col p-3`}
-              >
-                <div className="mb-3 flex items-start justify-between gap-3">
-                  <div>
-                    <p className={controlLabel}>Room chat</p>
-                    <h2 className="mt-1 text-base font-black text-[color:var(--text-main)]">
-                      Discuss the sketch
-                    </h2>
-                  </div>
-                  <button
-                    type="button"
-                    className="rounded-full p-1 text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-soft)]"
-                    onClick={() => setActiveFunctionPanel(null)}
-                  >
-                    <X size={16} />
-                  </button>
-                </div>
-                <div className="min-h-0 flex-1 space-y-2 overflow-y-auto rounded-[20px] border border-[color:var(--border)]/10 bg-[color:var(--bg-elevated)] p-3 text-sm">
-                  {chatMessages.length === 0 ? (
-                    <p className="text-xs text-[color:var(--text-muted)]">
-                      No messages yet. Introduce the sketch or share feedback.
-                    </p>
-                  ) : (
-                    chatMessages.map((message) => (
-                      <div
-                        key={message.messageId}
-                        className="rounded-2xl bg-white px-3 py-2 shadow-sm"
-                      >
-                        <p className="text-xs font-semibold text-[color:var(--text-muted)]">
-                          {message.displayName}
-                        </p>
-                        <p className="mt-1 text-sm text-[color:var(--text-main)]">
-                          {message.text}
-                        </p>
-                      </div>
-                    ))
-                  )}
-                  <div ref={chatEndRef} />
-                </div>
-                <div className="mt-3 flex gap-2">
-                  <input
-                    value={chatDraft}
-                    onChange={(e) => setChatDraft(e.target.value.slice(0, 240))}
-                    onKeyDown={(e) => e.key === "Enter" && sendChat()}
-                    className="w-full rounded-2xl border border-[color:var(--border)]/10 bg-white px-3 py-2.5 text-sm outline-none focus:border-[color:var(--brand-blue)]"
-                    placeholder={
-                      mode === "guess-mode"
-                        ? "Guess the drawing..."
-                        : "Send a message"
-                    }
-                  />
-                  <Button
-                    onClick={sendChat}
-                    className="min-h-10 rounded-2xl px-4 text-sm"
-                  >
-                    Send
-                  </Button>
-                </div>
               </div>
             </div>
           )}
