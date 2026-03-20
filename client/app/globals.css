@@ -201,3 +201,21 @@ body.room-workspace-body {
     max-height: var(--room-viewport-height, 100svh);
   }
 }
+
+.room-workspace-shell--portrait {
+  width: var(--room-viewport-height, 100dvh);
+  height: var(--room-viewport-width, 100vw);
+  min-height: var(--room-viewport-width, 100vw);
+  max-height: var(--room-viewport-width, 100vw);
+  transform: rotate(90deg) translateY(-100%);
+  transform-origin: top left;
+  position: absolute;
+  top: 0;
+  left: 100%;
+}
+
+@supports (width: 100svh) {
+  .room-workspace-shell--portrait {
+    width: var(--room-viewport-height, 100svh);
+  }
+}

@@ -125,6 +125,12 @@ const controlLabel =
   "text-[10px] font-semibold uppercase tracking-[0.18em] text-[color:var(--text-muted)]";
 const railBadge =
   "absolute -right-1.5 -top-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-[color:var(--brand-blue)] px-1 text-[10px] font-bold text-white shadow-sm";
+const panelCard =
+  "rounded-[20px] border border-black/5 bg-[linear-gradient(180deg,rgba(255,255,255,0.95),rgba(248,251,255,0.98))] p-3 shadow-[0_10px_24px_rgba(15,23,42,0.08)]";
+const compactSwatchButton =
+  "relative h-10 w-10 rounded-full border border-black/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)] transition hover:-translate-y-0.5";
+const customColorButton =
+  "inline-flex min-h-10 items-center justify-center gap-2 rounded-full border border-black/10 bg-white px-3.5 text-sm font-semibold text-[color:var(--text-main)] shadow-sm transition hover:-translate-y-0.5 hover:bg-[color:var(--surface-soft)]";
 
 export default function RoomPage() {
   const params = useParams<{ roomId?: string | string[] }>();
@@ -165,6 +171,7 @@ export default function RoomPage() {
   >([]);
   const [resetViewSignal, setResetViewSignal] = useState(0);
   const [isTouchWorkspace, setIsTouchWorkspace] = useState(false);
+  const [isPortraitViewport, setIsPortraitViewport] = useState(false);
   const [immersiveUiRetryNeeded, setImmersiveUiRetryNeeded] = useState(false);
   const [activeToolPanel, setActiveToolPanel] = useState<ToolPanel>("brush");
   const [activeFunctionPanel, setActiveFunctionPanel] =
@@ -291,15 +298,23 @@ export default function RoomPage() {
     const coarsePointer = window.matchMedia("(pointer: coarse)").matches;
     const compactViewport = window.innerWidth <= MOBILE_WORKSPACE_MAX_WIDTH;
     const touchWorkspace = coarsePointer && compactViewport;
+    const viewportWidth = Math.round(
+      window.visualViewport?.width ?? window.innerWidth,
+    );
     const viewportHeight = Math.round(
       window.visualViewport?.height ?? window.innerHeight,
     );
     const chromeInset = Math.max(0, window.innerHeight - viewportHeight);
 
     setIsTouchWorkspace(touchWorkspace);
+    setIsPortraitViewport(viewportHeight > viewportWidth);
     document.documentElement.style.setProperty(
       ROOM_VIEWPORT_HEIGHT_VAR,
       `${viewportHeight}px`,
+    );
+    document.documentElement.style.setProperty(
+      "--room-viewport-width",
+      `${viewportWidth}px`,
     );
     document.documentElement.style.setProperty(
       ROOM_IMMERSIVE_TOP_VAR,
@@ -346,6 +361,7 @@ export default function RoomPage() {
       document.documentElement.classList.remove("room-workspace-root");
       document.documentElement.style.removeProperty(ROOM_VIEWPORT_HEIGHT_VAR);
       document.documentElement.style.removeProperty(ROOM_IMMERSIVE_TOP_VAR);
+      document.documentElement.style.removeProperty("--room-viewport-width");
       if (immersiveUiRestoreTimerRef.current) {
         window.clearTimeout(immersiveUiRestoreTimerRef.current);
         immersiveUiRestoreTimerRef.current = null;
@@ -425,8 +441,20 @@ export default function RoomPage() {
 
   useEffect(() => {
     isMountedRef.current = true;
+
+    const cleanupWorkspace = () => {
+      void resetWorkspaceMode({ preserveState: true });
+    };
+
+    window.addEventListener("pagehide", cleanupWorkspace);
+    window.addEventListener("beforeunload", cleanupWorkspace);
+    window.addEventListener("popstate", cleanupWorkspace);
+
     return () => {
       isMountedRef.current = false;
+      window.removeEventListener("pagehide", cleanupWorkspace);
+      window.removeEventListener("beforeunload", cleanupWorkspace);
+      window.removeEventListener("popstate", cleanupWorkspace);
       void resetWorkspaceMode({ preserveState: true });
     };
   }, [resetWorkspaceMode]);
@@ -756,6 +784,128 @@ export default function RoomPage() {
     [activeColorPicker, updateFillColor, updateStrokeColor],
   );
 
+  const visibleColorSwatches = useMemo(
+    () =>
+      [
+        ...recentColors,
+        ...PRESET_COLORS.filter((color) => !recentColors.includes(color)),
+      ].slice(0, 8),
+    [recentColors],
+  );
+
+  const renderColorSwatches = useCallback(
+    ({
+      selectedColor,
+      onSelect,
+      onCustom,
+      customLabel,
+    }: {
+      selectedColor: string;
+      onSelect: (value: string) => void;
+      onCustom: () => void;
+      customLabel: string;
+    }) => (
+      <div className="space-y-3">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <span
+              className="h-11 w-11 rounded-full border border-black/10 shadow-[0_6px_16px_rgba(15,23,42,0.12)]"
+              style={{ backgroundColor: selectedColor }}
+            />
+            <div>
+              <p className="text-sm font-semibold text-[color:var(--text-main)]">
+                {selectedColor.toUpperCase()}
+              </p>
+              <p className="text-xs text-[color:var(--text-muted)]">
+                Tap a swatch or open the custom wheel.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onCustom}
+            className={customColorButton}
+          >
+            <Sparkles size={14} /> {customLabel}
+          </button>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {visibleColorSwatches.map((color) => {
+            const selected =
+              selectedColor.toLowerCase() === color.toLowerCase();
+            return (
+              <button
+                key={color}
+                type="button"
+                className={`${compactSwatchButton} ${selected ? "ring-2 ring-[color:var(--text-main)] ring-offset-2 ring-offset-white" : ""}`}
+                style={{ backgroundColor: color }}
+                onClick={() => onSelect(color)}
+                aria-label={`Select color ${color}`}
+              />
+            );
+          })}
+        </div>
+      </div>
+    ),
+    [visibleColorSwatches],
+  );
+
+  const renderSizePreview = useCallback(
+    ({
+      mode,
+      currentSize,
+      colorValue,
+    }: {
+      mode: "brush" | "eraser";
+      currentSize: number;
+      colorValue?: string;
+    }) => {
+      const diameter = Math.max(10, Math.min(56, currentSize * 2));
+      const isBrushPreview = mode === "brush";
+      return (
+        <div className={`${panelCard} flex items-center gap-3`}>
+          <div className="relative flex h-20 w-20 shrink-0 items-center justify-center rounded-[18px] bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.95),rgba(226,238,248,0.9))]">
+            <span
+              className={`rounded-full border ${isBrushPreview ? "border-black/10" : "border-dashed border-slate-400 bg-white/40"}`}
+              style={{
+                width: diameter,
+                height: diameter,
+                backgroundColor: isBrushPreview
+                  ? colorValue
+                  : "rgba(255,255,255,0.25)",
+                boxShadow: isBrushPreview
+                  ? "0 8px 18px rgba(15,23,42,0.16)"
+                  : "inset 0 0 0 1px rgba(148,163,184,0.4)",
+              }}
+            />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold text-[color:var(--text-main)]">
+              {isBrushPreview ? "Live stroke size" : "Live erase area"}
+            </p>
+            <p className="mt-1 text-xs text-[color:var(--text-muted)]">
+              {isBrushPreview
+                ? "Matches your active brush thickness so strokes feel predictable."
+                : "Shows the footprint removed on contact before you erase."}
+            </p>
+            {isBrushPreview ? (
+              <div className="mt-3 overflow-hidden rounded-full bg-white/80 px-3 py-3 shadow-inner">
+                <div
+                  className="rounded-full"
+                  style={{
+                    height: Math.max(2, Math.min(18, currentSize)),
+                    backgroundColor: colorValue,
+                  }}
+                />
+              </div>
+            ) : null}
+          </div>
+        </div>
+      );
+    },
+    [],
+  );
+
   const renderToolPanelContent = () => {
     if (activeToolPanel === "brush")
       return (
@@ -767,7 +917,7 @@ export default function RoomPage() {
                 <button
                   key={option.id}
                   type="button"
-                  className={`rounded-2xl border px-3 py-2 text-sm font-semibold transition ${brushStyle === option.id ? "border-transparent bg-[color:var(--brand-blue)] text-white" : "border-black/5 bg-[color:var(--bg-elevated)] hover:bg-[color:var(--surface-soft)]"}`}
+                  className={`rounded-full border px-3 py-2 text-sm font-semibold transition ${brushStyle === option.id ? "border-transparent bg-[color:var(--brand-blue)] text-white shadow-[0_10px_22px_rgba(25,167,255,0.24)]" : "border-black/5 bg-[color:var(--bg-elevated)] hover:bg-[color:var(--surface-soft)]"}`}
                   onClick={() => {
                     setTool("pen");
                     setBrushStyle(option.id);
@@ -778,10 +928,11 @@ export default function RoomPage() {
               ))}
             </div>
           </div>
-          <div>
+
+          <div className={panelCard}>
             <div className="flex items-center justify-between gap-3">
               <p className={controlLabel}>Thickness</p>
-              <span className="rounded-full bg-[color:var(--surface-soft)] px-2 py-1 text-xs font-bold">
+              <span className="rounded-full bg-white px-2.5 py-1 text-xs font-bold shadow-sm">
                 {size}px
               </span>
             </div>
@@ -791,43 +942,25 @@ export default function RoomPage() {
               max={24}
               value={size}
               onChange={(e) => setSize(Number(e.target.value))}
-              className="mt-2 w-full accent-[color:var(--brand-blue)]"
+              className="mt-3 w-full accent-[color:var(--brand-blue)]"
             />
           </div>
+
+          {renderSizePreview({
+            mode: "brush",
+            currentSize: size,
+            colorValue: strokeColor,
+          })}
+
           <div>
-            <div className="flex items-center justify-between gap-3">
-              <p className={controlLabel}>Stroke color</p>
-              <button
-                type="button"
-                className="h-10 w-10 rounded-2xl border border-black/10 shadow-sm"
-                style={{ backgroundColor: strokeColor }}
-                onClick={() => openColorPicker("stroke")}
-              />
-            </div>
-            <div className="mt-2 flex flex-wrap gap-2">
-              {[
-                ...recentColors,
-                ...PRESET_COLORS.filter(
-                  (color) => !recentColors.includes(color),
-                ),
-              ]
-                .slice(0, 8)
-                .map((color) => (
-                  <button
-                    key={color}
-                    type="button"
-                    className={`h-9 w-9 rounded-full border-2 ${strokeColor.toLowerCase() === color.toLowerCase() ? "border-[color:var(--text-main)]" : "border-transparent"}`}
-                    style={{ backgroundColor: color }}
-                    onClick={() => updateStrokeColor(color)}
-                  />
-                ))}
-              <button
-                type="button"
-                onClick={() => openColorPicker("stroke")}
-                className="inline-flex min-h-9 items-center justify-center gap-1 rounded-2xl border border-black/10 bg-[color:var(--bg-elevated)] px-3 text-sm font-semibold text-[color:var(--text-main)] transition hover:bg-[color:var(--surface-soft)]"
-              >
-                <Sparkles size={14} /> Custom +
-              </button>
+            <p className={controlLabel}>Stroke color</p>
+            <div className="mt-2">
+              {renderColorSwatches({
+                selectedColor: strokeColor,
+                onSelect: updateStrokeColor,
+                onCustom: () => openColorPicker("stroke"),
+                customLabel: "Custom",
+              })}
             </div>
           </div>
         </div>
@@ -835,10 +968,10 @@ export default function RoomPage() {
     if (activeToolPanel === "eraser")
       return (
         <div className="space-y-4">
-          <div>
+          <div className={panelCard}>
             <div className="flex items-center justify-between gap-3">
               <p className={controlLabel}>Eraser size</p>
-              <span className="rounded-full bg-[color:var(--surface-soft)] px-2 py-1 text-xs font-bold">
+              <span className="rounded-full bg-white px-2.5 py-1 text-xs font-bold shadow-sm">
                 {size}px
               </span>
             </div>
@@ -848,12 +981,13 @@ export default function RoomPage() {
               max={32}
               value={size}
               onChange={(e) => setSize(Number(e.target.value))}
-              className="mt-2 w-full accent-[color:var(--brand-blue)]"
+              className="mt-3 w-full accent-[color:var(--brand-blue)]"
             />
           </div>
+          {renderSizePreview({ mode: "eraser", currentSize: size })}
           <div className="rounded-[18px] bg-[color:var(--bg-elevated)] p-3 text-sm text-[color:var(--text-muted)]">
-            Eraser strokes now stay on the same lightweight draw path as brush
-            strokes for lower input latency.
+            Eraser strokes stay on the same lightweight input path as brush
+            strokes, so switching tools remains fast and stable.
           </div>
         </div>
       );
@@ -861,39 +995,14 @@ export default function RoomPage() {
       return (
         <div className="space-y-4">
           <div>
-            <div className="flex items-center justify-between gap-3">
-              <p className={controlLabel}>Fill color</p>
-              <button
-                type="button"
-                className="h-10 w-10 rounded-2xl border border-black/10 shadow-sm"
-                style={{ backgroundColor: fillColor }}
-                onClick={() => openColorPicker("fill")}
-              />
-            </div>
-            <div className="mt-2 flex flex-wrap gap-2">
-              {[
-                ...recentColors,
-                ...PRESET_COLORS.filter(
-                  (color) => !recentColors.includes(color),
-                ),
-              ]
-                .slice(0, 8)
-                .map((color) => (
-                  <button
-                    key={color}
-                    type="button"
-                    className={`h-9 w-9 rounded-full border-2 ${fillColor.toLowerCase() === color.toLowerCase() ? "border-[color:var(--text-main)]" : "border-transparent"}`}
-                    style={{ backgroundColor: color }}
-                    onClick={() => updateFillColor(color)}
-                  />
-                ))}
-              <button
-                type="button"
-                onClick={() => openColorPicker("fill")}
-                className="inline-flex min-h-9 items-center justify-center gap-1 rounded-2xl border border-black/10 bg-[color:var(--bg-elevated)] px-3 text-sm font-semibold text-[color:var(--text-main)] transition hover:bg-[color:var(--surface-soft)]"
-              >
-                <Sparkles size={14} /> Custom +
-              </button>
+            <p className={controlLabel}>Fill color</p>
+            <div className="mt-2">
+              {renderColorSwatches({
+                selectedColor: fillColor,
+                onSelect: updateFillColor,
+                onCustom: () => openColorPicker("fill"),
+                customLabel: "Custom",
+              })}
             </div>
           </div>
         </div>
@@ -908,7 +1017,7 @@ export default function RoomPage() {
                 <button
                   key={shapeTool}
                   type="button"
-                  className={`flex items-center gap-2 rounded-2xl border px-3 py-2 text-sm font-semibold transition ${tool === shapeTool ? "border-transparent bg-[color:var(--brand-blue)] text-white" : "border-black/5 bg-[color:var(--bg-elevated)] hover:bg-[color:var(--surface-soft)]"}`}
+                  className={`flex items-center gap-2 rounded-[18px] border px-3 py-2 text-sm font-semibold transition ${tool === shapeTool ? "border-transparent bg-[color:var(--brand-blue)] text-white shadow-[0_10px_22px_rgba(25,167,255,0.24)]" : "border-black/5 bg-[color:var(--bg-elevated)] hover:bg-[color:var(--surface-soft)]"}`}
                   onClick={() => setTool(shapeTool)}
                 >
                   <Icon size={15} /> <span>{label}</span>
@@ -930,29 +1039,29 @@ export default function RoomPage() {
               className="h-4 w-4"
             />
           </label>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <button
-              type="button"
-              onClick={() => openColorPicker("stroke")}
-              className="flex items-center justify-between rounded-[18px] border border-black/5 bg-[color:var(--bg-elevated)] px-3 py-3 text-sm font-semibold text-[color:var(--text-main)] transition hover:bg-[color:var(--surface-soft)]"
-            >
-              <span>Stroke · Custom +</span>
-              <span
-                className="h-7 w-7 rounded-xl border border-black/10"
-                style={{ backgroundColor: strokeColor }}
-              />
-            </button>
-            <button
-              type="button"
-              onClick={() => openColorPicker("fill")}
-              className="flex items-center justify-between rounded-[18px] border border-black/5 bg-[color:var(--bg-elevated)] px-3 py-3 text-sm font-semibold text-[color:var(--text-main)] transition hover:bg-[color:var(--surface-soft)]"
-            >
-              <span>Fill · Custom +</span>
-              <span
-                className="h-7 w-7 rounded-xl border border-black/10"
-                style={{ backgroundColor: fillColor }}
-              />
-            </button>
+          <div className="grid gap-3">
+            <div className={panelCard}>
+              <p className={controlLabel}>Stroke color</p>
+              <div className="mt-2">
+                {renderColorSwatches({
+                  selectedColor: strokeColor,
+                  onSelect: updateStrokeColor,
+                  onCustom: () => openColorPicker("stroke"),
+                  customLabel: "Custom",
+                })}
+              </div>
+            </div>
+            <div className={panelCard}>
+              <p className={controlLabel}>Fill color</p>
+              <div className="mt-2">
+                {renderColorSwatches({
+                  selectedColor: fillColor,
+                  onSelect: updateFillColor,
+                  onCustom: () => openColorPicker("fill"),
+                  customLabel: "Custom",
+                })}
+              </div>
+            </div>
           </div>
         </div>
       );
@@ -1131,7 +1240,7 @@ export default function RoomPage() {
 
   return (
     <main
-      className={`relative overflow-hidden ${roomReady ? "room-workspace-shell p-1 sm:p-1.5" : "min-h-screen p-3 sm:p-4"}`}
+      className={`relative overflow-hidden ${roomReady ? `room-workspace-shell ${isTouchWorkspace && isPortraitViewport ? "room-workspace-shell--portrait" : ""} p-1 sm:p-1.5` : "min-h-screen p-3 sm:p-4"}`}
     >
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,#ffffff_0%,rgba(255,255,255,0.78)_18%,rgba(248,244,232,0)_58%)]" />
       <div
