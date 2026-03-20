@@ -180,7 +180,9 @@ body.room-workspace-body {
   position: fixed;
   inset: 0;
   width: 100%;
+  min-height: 100%;
   touch-action: manipulation;
+  overscroll-behavior: none;
   -webkit-overflow-scrolling: auto;
 }
 
@@ -217,5 +219,17 @@ body.room-workspace-body {
 @supports (width: 100svh) {
   .room-workspace-shell--portrait {
     width: var(--room-viewport-height, 100svh);
+  }
+}
+
+
+button,
+[role="button"] {
+  touch-action: manipulation;
+}
+
+@media (pointer: coarse) {
+  .room-workspace-shell--portrait {
+    will-change: transform;
   }
 }

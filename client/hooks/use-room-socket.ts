@@ -30,6 +30,8 @@ export function useRoomSocket(
   const [redoCounts, setRedoCounts] = useState<Record<string, number>>({});
   const joinedRoomRef = useRef<string | null>(null);
   const strokeIndexRef = useRef<Map<string, number>>(new Map());
+  const pendingAppendRef = useRef<Map<string, Stroke["points"]>>(new Map());
+  const appendFrameRef = useRef<number | null>(null);
 
   const leaveRoom = useCallback(() => {
     if (joinedRoomRef.current)
@@ -38,6 +40,11 @@ export function useRoomSocket(
       });
     joinedRoomRef.current = null;
     setCursors({});
+    pendingAppendRef.current.clear();
+    if (appendFrameRef.current !== null) {
+      cancelAnimationFrame(appendFrameRef.current);
+      appendFrameRef.current = null;
+    }
     getSocket().disconnect();
   }, []);
 
@@ -52,6 +59,34 @@ export function useRoomSocket(
 
     const manager = getSocket().io;
     getSocket().connect();
+
+    const flushPendingAppends = () => {
+      appendFrameRef.current = null;
+      if (!pendingAppendRef.current.size) return;
+      const updates = new Map(pendingAppendRef.current);
+      pendingAppendRef.current.clear();
+      setStrokes((prev) => {
+        let changed = false;
+        const next = [...prev];
+        for (const [strokeId, points] of Array.from(updates.entries())) {
+          const strokeIndex = strokeIndexRef.current.get(strokeId);
+          if (strokeIndex === undefined) continue;
+          const target = next[strokeIndex];
+          if (!target || !points.length) continue;
+          changed = true;
+          next[strokeIndex] = {
+            ...target,
+            points: [...target.points, ...points],
+          };
+        }
+        return changed ? next : prev;
+      });
+    };
+
+    const scheduleAppendFlush = () => {
+      if (appendFrameRef.current !== null) return;
+      appendFrameRef.current = requestAnimationFrame(flushPendingAppends);
+    };
 
     const emitJoin = () => {
       getSocket().emit(SOCKET_EVENTS.ROOM_JOIN, {
@@ -86,6 +121,11 @@ export function useRoomSocket(
     };
     const applyRoom = (room: RoomState) => {
       joinedRoomRef.current = roomId;
+      pendingAppendRef.current.clear();
+      if (appendFrameRef.current !== null) {
+        cancelAnimationFrame(appendFrameRef.current);
+        appendFrameRef.current = null;
+      }
       strokeIndexRef.current = new Map(
         room.strokes.map((stroke, index) => [stroke.strokeId, index]),
       );
@@ -120,19 +160,14 @@ export function useRoomSocket(
         });
         setRedoCounts((prev) => ({ ...prev, [event.stroke.userId]: 0 }));
       }
-      if (event.type === SOCKET_EVENTS.STROKE_APPEND)
-        setStrokes((prev) => {
-          const strokeIndex = strokeIndexRef.current.get(event.strokeId);
-          if (strokeIndex === undefined) return prev;
-          const target = prev[strokeIndex];
-          if (!target) return prev;
-          const next = [...prev];
-          next[strokeIndex] = {
-            ...target,
-            points: [...target.points, ...event.points],
-          };
-          return next;
-        });
+      if (event.type === SOCKET_EVENTS.STROKE_APPEND) {
+        const existing = pendingAppendRef.current.get(event.strokeId) ?? [];
+        pendingAppendRef.current.set(event.strokeId, [
+          ...existing,
+          ...event.points,
+        ]);
+        scheduleAppendFlush();
+      }
     };
 
     getSocket().on("connect", onConnect);
@@ -161,6 +196,11 @@ export function useRoomSocket(
         setMode(nextMode),
     );
     getSocket().on(SOCKET_EVENTS.BOARD_CLEARED, () => {
+      pendingAppendRef.current.clear();
+      if (appendFrameRef.current !== null) {
+        cancelAnimationFrame(appendFrameRef.current);
+        appendFrameRef.current = null;
+      }
       strokeIndexRef.current = new Map();
       setStrokes([]);
       setRedoCounts({});
@@ -175,6 +215,7 @@ export function useRoomSocket(
         userId: string;
       }) => {
         setStrokes((prev) => {
+          pendingAppendRef.current.delete(strokeId);
           const next = prev.filter((stroke) => stroke.strokeId !== strokeId);
           strokeIndexRef.current = new Map(
             next.map((stroke, index) => [stroke.strokeId, index]),
@@ -213,6 +254,11 @@ export function useRoomSocket(
     );
 
     return () => {
+      pendingAppendRef.current.clear();
+      if (appendFrameRef.current !== null) {
+        cancelAnimationFrame(appendFrameRef.current);
+        appendFrameRef.current = null;
+      }
       if (joinedRoomRef.current)
         getSocket().emit(SOCKET_EVENTS.ROOM_LEAVE, {
           roomId: joinedRoomRef.current,
