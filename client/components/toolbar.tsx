@@ -82,7 +82,9 @@ const utilityButtonClass =
 const utilityButtonIconClass = "shrink-0";
 const utilityButtonLabelClass = "truncate text-left font-black";
 const clearButtonClass =
-  `${utilityButtonClass} bg-[color:var(--brand-red)] text-white hover:bg-[#e33a48] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--surface)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--brand-red)]`;
+  `${utilityButtonClass} !border-[color:var(--brand-red)] !bg-[color:var(--brand-red)] !text-white hover:!bg-[#e33a48] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--surface)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--brand-red)]`;
+const clearButtonIconClass = `${utilityButtonIconClass} text-white`;
+const clearButtonLabelClass = `${utilityButtonLabelClass} text-white`;
 const sectionClass =
   "flex flex-wrap items-center gap-2 rounded-[1.5rem] border border-[color:var(--border)] bg-[color:var(--bg-elevated)] p-2.5";
 const labelClass =
@@ -164,8 +166,8 @@ export function Toolbar({
         <span className={utilityButtonLabelClass}>Copy</span>
       </button>
       <button type="button" className={clearButtonClass} onClick={onClear} disabled={disabled}>
-        <Trash2 size={16} className={utilityButtonIconClass} />
-        <span className={utilityButtonLabelClass}>Clear</span>
+        <Trash2 size={16} className={clearButtonIconClass} />
+        <span className={clearButtonLabelClass}>Clear</span>
       </button>
     </div>
   );
