@@ -29,6 +29,7 @@ export function useRoomSocket(
   const [hasJoined, setHasJoined] = useState(false);
   const [redoCounts, setRedoCounts] = useState<Record<string, number>>({});
   const joinedRoomRef = useRef<string | null>(null);
+  const latestRoomVersionRef = useRef(0);
   const strokeIndexRef = useRef<Map<string, number>>(new Map());
   const pendingAppendRef = useRef<Map<string, Stroke["points"]>>(new Map());
   const appendFrameRef = useRef<number | null>(null);
@@ -56,6 +57,7 @@ export function useRoomSocket(
     setHasJoined(false);
     setRedoCounts({});
     setExpired(false);
+    latestRoomVersionRef.current = 0;
 
     const manager = getSocket().io;
     getSocket().connect();
@@ -89,12 +91,18 @@ export function useRoomSocket(
     };
 
     const emitJoin = () => {
+      console.info("[room-socket] emitting room join", { roomId, userId });
       getSocket().emit(SOCKET_EVENTS.ROOM_JOIN, {
         roomId,
         userId,
         displayName,
         avatarUrl,
       });
+    };
+
+    const requestRoomState = (reason: string) => {
+      console.info("[room-socket] requesting room state", { roomId, reason });
+      getSocket().emit(SOCKET_EVENTS.ROOM_STATE_REQUEST, { roomId });
     };
 
     const onConnect = () => {
@@ -119,7 +127,31 @@ export function useRoomSocket(
       setError(null);
       emitJoin();
     };
-    const applyRoom = (room: RoomState) => {
+    const applyRoom = (
+      room: RoomState,
+      source: "room:joined" | "room:state",
+    ) => {
+      if (
+        latestRoomVersionRef.current > room.updatedAt &&
+        source === "room:state"
+      ) {
+        console.warn("[room-socket] ignored stale room hydration", {
+          roomId,
+          source,
+          incomingUpdatedAt: room.updatedAt,
+          latestUpdatedAt: latestRoomVersionRef.current,
+          strokeCount: room.strokes.length,
+        });
+        return;
+      }
+      latestRoomVersionRef.current = room.updatedAt;
+      console.info("[room-socket] applying room hydration", {
+        roomId,
+        source,
+        updatedAt: room.updatedAt,
+        strokeCount: room.strokes.length,
+        participantCount: room.participants.length,
+      });
       joinedRoomRef.current = roomId;
       pendingAppendRef.current.clear();
       if (appendFrameRef.current !== null) {
@@ -136,11 +168,13 @@ export function useRoomSocket(
       setRedoCounts({});
     };
     const onRoomJoined = ({ room }: { room: RoomState }) => {
-      applyRoom(room);
+      applyRoom(room, "room:joined");
+      requestRoomState("post-join-hydration");
       setExpired(false);
       setHasJoined(true);
     };
-    const onRoomState = ({ room }: { room: RoomState }) => applyRoom(room);
+    const onRoomState = ({ room }: { room: RoomState }) =>
+      applyRoom(room, "room:state");
     const onCursorUpdate = (cursor: CursorPayload) =>
       setCursors((prev) => ({ ...prev, [cursor.userId]: cursor }));
     const onCursorPresence = ({
@@ -159,8 +193,21 @@ export function useRoomSocket(
           return [...prev, event.stroke];
         });
         setRedoCounts((prev) => ({ ...prev, [event.stroke.userId]: 0 }));
+        latestRoomVersionRef.current = Math.max(
+          latestRoomVersionRef.current,
+          event.stroke.timestamp ?? Date.now(),
+        );
       }
       if (event.type === SOCKET_EVENTS.STROKE_APPEND) {
+        if (!strokeIndexRef.current.has(event.strokeId)) {
+          console.warn("[room-socket] append arrived before stroke hydration", {
+            roomId,
+            strokeId: event.strokeId,
+            pointCount: event.points?.length ?? 0,
+          });
+          requestRoomState("missing-stroke-before-append");
+          return;
+        }
         const existing = pendingAppendRef.current.get(event.strokeId) ?? [];
         pendingAppendRef.current.set(event.strokeId, [
           ...existing,
@@ -196,6 +243,8 @@ export function useRoomSocket(
         setMode(nextMode),
     );
     getSocket().on(SOCKET_EVENTS.BOARD_CLEARED, () => {
+      latestRoomVersionRef.current = Date.now();
+      console.info("[room-socket] board cleared", { roomId });
       pendingAppendRef.current.clear();
       if (appendFrameRef.current !== null) {
         cancelAnimationFrame(appendFrameRef.current);
@@ -226,6 +275,7 @@ export function useRoomSocket(
           ...prev,
           [strokeUserId]: (prev[strokeUserId] ?? 0) + 1,
         }));
+        latestRoomVersionRef.current = Date.now();
       },
     );
     getSocket().on(
@@ -245,6 +295,10 @@ export function useRoomSocket(
           ...prev,
           [strokeUserId]: Math.max(0, (prev[strokeUserId] ?? 0) - 1),
         }));
+        latestRoomVersionRef.current = Math.max(
+          latestRoomVersionRef.current,
+          stroke.timestamp ?? Date.now(),
+        );
       },
     );
     getSocket().on(SOCKET_EVENTS.ROOM_EXPIRED, () => setExpired(true));
