@@ -43,6 +43,23 @@ const midpoint = (
 const isShapeTool = (tool: DrawingTool): tool is ShapeKind =>
   SHAPE_TOOLS.includes(tool as ShapeKind);
 
+const MIN_POINT_DISTANCE = 0.75;
+
+const appendPointIfNeeded = (
+  points: Stroke["points"],
+  point: { x: number; y: number },
+) => {
+  const lastPoint = points[points.length - 1];
+  if (
+    lastPoint &&
+    Math.hypot(point.x - lastPoint.x, point.y - lastPoint.y) <
+      MIN_POINT_DISTANCE
+  ) {
+    return points;
+  }
+  return [...points, point];
+};
+
 const buildShapePath = (ctx: CanvasRenderingContext2D, stroke: Stroke) => {
   const shape = stroke.shape;
   if (!shape) return false;
@@ -497,7 +514,7 @@ function CanvasBoardComponent({
 
   const flushPendingPoints = () => {
     if (!pendingPointsRef.current.length || !currentStrokeId.current) return;
-    const pointsToSend = pendingPointsRef.current;
+    const pointsToSend = [...pendingPointsRef.current];
     pendingPointsRef.current = [];
     pointsSinceFlushRef.current = 0;
     getSocket().emit(SOCKET_EVENTS.STROKE_APPEND, {
@@ -564,17 +581,34 @@ function CanvasBoardComponent({
     };
   }, []);
 
-  const resetTransientInteraction = useCallback(() => {
-    drawingRef.current = false;
-    currentStrokeId.current = "";
-    pendingPointsRef.current = [];
-    draftStrokeRef.current = null;
-    previewStrokeRef.current = null;
-    activePointerIdRef.current = null;
-    panStartRef.current = null;
-    gestureRef.current = null;
-    pointersRef.current.clear();
-  }, []);
+  const resetTransientInteraction = useCallback(
+    (options?: { releasePointerCapture?: boolean }) => {
+      if (options?.releasePointerCapture) {
+        const surface = surfaceRef.current;
+        if (surface) {
+          for (const pointerId of Array.from(pointersRef.current.keys())) {
+            if (surface.hasPointerCapture(pointerId)) {
+              try {
+                surface.releasePointerCapture(pointerId);
+              } catch {
+                // noop
+              }
+            }
+          }
+        }
+      }
+      drawingRef.current = false;
+      currentStrokeId.current = "";
+      pendingPointsRef.current = [];
+      draftStrokeRef.current = null;
+      previewStrokeRef.current = null;
+      activePointerIdRef.current = null;
+      panStartRef.current = null;
+      gestureRef.current = null;
+      pointersRef.current.clear();
+    },
+    [],
+  );
 
   useEffect(() => {
     syncCommittedCanvas();
@@ -603,7 +637,9 @@ function CanvasBoardComponent({
     if (disabled) return;
 
     onSurfaceInteract?.();
-    event.currentTarget.setPointerCapture(event.pointerId);
+    const shouldCapturePointer = tool !== "fill";
+    if (shouldCapturePointer)
+      event.currentTarget.setPointerCapture(event.pointerId);
     pointersRef.current.set(event.pointerId, {
       x: event.clientX,
       y: event.clientY,
@@ -651,6 +687,7 @@ function CanvasBoardComponent({
     activePointerIdRef.current = event.pointerId;
 
     if (tool === "fill") {
+      resetTransientInteraction({ releasePointerCapture: true });
       const strokeId = nanoid();
       const fillStroke: Stroke = {
         strokeId,
@@ -672,6 +709,8 @@ function CanvasBoardComponent({
       getSocket().emit(SOCKET_EVENTS.STROKE_END, { roomId, strokeId });
       queueCursorEmit(point, false);
       activePointerIdRef.current = null;
+      pointersRef.current.delete(event.pointerId);
+      queueRender();
       return;
     }
 
@@ -805,14 +844,35 @@ function CanvasBoardComponent({
     }
 
     if (!draftStrokeRef.current) return;
+    const sourceEvents =
+      typeof event.nativeEvent.getCoalescedEvents === "function"
+        ? event.nativeEvent.getCoalescedEvents()
+        : [event.nativeEvent];
+    let nextPoints = draftStrokeRef.current.points;
+    let pendingPoints = pendingPointsRef.current;
+
+    for (const sourceEvent of sourceEvents) {
+      const nextPoint = getCanvasPoint(
+        sourceEvent.clientX,
+        sourceEvent.clientY,
+      );
+      if (!nextPoint) continue;
+      const appendedDraftPoints = appendPointIfNeeded(nextPoints, nextPoint);
+      if (appendedDraftPoints === nextPoints) continue;
+      nextPoints = appendedDraftPoints;
+      pendingPoints = appendPointIfNeeded(pendingPoints, nextPoint);
+    }
+
+    if (nextPoints === draftStrokeRef.current.points) return;
+
     draftStrokeRef.current = {
       ...draftStrokeRef.current,
-      points: [...draftStrokeRef.current.points, point],
+      points: nextPoints,
     };
-    pendingPointsRef.current.push(point);
-    pointsSinceFlushRef.current += 1;
+    pendingPointsRef.current = pendingPoints;
+    pointsSinceFlushRef.current = pendingPoints.length;
     queueRender();
-    if (pointsSinceFlushRef.current >= 4) {
+    if (pendingPointsRef.current.length >= 4) {
       flushPendingPoints();
     }
   };
@@ -859,6 +919,13 @@ function CanvasBoardComponent({
     if (activePointerIdRef.current === event.pointerId) {
       finishStroke();
       activePointerIdRef.current = null;
+    }
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      try {
+        event.currentTarget.releasePointerCapture(event.pointerId);
+      } catch {
+        // noop
+      }
     }
     queueCursorEmit(point, false);
   };

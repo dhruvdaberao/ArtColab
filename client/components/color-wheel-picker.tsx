@@ -175,8 +175,14 @@ export function ColorWheelPicker({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[90] flex items-center justify-center bg-[rgba(15,23,42,0.42)] px-3 py-6 backdrop-blur-sm sm:px-6">
-      <div className="w-full max-w-[430px] rounded-[30px] border border-white/60 bg-[rgba(255,255,255,0.96)] p-4 shadow-[0_28px_90px_rgba(15,23,42,0.24)] sm:p-5">
+    <div
+      className="fixed inset-0 z-[90] flex items-center justify-center bg-[rgba(15,23,42,0.42)] px-3 py-6 backdrop-blur-sm sm:px-6"
+      onPointerDown={onClose}
+    >
+      <div
+        className="w-full max-w-[380px] rounded-[28px] border border-white/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(246,249,255,0.98))] p-4 shadow-[0_26px_80px_rgba(15,23,42,0.24)] sm:p-4.5"
+        onPointerDown={(event) => event.stopPropagation()}
+      >
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">
@@ -194,63 +200,52 @@ export function ColorWheelPicker({
           </button>
         </div>
 
-        <div className="mt-4 grid gap-4 sm:grid-cols-[minmax(0,1fr)_152px] sm:items-start">
-          <div className="space-y-4">
-            <div className="relative mx-auto aspect-square w-full max-w-[290px]">
-              <div
-                ref={wheelRef}
-                className="absolute inset-0 rounded-full"
-                style={{
-                  background:
-                    "conic-gradient(#ff4d4d, #ffd84d, #66d36e, #3bc9ff, #5b7cff, #c084fc, #ff4db8, #ff4d4d)",
-                }}
-                onPointerDown={(event) => bindDrag(event, updateHueFromPointer)}
-              />
-              <div className="absolute inset-[18%] rounded-full bg-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.7),0_8px_30px_rgba(15,23,42,0.08)]" />
-              <div
-                className="absolute left-1/2 top-1/2 aspect-square w-[52%] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-[26px] border border-white/70 shadow-[0_18px_34px_rgba(15,23,42,0.16)]"
-                ref={squareRef}
-                onPointerDown={(event) =>
-                  bindDrag(event, updateSquareFromPointer)
-                }
-                style={{ backgroundColor: `hsl(${draft.h} 100% 50%)` }}
-              >
-                <div className="absolute inset-0 bg-gradient-to-r from-white to-transparent" />
-                <div className="absolute inset-0 bg-gradient-to-t from-black to-transparent" />
+        <div className="mt-4 space-y-3">
+          <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_128px] sm:items-start">
+            <div className="rounded-[24px] border border-white/80 bg-white/80 p-3 shadow-[0_12px_26px_rgba(15,23,42,0.08)]">
+              <div className="relative mx-auto aspect-square w-full max-w-[260px]">
+                <div
+                  ref={wheelRef}
+                  className="absolute inset-0 rounded-full"
+                  style={{
+                    background:
+                      "conic-gradient(#ff4d4d, #ffd84d, #66d36e, #3bc9ff, #5b7cff, #c084fc, #ff4db8, #ff4d4d)",
+                  }}
+                  onPointerDown={(event) =>
+                    bindDrag(event, updateHueFromPointer)
+                  }
+                />
+                <div className="absolute inset-[18%] rounded-full bg-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.7),0_8px_30px_rgba(15,23,42,0.08)]" />
+                <div
+                  className="absolute left-1/2 top-1/2 aspect-square w-[54%] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-[24px] border border-white/80 shadow-[0_14px_30px_rgba(15,23,42,0.16)]"
+                  ref={squareRef}
+                  onPointerDown={(event) =>
+                    bindDrag(event, updateSquareFromPointer)
+                  }
+                  style={{ backgroundColor: `hsl(${draft.h} 100% 50%)` }}
+                >
+                  <div className="absolute inset-0 bg-gradient-to-r from-white to-transparent" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black to-transparent" />
+                </div>
+                <div
+                  className="pointer-events-none absolute h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full border-[3px] border-white bg-transparent shadow-[0_2px_12px_rgba(15,23,42,0.28)]"
+                  style={wheelThumbStyle}
+                />
+                <div
+                  className="pointer-events-none absolute left-1/2 top-1/2 h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full border-[3px] border-white shadow-[0_2px_12px_rgba(15,23,42,0.28)]"
+                  style={{ ...squareThumbStyle, backgroundColor: preview }}
+                />
               </div>
-              <div
-                className="pointer-events-none absolute h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full border-[3px] border-white bg-transparent shadow-[0_2px_12px_rgba(15,23,42,0.28)]"
-                style={wheelThumbStyle}
-              />
-              <div
-                className="pointer-events-none absolute left-1/2 top-1/2 h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full border-[3px] border-white shadow-[0_2px_12px_rgba(15,23,42,0.28)]"
-                style={{ ...squareThumbStyle, backgroundColor: preview }}
-              />
             </div>
 
-            <div className="grid gap-2 sm:grid-cols-2">
-              <label className="rounded-[22px] border border-slate-200 bg-white px-3 py-3 text-sm shadow-sm">
-                <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-                  Hex
-                </span>
-                <input
-                  value={hexInput}
-                  onChange={(event) => setHexInput(event.target.value)}
-                  onBlur={handleHexCommit}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") handleHexCommit();
-                  }}
-                  className="mt-1 w-full bg-transparent font-black uppercase text-slate-900 outline-none"
-                  maxLength={7}
-                />
-              </label>
-              <div className="rounded-[22px] border border-slate-200 bg-white px-3 py-3 text-sm shadow-sm">
-                <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+            <div className="space-y-3">
+              <div className="rounded-[22px] border border-white/80 bg-white/88 p-3 shadow-sm">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
                   Preview
-                </span>
-                <div className="mt-2 flex items-center gap-3">
+                </p>
+                <div className="mt-3 flex flex-col items-center gap-3 text-center">
                   <span
-                    className="h-10 w-10 rounded-2xl border border-slate-200 shadow-inner"
+                    className="h-16 w-16 rounded-full border border-slate-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.75),0_12px_26px_rgba(15,23,42,0.14)]"
                     style={{ backgroundColor: preview }}
                   />
                   <div>
@@ -264,71 +259,42 @@ export function ColorWheelPicker({
                   </div>
                 </div>
               </div>
-            </div>
-          </div>
 
-          <div className="space-y-3">
-            <div className="rounded-[24px] border border-slate-200 bg-[linear-gradient(180deg,#ffffff,#f8fbff)] p-3 shadow-sm">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-                Quick apply
-              </p>
+              <label className="block rounded-[22px] border border-white/80 bg-white/88 px-3 py-3 text-sm shadow-sm">
+                <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                  Hex
+                </span>
+                <input
+                  value={hexInput}
+                  onChange={(event) => setHexInput(event.target.value)}
+                  onBlur={handleHexCommit}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") handleHexCommit();
+                  }}
+                  className="mt-1 w-full bg-transparent font-black uppercase tracking-[0.08em] text-slate-900 outline-none"
+                  maxLength={7}
+                />
+              </label>
+
               <button
                 type="button"
                 onClick={() => onApply(preview)}
-                className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-[18px] bg-slate-900 px-4 py-3 text-sm font-black text-white transition hover:-translate-y-0.5 hover:bg-slate-800"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-[18px] bg-slate-900 px-4 py-3 text-sm font-black text-white transition hover:-translate-y-0.5 hover:bg-slate-800"
               >
                 <Check size={16} /> Use this color
               </button>
-              <button
-                type="button"
-                onClick={onClose}
-                className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-[18px] border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
-              >
-                <X size={16} /> Cancel
-              </button>
             </div>
+          </div>
 
-            {!!recentColors.length && (
-              <div className="rounded-[24px] border border-slate-200 bg-white p-3 shadow-sm">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-                  Recent
-                </p>
-                <div className="mt-3 grid grid-cols-4 gap-2">
-                  {recentColors.map((color) => {
-                    const selected = normalizeHex(color) === preview;
-                    return (
-                      <button
-                        key={color}
-                        type="button"
-                        onClick={() => {
-                          const normalized = normalizeHex(color);
-                          setDraft(hexToHsv(normalized));
-                          setHexInput(normalized);
-                        }}
-                        className={`relative h-11 rounded-2xl border transition ${selected ? "border-slate-900 ring-2 ring-slate-200" : "border-slate-200"}`}
-                        style={{ backgroundColor: color }}
-                        aria-label={`Use recent color ${color}`}
-                      >
-                        {selected ? (
-                          <Check
-                            size={14}
-                            className="absolute right-1.5 top-1.5 text-white drop-shadow"
-                          />
-                        ) : null}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {!!presetColors.length && (
-              <div className="rounded-[24px] border border-slate-200 bg-white p-3 shadow-sm">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-                  Swatches
-                </p>
-                <div className="mt-3 grid grid-cols-4 gap-2">
-                  {presetColors.map((color) => (
+          {!!recentColors.length && (
+            <div className="rounded-[22px] border border-white/80 bg-white/88 p-3 shadow-sm">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                Recent
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {recentColors.map((color) => {
+                  const selected = normalizeHex(color) === preview;
+                  return (
                     <button
                       key={color}
                       type="button"
@@ -337,15 +303,46 @@ export function ColorWheelPicker({
                         setDraft(hexToHsv(normalized));
                         setHexInput(normalized);
                       }}
-                      className="h-9 rounded-2xl border border-slate-200 transition hover:-translate-y-0.5"
+                      className={`relative h-10 w-10 rounded-full border transition ${selected ? "border-slate-900 ring-2 ring-slate-200" : "border-slate-200"}`}
                       style={{ backgroundColor: color }}
-                      aria-label={`Use swatch ${color}`}
-                    />
-                  ))}
-                </div>
+                      aria-label={`Use recent color ${color}`}
+                    >
+                      {selected ? (
+                        <Check
+                          size={14}
+                          className="absolute right-0.5 top-0.5 text-white drop-shadow"
+                        />
+                      ) : null}
+                    </button>
+                  );
+                })}
               </div>
-            )}
-          </div>
+            </div>
+          )}
+
+          {!!presetColors.length && (
+            <div className="rounded-[22px] border border-white/80 bg-white/88 p-3 shadow-sm">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                Swatches
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {presetColors.map((color) => (
+                  <button
+                    key={color}
+                    type="button"
+                    onClick={() => {
+                      const normalized = normalizeHex(color);
+                      setDraft(hexToHsv(normalized));
+                      setHexInput(normalized);
+                    }}
+                    className="h-10 w-10 rounded-full border border-slate-200 transition hover:-translate-y-0.5"
+                    style={{ backgroundColor: color }}
+                    aria-label={`Use swatch ${color}`}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
