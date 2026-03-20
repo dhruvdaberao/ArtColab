@@ -766,6 +766,8 @@ export default function RoomPage() {
 
   const openColorPicker = useCallback(
     (target: Exclude<ColorPickerTarget, null>) => {
+      setActiveToolPanel(null);
+      setActiveFunctionPanel(null);
       setActiveColorPicker(target);
     },
     [],

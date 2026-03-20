@@ -44,6 +44,7 @@ const isShapeTool = (tool: DrawingTool): tool is ShapeKind =>
   SHAPE_TOOLS.includes(tool as ShapeKind);
 
 const MIN_POINT_DISTANCE = 0.75;
+const MAX_APPEND_BATCH = 30;
 
 const appendPointIfNeeded = (
   points: Stroke["points"],
@@ -514,14 +515,18 @@ function CanvasBoardComponent({
 
   const flushPendingPoints = () => {
     if (!pendingPointsRef.current.length || !currentStrokeId.current) return;
-    const pointsToSend = [...pendingPointsRef.current];
-    pendingPointsRef.current = [];
+    while (pendingPointsRef.current.length) {
+      const pointsToSend = pendingPointsRef.current.slice(0, MAX_APPEND_BATCH);
+      pendingPointsRef.current = pendingPointsRef.current.slice(
+        MAX_APPEND_BATCH,
+      );
+      getSocket().emit(SOCKET_EVENTS.STROKE_APPEND, {
+        roomId,
+        strokeId: currentStrokeId.current,
+        points: pointsToSend,
+      });
+    }
     pointsSinceFlushRef.current = 0;
-    getSocket().emit(SOCKET_EVENTS.STROKE_APPEND, {
-      roomId,
-      strokeId: currentStrokeId.current,
-      points: pointsToSend,
-    });
   };
 
   const commitDraftStroke = useCallback(
@@ -757,10 +762,9 @@ function CanvasBoardComponent({
       points: [point],
       timestamp: Date.now(),
     };
-    pendingPointsRef.current = [point];
-    pointsSinceFlushRef.current = 1;
+    pendingPointsRef.current = [];
+    pointsSinceFlushRef.current = 0;
     draftStrokeRef.current = nextStroke;
-    setStrokes((prev) => [...prev, nextStroke]);
     getSocket().emit(SOCKET_EVENTS.STROKE_START, {
       roomId,
       stroke: nextStroke,
@@ -872,7 +876,7 @@ function CanvasBoardComponent({
     pendingPointsRef.current = pendingPoints;
     pointsSinceFlushRef.current = pendingPoints.length;
     queueRender();
-    if (pendingPointsRef.current.length >= 4) {
+    if (pendingPointsRef.current.length >= 6) {
       flushPendingPoints();
     }
   };
