@@ -169,9 +169,35 @@ html.room-workspace-root,
 body.room-workspace-body {
   height: 100%;
   overflow: hidden;
+  overscroll-behavior: none;
+}
+
+html.room-workspace-root {
+  background: #08111b;
 }
 
 body.room-workspace-body {
-  overscroll-behavior: none;
+  position: fixed;
+  inset: 0;
+  width: 100%;
   touch-action: manipulation;
+  -webkit-overflow-scrolling: auto;
+}
+
+.room-workspace-shell {
+  height: var(--room-viewport-height, 100dvh);
+  min-height: var(--room-viewport-height, 100dvh);
+  max-height: var(--room-viewport-height, 100dvh);
+  padding-top: max(env(safe-area-inset-top, 0px), 0px);
+  padding-right: max(env(safe-area-inset-right, 0px), 0px);
+  padding-bottom: max(env(safe-area-inset-bottom, 0px), 0px);
+  padding-left: max(env(safe-area-inset-left, 0px), 0px);
+}
+
+@supports (height: 100svh) {
+  .room-workspace-shell {
+    height: var(--room-viewport-height, 100svh);
+    min-height: var(--room-viewport-height, 100svh);
+    max-height: var(--room-viewport-height, 100svh);
+  }
 }
