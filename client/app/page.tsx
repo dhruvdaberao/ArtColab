@@ -227,6 +227,18 @@ export default function HomePage() {
             Launch a fresh creative space for sketches, brainstorms, and shared
             experiments.
           </p>
+          {user.role === "guest" && (
+            <label className="block text-sm font-semibold text-[color:var(--text-main)]">
+              Enter name (optional)
+              <Input
+                placeholder="Leave blank to use an auto-generated guest name"
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+                className="mt-2"
+                maxLength={32}
+              />
+            </label>
+          )}
           <form className="space-y-3" onSubmit={onCreate}>
             <Input
               placeholder="Room name"
@@ -269,6 +281,18 @@ export default function HomePage() {
             Rejoin your crew with a room name and hop back into the shared
             board.
           </p>
+          {user.role === "guest" && (
+            <label className="block text-sm font-semibold text-[color:var(--text-main)]">
+              Enter name (optional)
+              <Input
+                placeholder="Leave blank to use an auto-generated guest name"
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+                className="mt-2"
+                maxLength={32}
+              />
+            </label>
+          )}
           <form className="space-y-3" onSubmit={onJoin}>
             <Input
               placeholder="Room name"
