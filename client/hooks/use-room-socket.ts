@@ -253,6 +253,8 @@ export function useRoomSocket(
       ({ message }: { message: string }) => setError(message),
     );
 
+    if (getSocket().connected) onConnect();
+
     return () => {
       pendingAppendRef.current.clear();
       if (appendFrameRef.current !== null) {

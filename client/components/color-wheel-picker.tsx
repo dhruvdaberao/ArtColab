@@ -115,7 +115,7 @@ export function ColorWheelPicker({
             .map((color) => normalizeHex(color))
             .filter(Boolean),
         ),
-      ).slice(0, 10),
+      ).slice(0, 8),
     [presetColors, recentColors],
   );
   const hueRadians = (draft.h - 90) * (Math.PI / 180);
@@ -191,7 +191,7 @@ export function ColorWheelPicker({
       onPointerDown={onClose}
     >
       <div
-        className="flex max-h-[min(96dvh,540px)] w-full max-w-[min(100vw-1rem,640px)] flex-col overflow-hidden rounded-[24px] border border-white/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(246,249,255,0.98))] px-3 pb-3 pt-2.5 shadow-[0_26px_80px_rgba(15,23,42,0.24)] sm:max-h-[min(92vh,560px)] sm:max-w-[680px] sm:p-4"
+        className="flex w-full max-w-[min(100vw-1rem,620px)] flex-col rounded-[24px] border border-white/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(246,249,255,0.98))] p-3 shadow-[0_26px_80px_rgba(15,23,42,0.24)] sm:max-w-[660px] sm:p-4"
         onPointerDown={(event) => event.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-3">
@@ -211,132 +211,128 @@ export function ColorWheelPicker({
           </button>
         </div>
 
-        <div className="mt-3 flex-1 overflow-hidden">
-          <div className="grid h-full gap-2 overflow-hidden landscape:grid-cols-[minmax(0,1fr)_minmax(170px,210px)] sm:gap-3 sm:grid-cols-[minmax(0,1fr)_220px]">
-            <div className="flex min-h-0 flex-col rounded-[22px] border border-white/80 bg-white/80 p-2.5 shadow-[0_12px_26px_rgba(15,23,42,0.08)] sm:p-3">
-              <div className="relative mx-auto aspect-square w-full max-w-[min(64vw,220px)] landscape:max-w-[min(50vh,190px)] sm:max-w-[230px]">
-                <div
-                  ref={wheelRef}
-                  className="absolute inset-0 rounded-full"
-                  style={{
-                    background:
-                      "conic-gradient(#ff4d4d, #ffd84d, #66d36e, #3bc9ff, #5b7cff, #c084fc, #ff4db8, #ff4d4d)",
-                  }}
-                  onPointerDown={(event) =>
-                    bindDrag(event, updateHueFromPointer)
-                  }
-                />
-                <div className="absolute inset-[18%] rounded-full bg-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.7),0_8px_24px_rgba(15,23,42,0.08)]" />
-                <div
-                  className="absolute left-1/2 top-1/2 aspect-square w-[54%] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-[20px] border border-white/80 shadow-[0_14px_28px_rgba(15,23,42,0.16)]"
-                  ref={squareRef}
-                  onPointerDown={(event) =>
-                    bindDrag(event, updateSquareFromPointer)
-                  }
-                  style={{ backgroundColor: `hsl(${draft.h} 100% 50%)` }}
-                >
-                  <div className="absolute inset-0 bg-gradient-to-r from-white to-transparent" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black to-transparent" />
-                </div>
-                <div
-                  className="pointer-events-none absolute h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full border-[3px] border-white bg-transparent shadow-[0_2px_12px_rgba(15,23,42,0.28)]"
-                  style={wheelThumbStyle}
-                />
-                <div
-                  className="pointer-events-none absolute left-1/2 top-1/2 h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full border-[3px] border-white shadow-[0_2px_12px_rgba(15,23,42,0.28)]"
-                  style={{ ...squareThumbStyle, backgroundColor: preview }}
-                />
+        <div className="mt-3 grid gap-3 landscape:grid-cols-[minmax(0,1fr)_220px] sm:grid-cols-[minmax(0,1fr)_220px]">
+          <div className="rounded-[22px] border border-white/80 bg-white/84 p-2.5 shadow-[0_12px_26px_rgba(15,23,42,0.08)] sm:p-3">
+            <div className="relative mx-auto aspect-square w-full max-w-[min(66vw,260px)] landscape:max-w-[min(52vh,240px)] sm:max-w-[260px]">
+              <div
+                ref={wheelRef}
+                className="absolute inset-0 rounded-full"
+                style={{
+                  background:
+                    "conic-gradient(#ff4d4d, #ffd84d, #66d36e, #3bc9ff, #5b7cff, #c084fc, #ff4db8, #ff4d4d)",
+                }}
+                onPointerDown={(event) => bindDrag(event, updateHueFromPointer)}
+              />
+              <div className="absolute inset-[18%] rounded-full bg-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.7),0_8px_24px_rgba(15,23,42,0.08)]" />
+              <div
+                className="absolute left-1/2 top-1/2 aspect-square w-[54%] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-[20px] border border-white/80 shadow-[0_14px_28px_rgba(15,23,42,0.16)]"
+                ref={squareRef}
+                onPointerDown={(event) =>
+                  bindDrag(event, updateSquareFromPointer)
+                }
+                style={{ backgroundColor: `hsl(${draft.h} 100% 50%)` }}
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-white to-transparent" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black to-transparent" />
               </div>
-              <p className="mt-2 text-center text-[11px] leading-4 text-slate-500 sm:mt-3 sm:text-xs">
-                Drag the ring for hue and the center square for shade.
-              </p>
+              <div
+                className="pointer-events-none absolute h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full border-[3px] border-white bg-transparent shadow-[0_2px_12px_rgba(15,23,42,0.28)]"
+                style={wheelThumbStyle}
+              />
+              <div
+                className="pointer-events-none absolute left-1/2 top-1/2 h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full border-[3px] border-white shadow-[0_2px_12px_rgba(15,23,42,0.28)]"
+                style={{ ...squareThumbStyle, backgroundColor: preview }}
+              />
+            </div>
+            <p className="mt-3 text-center text-[11px] leading-4 text-slate-500 sm:text-xs">
+              Drag the ring for hue and the center square for shade.
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-2.5 sm:gap-3">
+            <div className="rounded-[20px] border border-white/80 bg-white/88 p-3 shadow-sm">
+              <div className="flex items-center gap-3">
+                <span
+                  className="h-12 w-12 shrink-0 rounded-full border border-slate-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.75),0_12px_26px_rgba(15,23,42,0.14)]"
+                  style={{ backgroundColor: preview }}
+                />
+                <div className="min-w-0 flex-1">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                    Preview
+                  </p>
+                  <p className="mt-1 truncate font-black text-slate-900">
+                    {preview.toUpperCase()}
+                  </p>
+                </div>
+              </div>
             </div>
 
-            <div className="flex min-h-0 flex-col gap-2 sm:gap-3">
+            <label className="block rounded-[20px] border border-white/80 bg-white/88 px-3 py-2.5 text-sm shadow-sm">
+              <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                Hex
+              </span>
+              <input
+                value={hexInput}
+                onChange={(event) => setHexInput(event.target.value)}
+                onBlur={handleHexCommit}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") handleHexCommit();
+                }}
+                className="mt-1 w-full bg-transparent font-black uppercase tracking-[0.08em] text-slate-900 outline-none"
+                maxLength={7}
+              />
+            </label>
+
+            {!!quickSwatches.length && (
               <div className="rounded-[20px] border border-white/80 bg-white/88 p-2.5 shadow-sm sm:p-3">
-                <div className="flex items-center gap-3">
-                  <span
-                    className="aspect-square h-[clamp(2.75rem,10vw,3.5rem)] shrink-0 rounded-full border border-slate-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.75),0_12px_26px_rgba(15,23,42,0.14)]"
-                    style={{ backgroundColor: preview }}
-                  />
-                  <div className="min-w-0">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-                      Preview
-                    </p>
-                    <p className="mt-1 truncate font-black text-slate-900">
-                      {preview.toUpperCase()}
-                    </p>
-                    <p className="text-xs text-slate-500">
-                      Ready for brush, fill, or shape color updates.
-                    </p>
-                  </div>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                  Quick picks
+                </p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {quickSwatches.map((color) => {
+                    const selected = color === preview;
+                    return (
+                      <button
+                        key={color}
+                        type="button"
+                        onClick={() => {
+                          setDraft(hexToHsv(color));
+                          setHexInput(color);
+                        }}
+                        className={`relative h-9 w-9 rounded-full border transition hover:-translate-y-0.5 ${selected ? "border-slate-900 ring-2 ring-slate-200" : "border-slate-200"}`}
+                        style={{ backgroundColor: color }}
+                        aria-label={`Use swatch ${color}`}
+                      >
+                        {selected ? (
+                          <Check
+                            size={13}
+                            className="absolute right-0.5 top-0.5 text-white drop-shadow"
+                          />
+                        ) : null}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
+            )}
 
-              <label className="block rounded-[20px] border border-white/80 bg-white/88 px-3 py-2.5 text-sm shadow-sm">
-                <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-                  Hex
-                </span>
-                <input
-                  value={hexInput}
-                  onChange={(event) => setHexInput(event.target.value)}
-                  onBlur={handleHexCommit}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") handleHexCommit();
-                  }}
-                  className="mt-1 w-full bg-transparent font-black uppercase tracking-[0.08em] text-slate-900 outline-none"
-                  maxLength={7}
-                />
-              </label>
-              {!!quickSwatches.length && (
-                <div className="rounded-[20px] border border-white/80 bg-white/88 p-2.5 shadow-sm sm:p-3">
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-                      Quick picks
-                    </p>
-                    <span className="text-[11px] text-slate-400">
-                      Recent + saved
-                    </span>
-                  </div>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {quickSwatches.map((color) => {
-                      const selected = color === preview;
-                      return (
-                        <button
-                          key={color}
-                          type="button"
-                          onClick={() => {
-                            setDraft(hexToHsv(color));
-                            setHexInput(color);
-                          }}
-                          className={`relative h-9 w-9 rounded-full border transition hover:-translate-y-0.5 ${selected ? "border-slate-900 ring-2 ring-slate-200" : "border-slate-200"}`}
-                          style={{ backgroundColor: color }}
-                          aria-label={`Use swatch ${color}`}
-                        >
-                          {selected ? (
-                            <Check
-                              size={13}
-                              className="absolute right-0.5 top-0.5 text-white drop-shadow"
-                            />
-                          ) : null}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
+            <div className="flex flex-col gap-2 pt-0.5 sm:flex-row">
+              <button
+                type="button"
+                onClick={onClose}
+                className="inline-flex min-h-11 flex-1 items-center justify-center rounded-[18px] border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:-translate-y-0.5 hover:bg-slate-50"
+              >
+                Close
+              </button>
+              <button
+                type="button"
+                onClick={() => onApply(preview)}
+                className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-[18px] bg-slate-900 px-4 py-3 text-sm font-black text-white transition hover:-translate-y-0.5 hover:bg-slate-800"
+              >
+                <Check size={16} /> Apply color
+              </button>
             </div>
           </div>
-        </div>
-
-        <div className="mt-3 flex justify-end">
-          <button
-            type="button"
-            onClick={() => onApply(preview)}
-            className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-[18px] bg-slate-900 px-4 py-3 text-sm font-black text-white transition hover:-translate-y-0.5 hover:bg-slate-800 sm:w-auto sm:min-w-[180px]"
-          >
-            <Check size={16} /> Use this color
-          </button>
         </div>
       </div>
     </div>

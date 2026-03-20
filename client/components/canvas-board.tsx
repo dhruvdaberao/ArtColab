@@ -141,15 +141,18 @@ const hexToRgb = (color: string) => {
   };
 };
 
+const FILL_COLOR_TOLERANCE = 14;
+
 const colorsMatch = (
   data: Uint8ClampedArray,
   index: number,
   target: { r: number; g: number; b: number; a: number },
+  tolerance = 0,
 ) =>
-  data[index] === target.r &&
-  data[index + 1] === target.g &&
-  data[index + 2] === target.b &&
-  data[index + 3] === target.a;
+  Math.abs(data[index] - target.r) <= tolerance &&
+  Math.abs(data[index + 1] - target.g) <= tolerance &&
+  Math.abs(data[index + 2] - target.b) <= tolerance &&
+  Math.abs(data[index + 3] - target.a) <= Math.max(8, tolerance);
 
 const applyFloodFill = (
   ctx: CanvasRenderingContext2D,
@@ -185,10 +188,10 @@ const applyFloodFill = (
   const fill = hexToRgb(stroke.color);
 
   if (
-    target.r === fill.r &&
-    target.g === fill.g &&
-    target.b === fill.b &&
-    target.a === 255
+    Math.abs(target.r - fill.r) <= 1 &&
+    Math.abs(target.g - fill.g) <= 1 &&
+    Math.abs(target.b - fill.b) <= 1 &&
+    target.a >= 247
   ) {
     return;
   }
@@ -205,7 +208,7 @@ const applyFloodFill = (
     visited[cellIndex] = 1;
 
     const pixelIndex = cellIndex * 4;
-    if (!colorsMatch(data, pixelIndex, target)) continue;
+    if (!colorsMatch(data, pixelIndex, target, FILL_COLOR_TOLERANCE)) continue;
 
     data[pixelIndex] = fill.r;
     data[pixelIndex + 1] = fill.g;
@@ -458,6 +461,36 @@ function CanvasBoardComponent({
       }));
     },
     [],
+  );
+
+  const commitStrokeToCommittedCanvas = useCallback(
+    (stroke: Stroke) => {
+      const canvas = committedCanvasRef.current;
+      const displayCanvas = canvasRef.current;
+      if (!canvas || !displayCanvas) return false;
+      if (
+        canvas.width !== displayCanvas.width ||
+        canvas.height !== displayCanvas.height
+      ) {
+        canvas.width = displayCanvas.width;
+        canvas.height = displayCanvas.height;
+        syncCommittedCanvas(strokesRef.current);
+      }
+      const scaled = getScaledContext(canvas);
+      if (!scaled) return false;
+      scaled.context.setTransform(scaled.scaleX, 0, 0, scaled.scaleY, 0, 0);
+      renderStroke(scaled.context, stroke);
+      committedStrokesRef.current = [
+        ...committedStrokesRef.current,
+        {
+          ...stroke,
+          points: [...stroke.points],
+          shape: stroke.shape ? { ...stroke.shape } : undefined,
+        },
+      ];
+      return true;
+    },
+    [syncCommittedCanvas],
   );
 
   const applyIncrementalStrokeUpdates = useCallback((nextStrokes: Stroke[]) => {
@@ -840,10 +873,7 @@ function CanvasBoardComponent({
         timestamp: Date.now(),
       };
       setStrokes((prev) => [...prev, fillStroke]);
-      committedStrokesRef.current = [
-        ...committedStrokesRef.current,
-        fillStroke,
-      ];
+      commitStrokeToCommittedCanvas(fillStroke);
       getSocket().emit(SOCKET_EVENTS.STROKE_START, {
         roomId,
         stroke: fillStroke,
