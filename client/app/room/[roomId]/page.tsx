@@ -37,6 +37,7 @@ import { nanoid } from "nanoid";
 import { SOCKET_EVENTS } from "@cloudcanvas/shared";
 import type { BrushStyle, DrawingTool, ShapeKind } from "@cloudcanvas/shared";
 import { CanvasBoard } from "@/components/canvas-board";
+import { ColorWheelPicker } from "@/components/color-wheel-picker";
 import { ConfirmModal } from "@/components/confirm-modal";
 import { ToastStack, type ToastMessage } from "@/components/toast";
 import { Button, Card, SecondaryButton } from "@/components/ui";
@@ -110,6 +111,7 @@ type ToolPanel =
   | "info"
   | null;
 type FunctionPanel = "chat" | null;
+type ColorPickerTarget = "stroke" | "fill" | null;
 
 const sidebarShell =
   "rounded-[24px] border border-black/5 bg-white/78 p-1.5 shadow-[0_16px_38px_rgba(15,23,42,0.12)] backdrop-blur-xl";
@@ -167,11 +169,11 @@ export default function RoomPage() {
   const [activeToolPanel, setActiveToolPanel] = useState<ToolPanel>("brush");
   const [activeFunctionPanel, setActiveFunctionPanel] =
     useState<FunctionPanel>(null);
+  const [activeColorPicker, setActiveColorPicker] =
+    useState<ColorPickerTarget>(null);
   const chatEndRef = useRef<HTMLDivElement | null>(null);
   const joinedToastShownRef = useRef(false);
   const isMountedRef = useRef(true);
-  const colorInputRef = useRef<HTMLInputElement | null>(null);
-  const fillColorInputRef = useRef<HTMLInputElement | null>(null);
   const orientationLockedRef = useRef(false);
   const immersiveUiRestoreTimerRef = useRef<number | null>(null);
   const toolPanelRef = useRef<HTMLDivElement | null>(null);
@@ -734,6 +736,26 @@ export default function RoomPage() {
     setActiveToolPanel((current) => (current === panel ? null : panel));
   };
 
+  const openColorPicker = useCallback(
+    (target: Exclude<ColorPickerTarget, null>) => {
+      setActiveColorPicker(target);
+    },
+    [],
+  );
+
+  const closeColorPicker = useCallback(() => {
+    setActiveColorPicker(null);
+  }, []);
+
+  const applyCustomColor = useCallback(
+    (value: string) => {
+      if (activeColorPicker === "fill") updateFillColor(value);
+      else updateStrokeColor(value);
+      setActiveColorPicker(null);
+    },
+    [activeColorPicker, updateFillColor, updateStrokeColor],
+  );
+
   const renderToolPanelContent = () => {
     if (activeToolPanel === "brush")
       return (
@@ -777,9 +799,9 @@ export default function RoomPage() {
               <p className={controlLabel}>Stroke color</p>
               <button
                 type="button"
-                className="h-9 w-9 rounded-full border border-black/10"
+                className="h-10 w-10 rounded-2xl border border-black/10 shadow-sm"
                 style={{ backgroundColor: strokeColor }}
-                onClick={() => colorInputRef.current?.click()}
+                onClick={() => openColorPicker("stroke")}
               />
             </div>
             <div className="mt-2 flex flex-wrap gap-2">
@@ -799,13 +821,13 @@ export default function RoomPage() {
                     onClick={() => updateStrokeColor(color)}
                   />
                 ))}
-              <input
-                ref={colorInputRef}
-                type="color"
-                value={strokeColor}
-                onChange={(e) => updateStrokeColor(e.target.value)}
-                className="sr-only"
-              />
+              <button
+                type="button"
+                onClick={() => openColorPicker("stroke")}
+                className="inline-flex min-h-9 items-center justify-center gap-1 rounded-2xl border border-black/10 bg-[color:var(--bg-elevated)] px-3 text-sm font-semibold text-[color:var(--text-main)] transition hover:bg-[color:var(--surface-soft)]"
+              >
+                <Sparkles size={14} /> Custom +
+              </button>
             </div>
           </div>
         </div>
@@ -843,9 +865,9 @@ export default function RoomPage() {
               <p className={controlLabel}>Fill color</p>
               <button
                 type="button"
-                className="h-9 w-9 rounded-full border border-black/10"
+                className="h-10 w-10 rounded-2xl border border-black/10 shadow-sm"
                 style={{ backgroundColor: fillColor }}
-                onClick={() => fillColorInputRef.current?.click()}
+                onClick={() => openColorPicker("fill")}
               />
             </div>
             <div className="mt-2 flex flex-wrap gap-2">
@@ -865,13 +887,13 @@ export default function RoomPage() {
                     onClick={() => updateFillColor(color)}
                   />
                 ))}
-              <input
-                ref={fillColorInputRef}
-                type="color"
-                value={fillColor}
-                onChange={(e) => updateFillColor(e.target.value)}
-                className="sr-only"
-              />
+              <button
+                type="button"
+                onClick={() => openColorPicker("fill")}
+                className="inline-flex min-h-9 items-center justify-center gap-1 rounded-2xl border border-black/10 bg-[color:var(--bg-elevated)] px-3 text-sm font-semibold text-[color:var(--text-main)] transition hover:bg-[color:var(--surface-soft)]"
+              >
+                <Sparkles size={14} /> Custom +
+              </button>
             </div>
           </div>
         </div>
@@ -908,6 +930,30 @@ export default function RoomPage() {
               className="h-4 w-4"
             />
           </label>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <button
+              type="button"
+              onClick={() => openColorPicker("stroke")}
+              className="flex items-center justify-between rounded-[18px] border border-black/5 bg-[color:var(--bg-elevated)] px-3 py-3 text-sm font-semibold text-[color:var(--text-main)] transition hover:bg-[color:var(--surface-soft)]"
+            >
+              <span>Stroke · Custom +</span>
+              <span
+                className="h-7 w-7 rounded-xl border border-black/10"
+                style={{ backgroundColor: strokeColor }}
+              />
+            </button>
+            <button
+              type="button"
+              onClick={() => openColorPicker("fill")}
+              className="flex items-center justify-between rounded-[18px] border border-black/5 bg-[color:var(--bg-elevated)] px-3 py-3 text-sm font-semibold text-[color:var(--text-main)] transition hover:bg-[color:var(--surface-soft)]"
+            >
+              <span>Fill · Custom +</span>
+              <span
+                className="h-7 w-7 rounded-xl border border-black/10"
+                style={{ backgroundColor: fillColor }}
+              />
+            </button>
+          </div>
         </div>
       );
     if (activeToolPanel === "reactions")
@@ -1404,6 +1450,19 @@ export default function RoomPage() {
         confirmLabel="Leave room"
       />
       <ToastStack toasts={toasts} />
+      <ColorWheelPicker
+        isOpen={activeColorPicker !== null}
+        title={
+          activeColorPicker === "fill"
+            ? "Shape & fill color"
+            : "Brush & stroke color"
+        }
+        initialColor={activeColorPicker === "fill" ? fillColor : strokeColor}
+        recentColors={recentColors}
+        presetColors={PRESET_COLORS}
+        onClose={closeColorPicker}
+        onApply={applyCustomColor}
+      />
     </main>
   );
 }
