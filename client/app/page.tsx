@@ -322,9 +322,15 @@ export default function HomePage() {
               type="submit"
               disabled={isCreating || isJoining}
               className="w-full"
+              aria-busy={isJoining}
             >
-              {isJoining ? "Joining room…" : "Join room"}
+              {isJoining ? "Joining…" : "Join room"}
             </Button>
+            {isJoining ? (
+              <p className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-soft)] px-3 py-2 text-xs font-semibold text-[color:var(--text-muted)]">
+                Joining your Froddle room and preparing the board…
+              </p>
+            ) : null}
           </form>
         </Card>
       </section>

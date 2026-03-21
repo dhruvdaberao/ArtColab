@@ -460,6 +460,7 @@ function CanvasBoardComponent({
   const activePointerIdRef = useRef<number | null>(null);
   const emitCursorRef = useRef<number | null>(null);
   const renderFrameRef = useRef<number | null>(null);
+  const layoutRetryFrameRef = useRef<number | null>(null);
   const pointsSinceFlushRef = useRef(0);
   const pointersRef = useRef<PointerMap>(new Map());
   const panStartRef = useRef<{
@@ -879,20 +880,39 @@ function CanvasBoardComponent({
   }, [syncCanvasResolution]);
 
   useLayoutEffect(() => {
-    let firstFrame = 0;
-    let secondFrame = 0;
+    let cancelled = false;
+    let attempts = 0;
+
+    const finalizeLayout = () => {
+      if (cancelled) return;
+      syncCommittedCanvas(strokesRef.current);
+      queueRender();
+    };
+
+    const syncWhenReady = () => {
+      if (cancelled) return;
+      const ready = syncCanvasResolution();
+      if (ready) {
+        finalizeLayout();
+        return;
+      }
+
+      attempts += 1;
+      if (attempts < 24) {
+        layoutRetryFrameRef.current =
+          window.requestAnimationFrame(syncWhenReady);
+      }
+    };
+
     updateSurfaceReady(false);
-    firstFrame = window.requestAnimationFrame(() => {
-      syncCanvasResolution();
-      secondFrame = window.requestAnimationFrame(() => {
-        syncCanvasResolution();
-        syncCommittedCanvas(strokesRef.current);
-        queueRender();
-      });
-    });
+    syncWhenReady();
+
     return () => {
-      window.cancelAnimationFrame(firstFrame);
-      window.cancelAnimationFrame(secondFrame);
+      cancelled = true;
+      if (layoutRetryFrameRef.current !== null) {
+        window.cancelAnimationFrame(layoutRetryFrameRef.current);
+        layoutRetryFrameRef.current = null;
+      }
     };
   }, [
     layoutReadySignal,
@@ -961,6 +981,10 @@ function CanvasBoardComponent({
     () => () => {
       if (emitCursorRef.current) cancelAnimationFrame(emitCursorRef.current);
       if (renderFrameRef.current) cancelAnimationFrame(renderFrameRef.current);
+      if (layoutRetryFrameRef.current !== null) {
+        cancelAnimationFrame(layoutRetryFrameRef.current);
+        layoutRetryFrameRef.current = null;
+      }
       committedStrokesRef.current = [];
       updateSurfaceReady(false);
       resetTransientInteraction();

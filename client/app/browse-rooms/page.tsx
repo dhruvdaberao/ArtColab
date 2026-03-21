@@ -22,6 +22,7 @@ export default function BrowseRoomsPage() {
   const [error, setError] = useState<string | null>(null);
   const [target, setTarget] = useState<RoomListItem | null>(null);
   const [guestName, setGuestName] = useState("");
+  const [joiningRoomId, setJoiningRoomId] = useState<string | null>(null);
 
   useEffect(() => {
     browseRooms(query)
@@ -45,18 +46,24 @@ export default function BrowseRoomsPage() {
   };
 
   const completeJoin = (room: RoomListItem) => async (password?: string) => {
-    const guestDisplayName = ensureGuestIdentity();
-    const data = await joinRoom({
-      name: room.roomId,
-      visibility: room.visibility,
-      password,
-      guestDisplayName,
-    });
-    if (data.room.visibility === "private") {
-      grantRoomAccess(data.room.roomId);
+    setJoiningRoomId(room.roomId);
+    try {
+      const guestDisplayName = ensureGuestIdentity();
+      const data = await joinRoom({
+        name: room.roomId,
+        visibility: room.visibility,
+        password,
+        guestDisplayName,
+      });
+      if (data.room.visibility === "private") {
+        grantRoomAccess(data.room.roomId);
+      }
+      rememberRoomEntryHint(data.room);
+      router.push(`/room/${data.room.roomId}`);
+    } catch (error) {
+      setJoiningRoomId(null);
+      throw error;
     }
-    rememberRoomEntryHint(data.room);
-    router.push(`/room/${data.room.roomId}`);
   };
 
   const startJoin = async (room: RoomListItem) => {
@@ -173,8 +180,14 @@ export default function BrowseRoomsPage() {
                   startJoin(room).catch((e) => setError((e as Error).message))
                 }
                 className="mt-auto w-full"
+                disabled={Boolean(joiningRoomId)}
+                aria-busy={joiningRoomId === room.roomId}
               >
-                Join room
+                {joiningRoomId === room.roomId
+                  ? "Joining…"
+                  : joiningRoomId
+                    ? "Please wait…"
+                    : "Join room"}
               </Button>
             </div>
           ))}
