@@ -10,6 +10,18 @@ import type {
 } from "@cloudcanvas/shared";
 import { useCallback, useEffect, useRef, useState } from "react";
 
+const cloneStroke = (stroke: Stroke): Stroke => ({
+  ...stroke,
+  points: stroke.points.map((point) => ({ ...point })),
+  shape: stroke.shape
+    ? {
+        ...stroke.shape,
+        start: { ...stroke.shape.start },
+        end: { ...stroke.shape.end },
+      }
+    : undefined,
+});
+
 export function useRoomSocket(
   roomId: string,
   userId: string,
@@ -33,6 +45,7 @@ export function useRoomSocket(
   const strokeIndexRef = useRef<Map<string, number>>(new Map());
   const pendingAppendRef = useRef<Map<string, Stroke["points"]>>(new Map());
   const appendFrameRef = useRef<number | null>(null);
+  const optimisticRedoRef = useRef<Map<string, Stroke[]>>(new Map());
 
   const leaveRoom = useCallback(() => {
     if (joinedRoomRef.current)
@@ -42,12 +55,65 @@ export function useRoomSocket(
     joinedRoomRef.current = null;
     setCursors({});
     pendingAppendRef.current.clear();
+    optimisticRedoRef.current.clear();
     if (appendFrameRef.current !== null) {
-      cancelAnimationFrame(appendFrameRef.current);
+      clearTimeout(appendFrameRef.current);
       appendFrameRef.current = null;
     }
     getSocket().disconnect();
   }, []);
+
+  const syncStrokeIndex = useCallback((nextStrokes: Stroke[]) => {
+    strokeIndexRef.current = new Map(
+      nextStrokes.map((stroke, index) => [stroke.strokeId, index]),
+    );
+  }, []);
+
+  const applyOptimisticUndo = useCallback(() => {
+    let removedStroke: Stroke | null = null;
+    setStrokes((prev) => {
+      for (let index = prev.length - 1; index >= 0; index -= 1) {
+        const candidate = prev[index];
+        if (candidate.userId !== userId) continue;
+        removedStroke = cloneStroke(candidate);
+        const next = [...prev.slice(0, index), ...prev.slice(index + 1)];
+        syncStrokeIndex(next);
+        pendingAppendRef.current.delete(candidate.strokeId);
+        return next;
+      }
+      return prev;
+    });
+
+    if (!removedStroke) return false;
+    const redoStack = optimisticRedoRef.current.get(userId) ?? [];
+    redoStack.push(removedStroke);
+    optimisticRedoRef.current.set(userId, redoStack.slice(-50));
+    setRedoCounts((prev) => ({ ...prev, [userId]: redoStack.length }));
+    latestRoomVersionRef.current = Date.now();
+    getSocket().emit(SOCKET_EVENTS.STROKE_UNDO, { roomId, userId });
+    return true;
+  }, [roomId, syncStrokeIndex, userId]);
+
+  const applyOptimisticRedo = useCallback(() => {
+    const redoStack = optimisticRedoRef.current.get(userId) ?? [];
+    const restored = redoStack.pop();
+    if (!restored) return false;
+
+    optimisticRedoRef.current.set(userId, redoStack);
+    const stroke = cloneStroke(restored);
+    setStrokes((prev) => {
+      const next = [...prev, stroke];
+      syncStrokeIndex(next);
+      return next;
+    });
+    setRedoCounts((prev) => ({ ...prev, [userId]: redoStack.length }));
+    latestRoomVersionRef.current = Math.max(
+      latestRoomVersionRef.current,
+      stroke.timestamp ?? Date.now(),
+    );
+    getSocket().emit(SOCKET_EVENTS.STROKE_REDO, { roomId, userId });
+    return true;
+  }, [roomId, syncStrokeIndex, userId]);
 
   useEffect(() => {
     if (!roomId || !userId) return;
@@ -58,6 +124,7 @@ export function useRoomSocket(
     setRedoCounts({});
     setExpired(false);
     latestRoomVersionRef.current = 0;
+    optimisticRedoRef.current.clear();
 
     const manager = getSocket().io;
     getSocket().connect();
@@ -87,7 +154,15 @@ export function useRoomSocket(
 
     const scheduleAppendFlush = () => {
       if (appendFrameRef.current !== null) return;
-      appendFrameRef.current = requestAnimationFrame(flushPendingAppends);
+      appendFrameRef.current = window.setTimeout(() => {
+        flushPendingAppends();
+      }, 8) as unknown as number;
+    };
+
+    const cancelAppendFlush = () => {
+      if (appendFrameRef.current === null) return;
+      clearTimeout(appendFrameRef.current);
+      appendFrameRef.current = null;
     };
 
     const emitJoin = () => {
@@ -98,11 +173,6 @@ export function useRoomSocket(
         displayName,
         avatarUrl,
       });
-    };
-
-    const requestRoomState = (reason: string) => {
-      console.info("[room-socket] requesting room state", { roomId, reason });
-      getSocket().emit(SOCKET_EVENTS.ROOM_STATE_REQUEST, { roomId });
     };
 
     const onConnect = () => {
@@ -154,13 +224,9 @@ export function useRoomSocket(
       });
       joinedRoomRef.current = roomId;
       pendingAppendRef.current.clear();
-      if (appendFrameRef.current !== null) {
-        cancelAnimationFrame(appendFrameRef.current);
-        appendFrameRef.current = null;
-      }
-      strokeIndexRef.current = new Map(
-        room.strokes.map((stroke, index) => [stroke.strokeId, index]),
-      );
+      cancelAppendFlush();
+      syncStrokeIndex(room.strokes);
+      optimisticRedoRef.current.clear();
       setParticipants(room.participants);
       setStrokes(room.strokes);
       setChatMessages(room.chatMessages ?? []);
@@ -169,7 +235,6 @@ export function useRoomSocket(
     };
     const onRoomJoined = ({ room }: { room: RoomState }) => {
       applyRoom(room, "room:joined");
-      requestRoomState("post-join-hydration");
       setExpired(false);
       setHasJoined(true);
     };
@@ -192,6 +257,7 @@ export function useRoomSocket(
           strokeIndexRef.current.set(event.stroke.strokeId, prev.length);
           return [...prev, event.stroke];
         });
+        optimisticRedoRef.current.delete(event.stroke.userId);
         setRedoCounts((prev) => ({ ...prev, [event.stroke.userId]: 0 }));
         latestRoomVersionRef.current = Math.max(
           latestRoomVersionRef.current,
@@ -205,7 +271,7 @@ export function useRoomSocket(
             strokeId: event.strokeId,
             pointCount: event.points?.length ?? 0,
           });
-          requestRoomState("missing-stroke-before-append");
+          getSocket().emit(SOCKET_EVENTS.ROOM_STATE_REQUEST, { roomId });
           return;
         }
         const existing = pendingAppendRef.current.get(event.strokeId) ?? [];
@@ -246,11 +312,9 @@ export function useRoomSocket(
       latestRoomVersionRef.current = Date.now();
       console.info("[room-socket] board cleared", { roomId });
       pendingAppendRef.current.clear();
-      if (appendFrameRef.current !== null) {
-        cancelAnimationFrame(appendFrameRef.current);
-        appendFrameRef.current = null;
-      }
+      cancelAppendFlush();
       strokeIndexRef.current = new Map();
+      optimisticRedoRef.current.clear();
       setStrokes([]);
       setRedoCounts({});
     });
@@ -266,15 +330,16 @@ export function useRoomSocket(
         setStrokes((prev) => {
           pendingAppendRef.current.delete(strokeId);
           const next = prev.filter((stroke) => stroke.strokeId !== strokeId);
-          strokeIndexRef.current = new Map(
-            next.map((stroke, index) => [stroke.strokeId, index]),
-          );
+          syncStrokeIndex(next);
           return next;
         });
-        setRedoCounts((prev) => ({
-          ...prev,
-          [strokeUserId]: (prev[strokeUserId] ?? 0) + 1,
-        }));
+        if (strokeUserId !== userId) {
+          optimisticRedoRef.current.delete(strokeUserId);
+          setRedoCounts((prev) => ({
+            ...prev,
+            [strokeUserId]: (prev[strokeUserId] ?? 0) + 1,
+          }));
+        }
         latestRoomVersionRef.current = Date.now();
       },
     );
@@ -288,13 +353,20 @@ export function useRoomSocket(
         userId: string;
       }) => {
         setStrokes((prev) => {
-          strokeIndexRef.current.set(stroke.strokeId, prev.length);
-          return [...prev, stroke];
+          if (prev.some((existing) => existing.strokeId === stroke.strokeId)) {
+            return prev;
+          }
+          const next = [...prev, stroke];
+          syncStrokeIndex(next);
+          return next;
         });
-        setRedoCounts((prev) => ({
-          ...prev,
-          [strokeUserId]: Math.max(0, (prev[strokeUserId] ?? 0) - 1),
-        }));
+        if (strokeUserId !== userId) {
+          optimisticRedoRef.current.delete(strokeUserId);
+          setRedoCounts((prev) => ({
+            ...prev,
+            [strokeUserId]: Math.max(0, (prev[strokeUserId] ?? 0) - 1),
+          }));
+        }
         latestRoomVersionRef.current = Math.max(
           latestRoomVersionRef.current,
           stroke.timestamp ?? Date.now(),
@@ -311,10 +383,8 @@ export function useRoomSocket(
 
     return () => {
       pendingAppendRef.current.clear();
-      if (appendFrameRef.current !== null) {
-        cancelAnimationFrame(appendFrameRef.current);
-        appendFrameRef.current = null;
-      }
+      cancelAppendFlush();
+      optimisticRedoRef.current.clear();
       if (joinedRoomRef.current)
         getSocket().emit(SOCKET_EVENTS.ROOM_LEAVE, {
           roomId: joinedRoomRef.current,
@@ -340,7 +410,7 @@ export function useRoomSocket(
       getSocket().off(SOCKET_EVENTS.ROOM_ERROR);
       getSocket().disconnect();
     };
-  }, [roomId, userId, displayName, avatarUrl]);
+  }, [avatarUrl, displayName, roomId, syncStrokeIndex, userId]);
 
   return {
     participants,
@@ -358,6 +428,8 @@ export function useRoomSocket(
     hasJoined,
     setError,
     leaveRoom,
+    undoStroke: applyOptimisticUndo,
+    redoStroke: applyOptimisticRedo,
     redoCount: redoCounts[userId] ?? 0,
   };
 }

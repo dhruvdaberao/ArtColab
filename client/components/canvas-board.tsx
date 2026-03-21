@@ -53,7 +53,7 @@ const isShapeTool = (tool: DrawingTool): tool is ShapeKind =>
 
 const MIN_POINT_DISTANCE = 0.75;
 const MAX_APPEND_BATCH = 30;
-const APPEND_FLUSH_THRESHOLD = 4;
+const APPEND_FLUSH_THRESHOLD = 2;
 const TAP_SHAPE_THRESHOLD = 8;
 
 const DEFAULT_SHAPE_SIZE: Record<ShapeKind, { width: number; height: number }> =
@@ -479,6 +479,15 @@ function CanvasBoardComponent({
     startCenterX: number;
     startCenterY: number;
   } | null>(null);
+  const touchGestureRef = useRef<{
+    startDistance: number;
+    startScale: number;
+    startOffsetX: number;
+    startOffsetY: number;
+    startCenterX: number;
+    startCenterY: number;
+  } | null>(null);
+  const gestureModeRef = useRef(false);
   const strokesRef = useRef(strokes);
   const committedStrokesRef = useRef<Stroke[]>([]);
   const [canvasVersion, setCanvasVersion] = useState(0);
@@ -769,6 +778,42 @@ function CanvasBoardComponent({
     });
   };
 
+  const applyGestureViewport = useCallback(
+    (
+      start: {
+        startDistance: number;
+        startScale: number;
+        startOffsetX: number;
+        startOffsetY: number;
+        startCenterX: number;
+        startCenterY: number;
+      },
+      currentTouches: [{ x: number; y: number }, { x: number; y: number }],
+    ) => {
+      const nextDistance = distanceBetween(
+        currentTouches[0],
+        currentTouches[1],
+      );
+      const safeDistance = start.startDistance || nextDistance || 1;
+      const center = midpoint(currentTouches[0], currentTouches[1]);
+      const scaleRatio = nextDistance / safeDistance;
+      setViewport(
+        normalizeViewport({
+          scale: clamp(start.startScale * scaleRatio, MIN_SCALE, MAX_SCALE),
+          offsetX:
+            start.startOffsetX +
+            (center.x - start.startCenterX) +
+            (center.x - start.startCenterX) * (scaleRatio - 1),
+          offsetY:
+            start.startOffsetY +
+            (center.y - start.startCenterY) +
+            (center.y - start.startCenterY) * (scaleRatio - 1),
+        }),
+      );
+    },
+    [],
+  );
+
   const flushPendingPoints = () => {
     if (!pendingPointsRef.current.length || !currentStrokeId.current) return;
     while (pendingPointsRef.current.length) {
@@ -946,6 +991,8 @@ function CanvasBoardComponent({
       activePointerIdRef.current = null;
       panStartRef.current = null;
       gestureRef.current = null;
+      touchGestureRef.current = null;
+      gestureModeRef.current = false;
       pointersRef.current.clear();
     },
     [],
@@ -977,6 +1024,67 @@ function CanvasBoardComponent({
     setViewport({ scale: 1, offsetX: 0, offsetY: 0 });
   }, [resetViewSignal]);
 
+  useEffect(() => {
+    const surface = surfaceRef.current;
+    if (!surface) return;
+
+    const handleTouchStart = (event: TouchEvent) => {
+      if (disabled || event.touches.length < 2) return;
+      const [firstTouch, secondTouch] = [event.touches[0], event.touches[1]];
+      if (!firstTouch || !secondTouch) return;
+      event.preventDefault();
+      gestureModeRef.current = true;
+      if (activePointerIdRef.current !== null || drawingRef.current) {
+        finishStroke();
+      }
+      activePointerIdRef.current = null;
+      const firstPoint = { x: firstTouch.clientX, y: firstTouch.clientY };
+      const secondPoint = { x: secondTouch.clientX, y: secondTouch.clientY };
+      const center = midpoint(firstPoint, secondPoint);
+      touchGestureRef.current = {
+        startDistance: Math.max(distanceBetween(firstPoint, secondPoint), 1),
+        startScale: viewportRef.current.scale,
+        startOffsetX: viewportRef.current.offsetX,
+        startOffsetY: viewportRef.current.offsetY,
+        startCenterX: center.x,
+        startCenterY: center.y,
+      };
+    };
+
+    const handleTouchMove = (event: TouchEvent) => {
+      if (!touchGestureRef.current || event.touches.length < 2) return;
+      const [firstTouch, secondTouch] = [event.touches[0], event.touches[1]];
+      if (!firstTouch || !secondTouch) return;
+      event.preventDefault();
+      applyGestureViewport(touchGestureRef.current, [
+        { x: firstTouch.clientX, y: firstTouch.clientY },
+        { x: secondTouch.clientX, y: secondTouch.clientY },
+      ]);
+    };
+
+    const endTouchGesture = () => {
+      if (!touchGestureRef.current) return;
+      touchGestureRef.current = null;
+      window.setTimeout(() => {
+        gestureModeRef.current = false;
+      }, 0);
+    };
+
+    surface.addEventListener("touchstart", handleTouchStart, {
+      passive: false,
+    });
+    surface.addEventListener("touchmove", handleTouchMove, { passive: false });
+    surface.addEventListener("touchend", endTouchGesture);
+    surface.addEventListener("touchcancel", endTouchGesture);
+
+    return () => {
+      surface.removeEventListener("touchstart", handleTouchStart);
+      surface.removeEventListener("touchmove", handleTouchMove);
+      surface.removeEventListener("touchend", endTouchGesture);
+      surface.removeEventListener("touchcancel", endTouchGesture);
+    };
+  }, [applyGestureViewport, disabled, finishStroke]);
+
   useEffect(
     () => () => {
       if (emitCursorRef.current) cancelAnimationFrame(emitCursorRef.current);
@@ -993,7 +1101,7 @@ function CanvasBoardComponent({
   );
 
   const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
-    if (disabled) return;
+    if (disabled || gestureModeRef.current) return;
 
     onSurfaceInteract?.();
     const shouldCapturePointer = tool !== "fill";
@@ -1129,6 +1237,7 @@ function CanvasBoardComponent({
   };
 
   const handlePointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (gestureModeRef.current) return;
     const point = getCanvasPoint(event.clientX, event.clientY);
     if (!point) return;
 
@@ -1145,26 +1254,7 @@ function CanvasBoardComponent({
       if (!first || !second) return;
       const nextDistance = distanceBetween(first, second);
       const center = midpoint(first, second);
-      setViewport(
-        normalizeViewport({
-          scale: clamp(
-            (nextDistance / gestureRef.current.startDistance) *
-              gestureRef.current.startScale,
-            MIN_SCALE,
-            MAX_SCALE,
-          ),
-          offsetX:
-            gestureRef.current.startOffsetX +
-            (center.x - gestureRef.current.startCenterX) +
-            (center.x - gestureRef.current.startCenterX) *
-              (nextDistance / gestureRef.current.startDistance - 1),
-          offsetY:
-            gestureRef.current.startOffsetY +
-            (center.y - gestureRef.current.startCenterY) +
-            (center.y - gestureRef.current.startCenterY) *
-              (nextDistance / gestureRef.current.startDistance - 1),
-        }),
-      );
+      applyGestureViewport(gestureRef.current, [first, second]);
       return;
     }
 
@@ -1237,6 +1327,10 @@ function CanvasBoardComponent({
   };
 
   const handlePointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (gestureModeRef.current) {
+      pointersRef.current.delete(event.pointerId);
+      return;
+    }
     const point = getCanvasPoint(event.clientX, event.clientY);
     pointersRef.current.delete(event.pointerId);
     if (gestureRef.current && pointersRef.current.size < 2)
@@ -1307,7 +1401,7 @@ function CanvasBoardComponent({
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerUp}
         onWheel={handleWheel}
-        style={{ touchAction: "none" }}
+        style={{ touchAction: "none", overscrollBehavior: "contain" }}
       >
         <div className="pointer-events-none absolute left-3 top-3 z-10 rounded-full bg-[rgba(12,22,34,0.74)] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-white shadow-lg">
           {Math.round(viewport.scale * 100)}%
