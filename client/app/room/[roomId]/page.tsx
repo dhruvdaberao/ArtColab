@@ -50,7 +50,11 @@ import {
   hasRoomAccessGrant,
   revokeRoomAccess,
 } from "@/lib/room-access";
-import { readRoomEntryHint, rememberRoomPageHint } from "@/lib/room-entry";
+import {
+  clearRoomEntryHint,
+  readRoomEntryHint,
+  rememberRoomPageHint,
+} from "@/lib/room-entry";
 import {
   beginRoomOrientationSession,
   cancelRoomOrientationSession,
@@ -240,6 +244,9 @@ export default function RoomPage() {
   const functionPanelRef = useRef<HTMLDivElement | null>(null);
   const orientationSessionRef = useRef(0);
   const isRoomOrientationActiveRef = useRef(true);
+  const historyGuardEnabledRef = useRef(false);
+  const historyGuardTokenRef = useRef(0);
+  const returnPathRef = useRef("/");
   const { user } = useAuth();
 
   const pushToast = useCallback((message: string) => {
@@ -449,7 +456,8 @@ export default function RoomPage() {
   }, [roomId]);
 
   const requestLandscapeWorkspaceMode = useCallback(async () => {
-    if (!isLandscapeWorkspaceOnly || !isRoomOrientationActiveRef.current) return;
+    if (!isLandscapeWorkspaceOnly || !isRoomOrientationActiveRef.current)
+      return;
 
     const sessionToken = orientationSessionRef.current;
     document.documentElement.classList.add(ROOM_PAGE_ACTIVE_CLASS);
@@ -574,6 +582,8 @@ export default function RoomPage() {
     error,
     hasJoined,
     leaveRoom: leaveSocketRoom,
+    undoStroke,
+    redoStroke,
     redoCount,
   } = useRoomSocket(
     roomReady ? roomId : "",
@@ -748,19 +758,67 @@ export default function RoomPage() {
     };
   }, [pushToast]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const referrer = document.referrer;
+    if (!referrer) return;
+
+    try {
+      const nextUrl = new URL(referrer);
+      if (nextUrl.origin !== window.location.origin) return;
+      if (nextUrl.pathname.startsWith("/room/")) return;
+      returnPathRef.current =
+        `${nextUrl.pathname}${nextUrl.search}${nextUrl.hash}` || "/";
+    } catch {
+      // noop
+    }
+  }, []);
+
+  const navigateOutOfRoom = useCallback(() => {
+    const fallbackPath = returnPathRef.current || "/";
+    clearRoomEntryHint(roomId);
+    router.replace(fallbackPath);
+  }, [roomId, router]);
+
   const leaveRoomSafely = useCallback(async () => {
+    historyGuardEnabledRef.current = false;
     closeFloatingPanels();
     leaveSocketRoom();
     revokeRoomAccess(roomId);
     setIsExitModalOpen(false);
     await enforcePortraitMode();
-    router.push("/");
-  }, [
-    closeFloatingPanels,
-    leaveSocketRoom,
-    roomId,
-    router,
-  ]);
+    navigateOutOfRoom();
+  }, [closeFloatingPanels, leaveSocketRoom, navigateOutOfRoom, roomId]);
+
+  useEffect(() => {
+    if (!roomReady || typeof window === "undefined") return;
+
+    historyGuardTokenRef.current += 1;
+    const token = historyGuardTokenRef.current;
+    historyGuardEnabledRef.current = true;
+    window.history.pushState(
+      { roomExitGuard: roomId, token },
+      "",
+      window.location.href,
+    );
+
+    const handlePopState = () => {
+      if (!historyGuardEnabledRef.current) return;
+      window.history.pushState(
+        { roomExitGuard: roomId, token },
+        "",
+        window.location.href,
+      );
+      setIsExitModalOpen(true);
+    };
+
+    window.addEventListener("popstate", handlePopState);
+
+    return () => {
+      historyGuardEnabledRef.current = false;
+      window.removeEventListener("popstate", handlePopState);
+    };
+  }, [roomId, roomReady]);
 
   const unlockPrivateRoom = useCallback(async () => {
     if (!roomMeta || roomMeta.visibility !== "private") return;
@@ -1293,9 +1351,7 @@ export default function RoomPage() {
               type="button"
               className={railButtonBase}
               onPointerDown={(event) => event.preventDefault()}
-              onClick={() =>
-                getSocket().emit(SOCKET_EVENTS.STROKE_UNDO, { roomId, userId })
-              }
+              onClick={() => undoStroke()}
               disabled={!hasJoined || !canUndo}
               aria-label="Undo"
             >
@@ -1305,9 +1361,7 @@ export default function RoomPage() {
               type="button"
               className={railButtonBase}
               onPointerDown={(event) => event.preventDefault()}
-              onClick={() =>
-                getSocket().emit(SOCKET_EVENTS.STROKE_REDO, { roomId, userId })
-              }
+              onClick={() => redoStroke()}
               disabled={!hasJoined || !canRedo}
               aria-label="Redo"
             >
@@ -1604,7 +1658,7 @@ export default function RoomPage() {
       />
       <ConfirmModal
         title="Leave room?"
-        description="You can rejoin later with the room link while it remains active."
+        description="Your room session will close and you’ll return to the previous screen."
         open={isExitModalOpen}
         onCancel={() => setIsExitModalOpen(false)}
         onConfirm={() => void leaveRoomSafely()}
