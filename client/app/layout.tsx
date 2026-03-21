@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { AuthProvider } from "@/components/auth-provider";
+import { RouteOrientationGuard } from "@/components/route-orientation-guard";
 import frogIcon from "../../frog icon.png";
 import "./globals.css";
 
@@ -38,6 +39,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="bg-[color:var(--bg)] text-slate-900">
+        <RouteOrientationGuard />
         <AuthProvider>{children}</AuthProvider>
       </body>
     </html>
