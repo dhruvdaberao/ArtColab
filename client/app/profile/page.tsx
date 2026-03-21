@@ -56,25 +56,30 @@ export default function ProfilePage() {
 
         <div className="grid gap-6 lg:grid-cols-[minmax(0,220px)_1fr] lg:items-start">
           <div className="flex flex-col items-center gap-3 lg:pt-2">
-            <label htmlFor={fileInputId} className="group relative block cursor-pointer">
+            <label
+              htmlFor={fileInputId}
+              className="group flex cursor-pointer justify-center px-1 pb-1 focus-within:outline-none"
+            >
               <span className="sr-only">Change profile photo</span>
-              <div className="relative h-28 w-28 overflow-hidden rounded-full border-2 border-[color:var(--border)] bg-[color:var(--surface-soft)] shadow-[0_10px_30px_rgba(26,26,26,0.12)] transition duration-200 group-hover:-translate-y-0.5 group-hover:shadow-[0_14px_34px_rgba(26,26,26,0.16)] group-focus-within:ring-2 group-focus-within:ring-[color:var(--brand-blue)] group-focus-within:ring-offset-2 group-focus-within:ring-offset-[color:var(--surface)] sm:h-32 sm:w-32">
-                {avatar ? (
-                  <img
-                    src={avatar}
-                    alt="Profile"
-                    className="absolute inset-0 h-full w-full rounded-full object-cover object-center"
-                  />
-                ) : (
-                  <span className="grid h-full w-full place-items-center text-3xl font-semibold text-[color:var(--primary)]">
-                    {user.username.slice(0, 1)}
-                  </span>
-                )}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent opacity-80 transition duration-200 group-hover:opacity-100" />
-                <span className="absolute bottom-2 right-2 inline-flex h-10 w-10 items-center justify-center rounded-full border-2 border-white/80 bg-[color:var(--surface)] text-[color:var(--text-main)] shadow-[0_8px_18px_rgba(26,26,26,0.18)] transition duration-200 group-hover:scale-105">
+              <span className="relative block h-28 w-28 sm:h-32 sm:w-32">
+                <span className="absolute inset-0 overflow-hidden rounded-full border-2 border-[color:var(--border)] bg-[color:var(--surface-soft)] shadow-[0_10px_30px_rgba(26,26,26,0.12)] transition duration-200 group-hover:-translate-y-0.5 group-hover:shadow-[0_14px_34px_rgba(26,26,26,0.16)] group-focus-within:ring-2 group-focus-within:ring-[color:var(--brand-blue)] group-focus-within:ring-offset-2 group-focus-within:ring-offset-[color:var(--surface)]">
+                  {avatar ? (
+                    <img
+                      src={avatar}
+                      alt="Profile"
+                      className="absolute inset-0 h-full w-full rounded-full object-cover object-center"
+                    />
+                  ) : (
+                    <span className="grid h-full w-full place-items-center text-3xl font-semibold text-[color:var(--primary)]">
+                      {user.username.slice(0, 1)}
+                    </span>
+                  )}
+                  <span className="absolute inset-0 bg-gradient-to-t from-black/25 via-transparent to-transparent opacity-70 transition duration-200 group-hover:opacity-100" />
+                </span>
+                <span className="absolute -bottom-1.5 -right-1.5 z-10 inline-flex h-8 w-8 items-center justify-center rounded-full border-2 border-white bg-white text-[color:var(--text-main)] shadow-[0_4px_10px_rgba(0,0,0,0.15)] transition duration-200 group-hover:scale-105 group-hover:shadow-[0_6px_14px_rgba(0,0,0,0.2)] sm:h-[30px] sm:w-[30px]">
                   <Camera className="h-4 w-4" aria-hidden="true" />
                 </span>
-              </div>
+              </span>
             </label>
             <Input
               id={fileInputId}
