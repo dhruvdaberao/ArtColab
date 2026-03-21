@@ -16,12 +16,9 @@ const envSchema = z.object({
   MONGODB_URI: z.string().optional(),
   MONGO_URI: z.string().optional(),
   JWT_SECRET: z.string().optional(),
-  SMTP_HOST: z.string().optional(),
-  SMTP_PORT: z.coerce.number().int().positive().optional(),
-  SMTP_USER: z.string().optional(),
-  SMTP_PASS: z.string().optional(),
-  SMTP_FROM: z.string().optional(),
-  EMAIL_FROM: z.string().optional(),
+  RESEND_API_KEY: z.string().optional(),
+  RESEND_FROM: z.string().optional(),
+  OTP_EXPIRES_MINUTES: z.coerce.number().int().positive().default(5),
   CLOUDINARY_CLOUD_NAME: z.string().optional(),
   CLOUDINARY_API_KEY: z.string().optional(),
   CLOUDINARY_API_SECRET: z.string().optional()
@@ -128,16 +125,13 @@ export const validateCriticalEnv = () => {
     warnings.push('JWT_SECRET is missing or using default development value. Use a strong secret in production.');
   }
 
-  const emailFrom = env.EMAIL_FROM?.trim() || env.SMTP_FROM?.trim() || '';
-  const missingSmtpVars = ['SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASS'].filter((key) => {
+  const missingResendVars = ['RESEND_API_KEY', 'RESEND_FROM'].filter((key) => {
     const value = env[key as keyof typeof env];
     return value === undefined || value === null || String(value).trim() === '';
   });
 
-  if (!emailFrom) missingSmtpVars.push('EMAIL_FROM');
-
-  if (missingSmtpVars.length) {
-    warnings.push(`SMTP email env vars are incomplete (${missingSmtpVars.join(', ')}). Password reset email delivery will be disabled.`);
+  if (missingResendVars.length) {
+    warnings.push(`Resend email env vars are incomplete (${missingResendVars.join(', ')}). Password reset email delivery will be disabled.`);
   }
 
   if (!env.CLIENT_ORIGIN && !env.CLIENT_URL && !env.CLIENT_ORIGINS) {
