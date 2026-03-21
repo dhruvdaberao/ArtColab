@@ -326,6 +326,22 @@ export class RoomManager {
     return [];
   }
 
+  removeParticipantByUserId(userId: string): string[] {
+    const affectedRoomIds = new Set<string>();
+
+    for (const room of this.rooms.values()) {
+      const removedParticipants = room.participants.filter((participant) => participant.userId === userId);
+      if (!removedParticipants.length) continue;
+
+      room.participants = room.participants.filter((participant) => participant.userId !== userId);
+      room.updatedAt = Date.now();
+      removedParticipants.forEach((participant) => this.socketToRoom.delete(participant.socketId));
+      affectedRoomIds.add(room.roomId);
+    }
+
+    return Array.from(affectedRoomIds);
+  }
+
   deleteRoom(roomId: string): void {
     const room = this.rooms.get(roomId);
     if (!room) return;

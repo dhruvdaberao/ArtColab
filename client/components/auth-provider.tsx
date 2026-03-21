@@ -11,6 +11,7 @@ type AuthContextValue = {
   login: (identifier: string, password: string) => Promise<void>;
   register: (email: string, username: string, password: string, confirmPassword: string) => Promise<void>;
   logout: () => Promise<void>;
+  clearSession: () => void;
   refresh: () => Promise<void>;
 };
 
@@ -19,6 +20,15 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<SessionUser | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const clearSession = () => {
+    setAuthToken(null);
+    setStoredDisplayName('');
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('cloudcanvas-user-id');
+    }
+    setUser(null);
+  };
 
   const refresh = async () => {
     const res = await getMe();
@@ -55,12 +65,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = async () => {
     await logoutUser();
-    setAuthToken(null);
-    setStoredDisplayName('');
-    setUser(null);
+    clearSession();
   };
 
-  const value = useMemo<AuthContextValue>(() => ({ user, loading, loginAsGuest, login, register, logout, refresh }), [user, loading]);
+  const value = useMemo<AuthContextValue>(() => ({ user, loading, loginAsGuest, login, register, logout, clearSession, refresh }), [user, loading]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
