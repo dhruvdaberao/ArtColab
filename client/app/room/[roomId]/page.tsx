@@ -52,6 +52,17 @@ import {
 } from "@/lib/room-access";
 import { readRoomEntryHint, rememberRoomPageHint } from "@/lib/room-entry";
 import {
+  beginRoomOrientationSession,
+  cancelRoomOrientationSession,
+  enforcePortraitMode,
+  exitRoomOrientation,
+  isRoomOrientationSessionActive,
+  ROOM_VIEWPORT_HEIGHT_VAR,
+  ROOM_VIEWPORT_WIDTH_VAR,
+  ROOM_PAGE_ACTIVE_CLASS,
+  ROOM_PAGE_LANDSCAPE_CLASS,
+} from "@/lib/room-orientation";
+import {
   ensureGuestDisplayName,
   getAvatarInitials,
   resolveSessionDisplayName,
@@ -99,10 +110,6 @@ const PRESET_COLORS = [
 ];
 
 const MOBILE_WORKSPACE_MAX_WIDTH = 1366;
-const ROOM_VIEWPORT_HEIGHT_VAR = "--room-viewport-height";
-const ROOM_VIEWPORT_WIDTH_VAR = "--room-viewport-width";
-const ROOM_PAGE_ACTIVE_CLASS = "room-page-active";
-const ROOM_PAGE_LANDSCAPE_CLASS = "room-page-landscape";
 
 const getInitialViewportState = () => {
   if (typeof window === "undefined") {
@@ -231,6 +238,8 @@ export default function RoomPage() {
   const joinedToastShownRef = useRef(false);
   const toolPanelRef = useRef<HTMLDivElement | null>(null);
   const functionPanelRef = useRef<HTMLDivElement | null>(null);
+  const orientationSessionRef = useRef(0);
+  const isRoomOrientationActiveRef = useRef(true);
   const { user } = useAuth();
 
   const pushToast = useCallback((message: string) => {
@@ -423,39 +432,26 @@ export default function RoomPage() {
   const isLandscapeWorkspaceOnly = isTouchWorkspace;
   const shouldRotateWorkspace = isLandscapeWorkspaceOnly && isPortraitViewport;
 
+  useEffect(() => {
+    isRoomOrientationActiveRef.current = true;
+    orientationSessionRef.current = beginRoomOrientationSession();
+
+    return () => {
+      isRoomOrientationActiveRef.current = false;
+      cancelRoomOrientationSession(orientationSessionRef.current);
+    };
+  }, []);
+
   const exitLandscapeWorkspaceMode = useCallback(async () => {
-    document.documentElement.classList.remove(ROOM_PAGE_ACTIVE_CLASS);
-    document.body.classList.remove(ROOM_PAGE_ACTIVE_CLASS);
-    document.documentElement.classList.remove(ROOM_PAGE_LANDSCAPE_CLASS);
-    document.body.classList.remove(ROOM_PAGE_LANDSCAPE_CLASS);
-    document.documentElement.removeAttribute("data-room-rotated");
-    document.body.removeAttribute("data-room-rotated");
-
-    try {
-      if (typeof screen !== "undefined" && "orientation" in screen) {
-        (
-          screen.orientation as ScreenOrientation & { unlock?: () => void }
-        ).unlock?.();
-      }
-    } catch (error) {
-      console.info("[room-page] orientation unlock skipped", { roomId, error });
-    }
-
-    const fullscreenElement = document.fullscreenElement as HTMLElement | null;
-    if (fullscreenElement?.dataset.roomFullscreenOwner === roomId) {
-      try {
-        await document.exitFullscreen();
-      } catch (error) {
-        console.info("[room-page] fullscreen exit skipped", { roomId, error });
-      } finally {
-        delete fullscreenElement.dataset.roomFullscreenOwner;
-      }
-    }
+    isRoomOrientationActiveRef.current = false;
+    cancelRoomOrientationSession(orientationSessionRef.current);
+    await exitRoomOrientation(roomId);
   }, [roomId]);
 
   const requestLandscapeWorkspaceMode = useCallback(async () => {
-    if (!isLandscapeWorkspaceOnly) return;
+    if (!isLandscapeWorkspaceOnly || !isRoomOrientationActiveRef.current) return;
 
+    const sessionToken = orientationSessionRef.current;
     document.documentElement.classList.add(ROOM_PAGE_ACTIVE_CLASS);
     document.body.classList.add(ROOM_PAGE_ACTIVE_CLASS);
     document.documentElement.classList.add(ROOM_PAGE_LANDSCAPE_CLASS);
@@ -466,6 +462,8 @@ export default function RoomPage() {
     document.body.dataset.roomRotated = shouldRotateWorkspace
       ? "true"
       : "false";
+    document.documentElement.dataset.roomOrientationOwner = roomId;
+    document.body.dataset.roomOrientationOwner = roomId;
 
     const root = document.documentElement;
     const requestFullscreenTarget = document.body;
@@ -482,6 +480,13 @@ export default function RoomPage() {
       console.info("[room-page] fullscreen request skipped", { roomId, error });
     }
 
+    if (
+      !isRoomOrientationActiveRef.current ||
+      !isRoomOrientationSessionActive(sessionToken)
+    ) {
+      return;
+    }
+
     try {
       if (typeof screen !== "undefined" && "orientation" in screen) {
         const orientation = screen.orientation as ScreenOrientation & {
@@ -491,6 +496,13 @@ export default function RoomPage() {
       }
     } catch (error) {
       console.info("[room-page] orientation lock skipped", { roomId, error });
+    }
+
+    if (
+      !isRoomOrientationActiveRef.current ||
+      !isRoomOrientationSessionActive(sessionToken)
+    ) {
+      return;
     }
 
     root.style.setProperty("overscroll-behavior", "none");
@@ -538,9 +550,9 @@ export default function RoomPage() {
   useEffect(() => {
     return () => {
       document.documentElement.style.removeProperty("overscroll-behavior");
-      void exitLandscapeWorkspaceMode();
+      void enforcePortraitMode();
     };
-  }, [exitLandscapeWorkspaceMode]);
+  }, []);
 
   useEffect(() => {
     if (!roomId || !userId || !isValidRoomId) return;
@@ -741,11 +753,10 @@ export default function RoomPage() {
     leaveSocketRoom();
     revokeRoomAccess(roomId);
     setIsExitModalOpen(false);
-    await exitLandscapeWorkspaceMode();
+    await enforcePortraitMode();
     router.push("/");
   }, [
     closeFloatingPanels,
-    exitLandscapeWorkspaceMode,
     leaveSocketRoom,
     roomId,
     router,
