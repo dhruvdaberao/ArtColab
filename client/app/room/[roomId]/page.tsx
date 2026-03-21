@@ -130,8 +130,7 @@ const canOpenRoomImmediately = (
   hint: ReturnType<typeof readRoomEntryHint> | null,
 ) =>
   Boolean(
-    hint &&
-      (hint.visibility !== "private" || hasRoomAccessGrant(hint.roomId)),
+    hint && (hint.visibility !== "private" || hasRoomAccessGrant(hint.roomId)),
   );
 
 type ToolPanel =
@@ -228,6 +227,7 @@ export default function RoomPage() {
   );
   const [activeFunctionPanel, setActiveFunctionPanel] =
     useState<FunctionPanel>(null);
+  const [isBoardSurfaceReady, setIsBoardSurfaceReady] = useState(false);
   const [activeColorPicker, setActiveColorPicker] =
     useState<ColorPickerTarget>(null);
   const chatEndRef = useRef<HTMLDivElement | null>(null);
@@ -350,6 +350,7 @@ export default function RoomPage() {
 
   useEffect(() => {
     joinedToastShownRef.current = false;
+    setIsBoardSurfaceReady(false);
   }, [roomId]);
 
   useEffect(() => {
@@ -655,6 +656,19 @@ export default function RoomPage() {
   const canRedo = redoCount > 0;
   const isShapeTool = SHAPE_OPTIONS.some((shape) => shape.tool === tool);
   const roomTitle = roomMeta?.name || `Room ${roomId}`;
+
+  const boardLayoutReadySignal = useMemo(
+    () =>
+      [
+        roomId,
+        roomReady ? "ready" : "locked",
+        isTouchWorkspace ? "touch" : "pointer",
+        isPortraitViewport ? "portrait" : "landscape",
+      ].join(":"),
+    [isPortraitViewport, isTouchWorkspace, roomId, roomReady],
+  );
+
+  const isBoardInitializing = roomReady && (!hasJoined || !isBoardSurfaceReady);
   const connectionMessage =
     error ||
     (status === "connecting" && "Connecting to the collaboration server…") ||
@@ -1454,6 +1468,23 @@ export default function RoomPage() {
             </div>
           )}
 
+          {isBoardInitializing && !(isRoomLoading && !roomMetaLoaded) && (
+            <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center bg-[linear-gradient(180deg,rgba(244,249,255,0.72),rgba(231,244,253,0.34))] backdrop-blur-[1px]">
+              <div className="rounded-[24px] border border-white/70 bg-white/90 px-5 py-4 text-center shadow-[0_18px_42px_rgba(15,23,42,0.14)]">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">
+                  Initializing board
+                </p>
+                <h1 className="mt-1 text-lg font-black text-slate-900">
+                  Preparing the drawing workspace…
+                </h1>
+                <p className="mt-1 text-sm text-slate-500">
+                  Finalizing canvas sizing, whiteboard base layer, and live room
+                  hydration.
+                </p>
+              </div>
+            </div>
+          )}
+
           <CanvasBoard
             roomId={roomId}
             userId={userId}
@@ -1471,7 +1502,9 @@ export default function RoomPage() {
             disabled={!hasJoined}
             resetViewSignal={resetViewSignal}
             compact={isTouchWorkspace}
+            layoutReadySignal={boardLayoutReadySignal}
             onSurfaceInteract={() => closeFloatingPanels()}
+            onBoardReadyChange={setIsBoardSurfaceReady}
           />
           {immersiveUiRetryNeeded && isTouchWorkspace && (
             <div className="pointer-events-none absolute left-1/2 top-3 z-40 w-[min(92vw,360px)] -translate-x-1/2 rounded-full border border-white/20 bg-[rgba(15,23,42,0.78)] px-4 py-2 text-center text-xs font-semibold text-white shadow-2xl backdrop-blur-sm">
