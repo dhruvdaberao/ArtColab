@@ -10,7 +10,15 @@ import type {
   Stroke,
 } from "@cloudcanvas/shared";
 import { nanoid } from "nanoid";
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { getAvatarInitials } from "@/lib/guest";
 
 const LOGICAL_CANVAS_WIDTH = 1200;
@@ -415,7 +423,9 @@ interface CanvasBoardProps {
   disabled?: boolean;
   resetViewSignal: number;
   compact?: boolean;
+  layoutReadySignal?: string;
   onSurfaceInteract?: () => void;
+  onBoardReadyChange?: (ready: boolean) => void;
 }
 
 function CanvasBoardComponent({
@@ -435,7 +445,9 @@ function CanvasBoardComponent({
   disabled = false,
   resetViewSignal,
   compact = false,
+  layoutReadySignal,
   onSurfaceInteract,
+  onBoardReadyChange,
 }: CanvasBoardProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const committedCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -476,6 +488,17 @@ function CanvasBoardComponent({
   });
   const previewStrokeRef = useRef<Stroke | null>(null);
   const viewportRef = useRef<Viewport>({ scale: 1, offsetX: 0, offsetY: 0 });
+
+  const surfaceReadyRef = useRef(false);
+
+  const updateSurfaceReady = useCallback(
+    (ready: boolean) => {
+      if (surfaceReadyRef.current === ready) return;
+      surfaceReadyRef.current = ready;
+      onBoardReadyChange?.(ready);
+    },
+    [onBoardReadyChange],
+  );
 
   useEffect(() => {
     strokesRef.current = strokes;
@@ -625,19 +648,25 @@ function CanvasBoardComponent({
       const context = canvas.getContext("2d", { willReadFrequently: true });
       if (!context) return;
       if (canvas.width < 1 || canvas.height < 1) {
-        console.warn("[canvas-board] skipped render for invalid display canvas", {
-          roomId,
-          width: canvas.width,
-          height: canvas.height,
-        });
+        console.warn(
+          "[canvas-board] skipped render for invalid display canvas",
+          {
+            roomId,
+            width: canvas.width,
+            height: canvas.height,
+          },
+        );
         return;
       }
       if (committedCanvas.width < 1 || committedCanvas.height < 1) {
-        console.warn("[canvas-board] committed canvas missing backing surface, re-syncing", {
-          roomId,
-          width: committedCanvas.width,
-          height: committedCanvas.height,
-        });
+        console.warn(
+          "[canvas-board] committed canvas missing backing surface, re-syncing",
+          {
+            roomId,
+            width: committedCanvas.width,
+            height: committedCanvas.height,
+          },
+        );
         syncCommittedCanvas(strokesRef.current);
       }
       context.setTransform(1, 0, 0, 1, 0, 0);
@@ -650,8 +679,9 @@ function CanvasBoardComponent({
       if (draftStroke) renderStroke(context, draftStroke, true);
       const previewStroke = previewStrokeRef.current;
       if (previewStroke) renderStroke(context, previewStroke, true);
+      updateSurfaceReady(true);
     });
-  }, [roomId, syncCommittedCanvas]);
+  }, [roomId, syncCommittedCanvas, updateSurfaceReady]);
 
   const queueCursorEmit = (
     point: { x: number; y: number },
@@ -693,11 +723,14 @@ function CanvasBoardComponent({
     if (!boardFrame) return null;
     const rect = boardFrame.getBoundingClientRect();
     if (rect.width <= 0 || rect.height <= 0) {
-      console.warn("[canvas-board] invalid board frame dimensions while mapping pointer", {
-        roomId,
-        width: rect.width,
-        height: rect.height,
-      });
+      console.warn(
+        "[canvas-board] invalid board frame dimensions while mapping pointer",
+        {
+          roomId,
+          width: rect.width,
+          height: rect.height,
+        },
+      );
       return null;
     }
     const viewport = viewportRef.current;
@@ -783,46 +816,91 @@ function CanvasBoardComponent({
     queueRender();
   }, [commitDraftStroke, queueRender, roomId]);
 
-  useEffect(() => {
+  const syncCanvasResolution = useCallback(() => {
     const canvas = canvasRef.current;
     const boardFrame = boardFrameRef.current;
-    if (!canvas || !boardFrame) return;
-    const syncCanvasResolution = () => {
-      const rect = boardFrame.getBoundingClientRect();
-      const dpr = window.devicePixelRatio || 1;
-      const nextWidth = Math.max(1, Math.round(rect.width * dpr));
-      const nextHeight = Math.max(1, Math.round(rect.height * dpr));
-      if (rect.width <= 0 || rect.height <= 0) {
-        console.warn("[canvas-board] board frame has invalid dimensions", {
-          roomId,
-          width: rect.width,
-          height: rect.height,
-          dpr,
-        });
-      }
-      if (canvas.width !== nextWidth || canvas.height !== nextHeight) {
-        console.info("[canvas-board] syncing canvas resolution", {
-          roomId,
-          cssWidth: rect.width,
-          cssHeight: rect.height,
-          pixelWidth: nextWidth,
-          pixelHeight: nextHeight,
-          dpr,
-        });
-        canvas.width = nextWidth;
-        canvas.height = nextHeight;
-        setCanvasVersion((version) => version + 1);
-      }
-    };
+    if (!canvas || !boardFrame) return false;
+    const rect = boardFrame.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    if (rect.width <= 0 || rect.height <= 0) {
+      console.warn("[canvas-board] board frame has invalid dimensions", {
+        roomId,
+        width: rect.width,
+        height: rect.height,
+        dpr,
+      });
+      updateSurfaceReady(false);
+      return false;
+    }
+    const nextWidth = Math.max(1, Math.round(rect.width * dpr));
+    const nextHeight = Math.max(1, Math.round(rect.height * dpr));
+    if (canvas.width !== nextWidth || canvas.height !== nextHeight) {
+      console.info("[canvas-board] syncing canvas resolution", {
+        roomId,
+        cssWidth: rect.width,
+        cssHeight: rect.height,
+        pixelWidth: nextWidth,
+        pixelHeight: nextHeight,
+        dpr,
+      });
+      canvas.width = nextWidth;
+      canvas.height = nextHeight;
+      setCanvasVersion((version) => version + 1);
+    }
+    updateSurfaceReady(true);
+    return true;
+  }, [roomId, updateSurfaceReady]);
+
+  useEffect(() => {
+    const boardFrame = boardFrameRef.current;
+    if (!boardFrame) return;
     syncCanvasResolution();
-    const observer = new ResizeObserver(syncCanvasResolution);
+    const observer = new ResizeObserver(() => {
+      syncCanvasResolution();
+    });
     observer.observe(boardFrame);
     window.addEventListener("resize", syncCanvasResolution);
+    window.addEventListener("orientationchange", syncCanvasResolution);
+    window.visualViewport?.addEventListener("resize", syncCanvasResolution);
+    window.visualViewport?.addEventListener("scroll", syncCanvasResolution);
     return () => {
       observer.disconnect();
       window.removeEventListener("resize", syncCanvasResolution);
+      window.removeEventListener("orientationchange", syncCanvasResolution);
+      window.visualViewport?.removeEventListener(
+        "resize",
+        syncCanvasResolution,
+      );
+      window.visualViewport?.removeEventListener(
+        "scroll",
+        syncCanvasResolution,
+      );
     };
-  }, [roomId]);
+  }, [syncCanvasResolution]);
+
+  useLayoutEffect(() => {
+    let firstFrame = 0;
+    let secondFrame = 0;
+    updateSurfaceReady(false);
+    firstFrame = window.requestAnimationFrame(() => {
+      syncCanvasResolution();
+      secondFrame = window.requestAnimationFrame(() => {
+        syncCanvasResolution();
+        syncCommittedCanvas(strokesRef.current);
+        queueRender();
+      });
+    });
+    return () => {
+      window.cancelAnimationFrame(firstFrame);
+      window.cancelAnimationFrame(secondFrame);
+    };
+  }, [
+    layoutReadySignal,
+    queueRender,
+    syncCanvasResolution,
+    syncCommittedCanvas,
+    updateSurfaceReady,
+  ]);
 
   const resetTransientInteraction = useCallback(
     (options?: { releasePointerCapture?: boolean }) => {
@@ -884,9 +962,10 @@ function CanvasBoardComponent({
       if (emitCursorRef.current) cancelAnimationFrame(emitCursorRef.current);
       if (renderFrameRef.current) cancelAnimationFrame(renderFrameRef.current);
       committedStrokesRef.current = [];
+      updateSurfaceReady(false);
       resetTransientInteraction();
     },
-    [resetTransientInteraction],
+    [resetTransientInteraction, updateSurfaceReady],
   );
 
   const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
