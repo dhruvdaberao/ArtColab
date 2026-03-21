@@ -9,6 +9,7 @@ import { Room } from './models/Room.js';
 import { RoomManager } from './rooms/roomManager.js';
 import { toHydratedRoom } from './serializers/room.js';
 import { authRouter } from './routes/auth.js';
+import { validateEmailTransport } from './utils/email.js';
 import { profileRouter } from './routes/profile.js';
 import { roomsRouter } from './routes/rooms.js';
 import { registerSocketHandlers } from './socket/registerHandlers.js';
@@ -127,6 +128,14 @@ cleanupTimer.unref();
 const start = async () => {
   validateCriticalEnv();
   await connectMongo();
+
+  const emailValidation = await validateEmailTransport();
+  if (!emailValidation.ok) {
+    console.warn('[CloudCanvas] email transport unavailable at startup', {
+      code: emailValidation.error.code,
+      message: emailValidation.error.message
+    });
+  }
 
   if (isMongoReady()) {
     const persistedRooms = await Room.find({}).lean();
