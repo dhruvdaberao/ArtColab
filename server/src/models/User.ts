@@ -9,7 +9,9 @@ const userSchema = new Schema(
     createdRooms: { type: [String], default: [] },
     joinedRooms: { type: [String], default: [] },
     resetCodeHash: { type: String, default: null },
-    resetCodeExpiresAt: { type: Date, default: null }
+    resetCodeExpiresAt: { type: Date, default: null },
+    resetSessionHash: { type: String, default: null },
+    resetSessionExpiresAt: { type: Date, default: null }
   },
   {
     timestamps: true

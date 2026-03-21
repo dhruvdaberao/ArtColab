@@ -21,7 +21,7 @@ const envSchema = z.object({
   SMTP_USER: z.string().optional(),
   SMTP_PASS: z.string().optional(),
   SMTP_FROM: z.string().optional(),
-  SMTP_SECURE: z.string().optional(),
+  EMAIL_FROM: z.string().optional(),
   CLOUDINARY_CLOUD_NAME: z.string().optional(),
   CLOUDINARY_API_KEY: z.string().optional(),
   CLOUDINARY_API_SECRET: z.string().optional()
@@ -128,10 +128,13 @@ export const validateCriticalEnv = () => {
     warnings.push('JWT_SECRET is missing or using default development value. Use a strong secret in production.');
   }
 
-  const missingSmtpVars = ['SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASS', 'SMTP_FROM'].filter((key) => {
+  const emailFrom = env.EMAIL_FROM?.trim() || env.SMTP_FROM?.trim() || '';
+  const missingSmtpVars = ['SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASS'].filter((key) => {
     const value = env[key as keyof typeof env];
     return value === undefined || value === null || String(value).trim() === '';
   });
+
+  if (!emailFrom) missingSmtpVars.push('EMAIL_FROM');
 
   if (missingSmtpVars.length) {
     warnings.push(`SMTP email env vars are incomplete (${missingSmtpVars.join(', ')}). Password reset email delivery will be disabled.`);

@@ -359,17 +359,27 @@ export const requestResetCode = async (email: string) =>
   request<{ message: string }>(
     "/api/auth/forgot-password/request",
     { method: "POST", body: JSON.stringify({ email }) },
-    "Failed to request reset code.",
+    "Failed to send email. Please try again.",
   );
 
-export const verifyResetCode = async (payload: {
+export const verifyResetOtp = async (payload: {
   email: string;
-  code: string;
+  otp: string;
+}) =>
+  request<{ message: string; resetToken: string }>(
+    "/api/auth/forgot-password/verify-otp",
+    { method: "POST", body: JSON.stringify(payload) },
+    "Failed to verify OTP. Please try again.",
+  );
+
+export const resetPasswordWithOtp = async (payload: {
+  email: string;
+  resetToken: string;
   password: string;
   confirmPassword: string;
 }) =>
   request<{ message: string }>(
-    "/api/auth/forgot-password/verify",
+    "/api/auth/forgot-password/reset-password",
     { method: "POST", body: JSON.stringify(payload) },
     "Failed to reset password.",
   );

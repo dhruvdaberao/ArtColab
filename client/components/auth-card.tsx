@@ -4,7 +4,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '@/components/auth-provider';
 import { Button, Card, Input, SecondaryButton, SuccessButton } from '@/components/ui';
-import { requestResetCode, verifyResetCode } from '@/lib/api';
+import { requestResetCode, resetPasswordWithOtp, verifyResetOtp } from '@/lib/api';
 
 export type AuthView = 'login' | 'register' | 'forgot-request' | 'forgot-verify';
 
@@ -15,6 +15,7 @@ export function AuthCard({ initialView = 'login', redirectTo = '/' }: { initialV
   const [view, setView] = useState<AuthView>(initialView);
   const [error, setError] = useState<string | null>(null);
   const [emailForReset, setEmailForReset] = useState('');
+  const [resetToken, setResetToken] = useState('');
 
   const authRedirect = useMemo(() => searchParams.get('redirect') || redirectTo, [searchParams, redirectTo]);
 
@@ -30,8 +31,8 @@ export function AuthCard({ initialView = 'login', redirectTo = '/' }: { initialV
     </div>
     {view === 'login' && <LoginForm onSubmit={async (i,p)=>{ await login(i,p); onSuccess(); }} onForgot={() => setView('forgot-request')} setError={setError} />}
     {view === 'register' && <RegisterForm onSubmit={async (e,u,p,c)=>{ await register(e,u,p,c); onSuccess(); }} setError={setError} />}
-    {view === 'forgot-request' && <ForgotRequest setError={setError} onSent={(email)=>{ setEmailForReset(email); setView('forgot-verify'); }} onBack={() => setView('login')} />}
-    {view === 'forgot-verify' && <ForgotVerify email={emailForReset} setEmail={setEmailForReset} setView={setView} setError={setError} onBack={() => setView('login')} />}
+    {view === 'forgot-request' && <ForgotRequest setError={setError} onSent={(email)=>{ setEmailForReset(email); setResetToken(''); setView('forgot-verify'); }} onBack={() => setView('login')} />}
+    {view === 'forgot-verify' && <ForgotVerify email={emailForReset} resetToken={resetToken} setResetToken={setResetToken} setEmail={setEmailForReset} setView={setView} setError={setError} onBack={() => setView('login')} />}
     {error && <p className="status-banner status-danger">{error}</p>}
     <SecondaryButton className="w-full" onClick={() => router.push('/')}>Back to Froddle home</SecondaryButton>
   </Card>;
@@ -60,20 +61,20 @@ function RegisterForm({ onSubmit, setError }: { onSubmit: (e: string, u: string,
 
 function ForgotRequest({ onBack, onSent, setError }: { onBack: () => void; onSent: (email: string) => void; setError: (v: string | null) => void }) {
 const [email,setEmail]=useState(''); const [message,setMessage]=useState(''); const [submitting,setSubmitting]=useState(false);
-return <form className="space-y-3" onSubmit={(e)=>{e.preventDefault(); setError(null); setMessage(''); setSubmitting(true); requestResetCode(email.trim()).then((res)=>{const normalizedEmail=email.trim().toLowerCase(); setMessage(res.message); onSent(normalizedEmail);}).catch((err)=>setError((err as Error).message)).finally(()=>setSubmitting(false));}}>
+return <form className="space-y-3" onSubmit={(e)=>{e.preventDefault(); setError(null); setMessage(''); setSubmitting(true); requestResetCode(email.trim()).then(()=>{const normalizedEmail=email.trim().toLowerCase(); setMessage('OTP sent to your email'); onSent(normalizedEmail);}).catch((err)=>setError((err as Error).message || 'Failed to send email. Please try again.')).finally(()=>setSubmitting(false));}}>
   <Input placeholder="Email" value={email} onChange={(e)=>setEmail(e.target.value)} autoComplete="email" />
-  <Button className="w-full" disabled={submitting}>{submitting ? 'Sending…' : 'Send reset code'}</Button>
+  <Button className="w-full" disabled={submitting}>{submitting ? 'Sending...' : 'Send reset code'}</Button>
   {message && <p className="text-xs text-[color:var(--text-muted)]">{message}</p>}
   <button type="button" onClick={onBack} className="block text-sm text-[color:var(--text-main)]">Back</button>
 </form> }
 
-function ForgotVerify({ email, setEmail, setView, onBack, setError }: { email: string; setEmail: (value: string) => void; setView: (view: AuthView) => void; onBack: () => void; setError: (v: string | null) => void }) {
+function ForgotVerify({ email, resetToken, setResetToken, setEmail, setView, onBack, setError }: { email: string; resetToken: string; setResetToken: (value: string) => void; setEmail: (value: string) => void; setView: (view: AuthView) => void; onBack: () => void; setError: (v: string | null) => void }) {
 const [code,setCode]=useState(''); const [password,setPassword]=useState(''); const [confirmPassword,setConfirmPassword]=useState(''); const [message,setMessage]=useState(''); const [submitting,setSubmitting]=useState(false);
-return <form className="space-y-3" onSubmit={(e)=>{e.preventDefault(); setError(null); setMessage(''); setSubmitting(true); verifyResetCode({ email: email.trim().toLowerCase(), code: code.trim(), password, confirmPassword }).then((res)=>setMessage(res.message)).catch((err)=>setError((err as Error).message)).finally(()=>setSubmitting(false));}}>
+return <form className="space-y-3" onSubmit={(e)=>{e.preventDefault(); setError(null); setMessage(''); setSubmitting(true); const normalizedEmail = email.trim().toLowerCase(); const verifyPromise = resetToken ? Promise.resolve({ resetToken }) : verifyResetOtp({ email: normalizedEmail, otp: code.trim() }); verifyPromise.then((res)=>{ if (!resetToken) setResetToken(res.resetToken); return resetPasswordWithOtp({ email: normalizedEmail, resetToken: res.resetToken, password, confirmPassword }); }).then((res)=>{ setMessage(res.message); setResetToken(''); }).catch((err)=>setError((err as Error).message)).finally(()=>setSubmitting(false));}}>
 <Input placeholder="Email" value={email} onChange={(e)=>setEmail(e.target.value)} autoComplete="email" />
-<Input placeholder="6-digit code" inputMode="numeric" value={code} onChange={(e)=>setCode(e.target.value.replace(/\D/g, '').slice(0, 6))} maxLength={6} />
+<Input placeholder="6-digit code" inputMode="numeric" value={code} onChange={(e)=>{ setResetToken(''); setCode(e.target.value.replace(/\D/g, '').slice(0, 6)); }} maxLength={6} />
 <Input type="password" placeholder="New password" value={password} onChange={(e)=>setPassword(e.target.value)} autoComplete="new-password" />
 <Input type="password" placeholder="Confirm new password" value={confirmPassword} onChange={(e)=>setConfirmPassword(e.target.value)} autoComplete="new-password" />
-<Button className="w-full" disabled={submitting}>{submitting ? 'Resetting…' : 'Reset password'}</Button>
+<Button className="w-full" disabled={submitting}>{submitting ? 'Resetting...' : 'Reset password'}</Button>
 {message && <div className="space-y-2"><p className="text-xs text-[color:var(--success)]">{message}</p><button type="button" onClick={() => { setError(null); setView('login'); }} className="text-sm font-medium text-[color:var(--brand-blue)] underline underline-offset-2">Return to login</button></div>}
 <button type="button" onClick={onBack} className="block text-sm text-[color:var(--text-main)]">Back to login</button></form> }
