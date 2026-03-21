@@ -16,8 +16,12 @@ const envSchema = z.object({
   MONGODB_URI: z.string().optional(),
   MONGO_URI: z.string().optional(),
   JWT_SECRET: z.string().optional(),
-  RESEND_API_KEY: z.string().optional(),
-  RESEND_FROM_EMAIL: z.string().optional(),
+  SMTP_HOST: z.string().optional(),
+  SMTP_PORT: z.coerce.number().int().positive().optional(),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASS: z.string().optional(),
+  SMTP_FROM: z.string().optional(),
+  SMTP_SECURE: z.string().optional(),
   CLOUDINARY_CLOUD_NAME: z.string().optional(),
   CLOUDINARY_API_KEY: z.string().optional(),
   CLOUDINARY_API_SECRET: z.string().optional()
@@ -124,8 +128,13 @@ export const validateCriticalEnv = () => {
     warnings.push('JWT_SECRET is missing or using default development value. Use a strong secret in production.');
   }
 
-  if (!env.RESEND_API_KEY || !env.RESEND_FROM_EMAIL) {
-    warnings.push('Resend email env vars are incomplete. Password reset email delivery will be disabled.');
+  const missingSmtpVars = ['SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASS', 'SMTP_FROM'].filter((key) => {
+    const value = env[key as keyof typeof env];
+    return value === undefined || value === null || String(value).trim() === '';
+  });
+
+  if (missingSmtpVars.length) {
+    warnings.push(`SMTP email env vars are incomplete (${missingSmtpVars.join(', ')}). Password reset email delivery will be disabled.`);
   }
 
   if (!env.CLIENT_ORIGIN && !env.CLIENT_URL && !env.CLIENT_ORIGINS) {

@@ -186,9 +186,9 @@ const request = async <T>(
       : null;
 
     if (!response.ok) {
-      const payload = body as { message?: string; error?: string } | null;
+      const payload = body as { message?: string; error?: string; code?: string } | null;
       const message = payload?.message || fallback;
-      throw new ApiError(message, response.status, payload?.error);
+      throw new ApiError(message, response.status, payload?.code || payload?.error);
     }
 
     return body as T;

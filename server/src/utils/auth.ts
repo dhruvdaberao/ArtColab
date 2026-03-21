@@ -27,6 +27,15 @@ export const hashResetCode = (code: string): string => {
   return crypto.createHash('sha256').update(code).digest('hex');
 };
 
+export const areResetCodeHashesEqual = (storedHash: string, candidateCode: string): boolean => {
+  const storedBuffer = Buffer.from(storedHash, 'hex');
+  const candidateBuffer = Buffer.from(hashResetCode(candidateCode), 'hex');
+
+  if (storedBuffer.length !== candidateBuffer.length) return false;
+
+  return crypto.timingSafeEqual(storedBuffer, candidateBuffer);
+};
+
 export const generateResetCode = (): string => {
   return crypto.randomInt(100000, 1000000).toString();
 };
