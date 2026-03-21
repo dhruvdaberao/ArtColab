@@ -180,14 +180,10 @@ export default function BrowseRoomsPage() {
                   startJoin(room).catch((e) => setError((e as Error).message))
                 }
                 className="mt-auto w-full"
-                disabled={Boolean(joiningRoomId)}
+                disabled={joiningRoomId === room.roomId}
                 aria-busy={joiningRoomId === room.roomId}
               >
-                {joiningRoomId === room.roomId
-                  ? "Joining…"
-                  : joiningRoomId
-                    ? "Please wait…"
-                    : "Join room"}
+                {joiningRoomId === room.roomId ? "Joining…" : "Join room"}
               </Button>
             </div>
           ))}
