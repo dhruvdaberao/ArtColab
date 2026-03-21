@@ -103,6 +103,37 @@ const ROOM_VIEWPORT_HEIGHT_VAR = "--room-viewport-height";
 const ROOM_IMMERSIVE_TOP_VAR = "--room-immersive-top-offset";
 const IMMERSIVE_RETRY_EVENTS = ["pointerdown", "touchstart"] as const;
 
+const getInitialViewportState = () => {
+  if (typeof window === "undefined") {
+    return {
+      isTouchWorkspace: false,
+      isPortraitViewport: false,
+    };
+  }
+
+  const coarsePointer = window.matchMedia("(pointer: coarse)").matches;
+  const viewportWidth = Math.round(
+    window.visualViewport?.width ?? window.innerWidth,
+  );
+  const viewportHeight = Math.round(
+    window.visualViewport?.height ?? window.innerHeight,
+  );
+
+  return {
+    isTouchWorkspace:
+      coarsePointer && window.innerWidth <= MOBILE_WORKSPACE_MAX_WIDTH,
+    isPortraitViewport: viewportHeight > viewportWidth,
+  };
+};
+
+const canOpenRoomImmediately = (
+  hint: ReturnType<typeof readRoomEntryHint> | null,
+) =>
+  Boolean(
+    hint &&
+      (hint.visibility !== "private" || hasRoomAccessGrant(hint.roomId)),
+  );
+
 type ToolPanel =
   | "brush"
   | "eraser"
@@ -154,10 +185,7 @@ export default function RoomPage() {
   const [displayName, setDisplayName] = useState("Guest");
   const roomEntryHint = useMemo(() => readRoomEntryHint(roomId), [roomId]);
   const [roomReady, setRoomReady] = useState(() =>
-    roomEntryHint
-      ? roomEntryHint.visibility !== "private" ||
-        hasRoomAccessGrant(roomEntryHint.roomId)
-      : false,
+    canOpenRoomImmediately(roomEntryHint),
   );
   const [roomMeta, setRoomMeta] = useState<{
     roomId: string;
@@ -173,7 +201,9 @@ export default function RoomPage() {
       : null,
   );
   const [roomLoadError, setRoomLoadError] = useState<string | null>(null);
-  const [isRoomLoading, setIsRoomLoading] = useState(() => !roomEntryHint);
+  const [isRoomLoading, setIsRoomLoading] = useState(
+    () => !canOpenRoomImmediately(roomEntryHint),
+  );
   const [privateRoomPassword, setPrivateRoomPassword] = useState("");
   const [privateRoomError, setPrivateRoomError] = useState<string | null>(null);
   const [isUnlockingPrivateRoom, setIsUnlockingPrivateRoom] = useState(false);
@@ -185,8 +215,12 @@ export default function RoomPage() {
     Array<{ id: string; emoji: string; left: number }>
   >([]);
   const [resetViewSignal, setResetViewSignal] = useState(0);
-  const [isTouchWorkspace, setIsTouchWorkspace] = useState(false);
-  const [isPortraitViewport, setIsPortraitViewport] = useState(false);
+  const [isTouchWorkspace, setIsTouchWorkspace] = useState(
+    () => getInitialViewportState().isTouchWorkspace,
+  );
+  const [isPortraitViewport, setIsPortraitViewport] = useState(
+    () => getInitialViewportState().isPortraitViewport,
+  );
   const [immersiveUiRetryNeeded, setImmersiveUiRetryNeeded] = useState(false);
   const [activeToolPanel, setActiveToolPanel] = useState<ToolPanel>("brush");
   const [roomMetaLoaded, setRoomMetaLoaded] = useState(() =>
@@ -245,10 +279,7 @@ export default function RoomPage() {
     });
     setRoomMetaLoaded(true);
     setIsRoomLoading(false);
-    setRoomReady(
-      roomEntryHint.visibility !== "private" ||
-        hasRoomAccessGrant(roomEntryHint.roomId),
-    );
+    setRoomReady(canOpenRoomImmediately(roomEntryHint));
   }, [roomEntryHint]);
 
   useEffect(() => {
@@ -284,10 +315,11 @@ export default function RoomPage() {
       return;
     }
     let cancelled = false;
+    const canUseEntryHint = canOpenRoomImmediately(roomEntryHint);
     setRoomLoadError(null);
-    setRoomReady(false);
-    setRoomMetaLoaded(false);
-    setIsRoomLoading(true);
+    setRoomReady((current) => current || canUseEntryHint);
+    setRoomMetaLoaded(canUseEntryHint);
+    setIsRoomLoading(!canUseEntryHint);
     getRoom(roomId)
       .then((data) => {
         if (cancelled) return;
@@ -307,13 +339,14 @@ export default function RoomPage() {
         console.error("[room-page] failed to load room", { roomId, error });
         setRoomMeta(null);
         setRoomLoadError(error.message || "Unable to load room.");
+        setRoomReady(false);
         setRoomMetaLoaded(true);
         setIsRoomLoading(false);
       });
     return () => {
       cancelled = true;
     };
-  }, [roomId, isValidRoomId]);
+  }, [roomEntryHint, roomId, isValidRoomId]);
 
   useEffect(() => {
     joinedToastShownRef.current = false;
