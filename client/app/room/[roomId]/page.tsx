@@ -101,8 +101,6 @@ const PRESET_COLORS = [
 
 const MOBILE_WORKSPACE_MAX_WIDTH = 1366;
 const ROOM_VIEWPORT_HEIGHT_VAR = "--room-viewport-height";
-const ROOM_IMMERSIVE_TOP_VAR = "--room-immersive-top-offset";
-const IMMERSIVE_RETRY_EVENTS = ["pointerdown", "touchstart"] as const;
 
 const getInitialViewportState = () => {
   if (typeof window === "undefined") {
@@ -257,11 +255,7 @@ export default function RoomPage() {
   const [isPortraitViewport, setIsPortraitViewport] = useState(
     () => getInitialViewportState().isPortraitViewport,
   );
-  const [immersiveUiRetryNeeded, setImmersiveUiRetryNeeded] = useState(false);
   const [activeToolPanel, setActiveToolPanel] = useState<ToolPanel>("brush");
-  const [roomMetaLoaded, setRoomMetaLoaded] = useState(() =>
-    Boolean(roomEntryHint),
-  );
   const [activeFunctionPanel, setActiveFunctionPanel] =
     useState<FunctionPanel>(null);
   const [isBoardSurfaceReady, setIsBoardSurfaceReady] = useState(false);
@@ -269,9 +263,6 @@ export default function RoomPage() {
     useState<ColorPickerTarget>(null);
   const chatEndRef = useRef<HTMLDivElement | null>(null);
   const joinedToastShownRef = useRef(false);
-  const isMountedRef = useRef(true);
-  const orientationLockedRef = useRef(false);
-  const immersiveUiRestoreTimerRef = useRef<number | null>(null);
   const toolPanelRef = useRef<HTMLDivElement | null>(null);
   const functionPanelRef = useRef<HTMLDivElement | null>(null);
   const { user } = useAuth();
@@ -314,7 +305,6 @@ export default function RoomPage() {
       name: roomEntryHint.name,
       visibility: roomEntryHint.visibility,
     });
-    setRoomMetaLoaded(true);
     setIsRoomLoading(false);
     setRoomReady(canOpenRoomImmediately(roomEntryHint));
   }, [roomEntryHint]);
@@ -339,7 +329,6 @@ export default function RoomPage() {
       setRoomLoadError("Missing room code.");
       setRoomReady(false);
       setRoomMeta(null);
-      setRoomMetaLoaded(true);
       setIsRoomLoading(false);
       return;
     }
@@ -347,7 +336,6 @@ export default function RoomPage() {
       setRoomLoadError("Invalid room code.");
       setRoomReady(false);
       setRoomMeta(null);
-      setRoomMetaLoaded(true);
       setIsRoomLoading(false);
       return;
     }
@@ -355,7 +343,6 @@ export default function RoomPage() {
     const canUseEntryHint = canOpenRoomImmediately(roomEntryHint);
     setRoomLoadError(null);
     setRoomReady((current) => current || canUseEntryHint);
-    setRoomMetaLoaded(canUseEntryHint);
     setIsRoomLoading(!canUseEntryHint);
     getRoom(roomId)
       .then((data) => {
@@ -368,7 +355,6 @@ export default function RoomPage() {
         )
           setRoomReady(false);
         else setRoomReady(true);
-        setRoomMetaLoaded(true);
         setIsRoomLoading(false);
       })
       .catch((error: Error) => {
@@ -377,7 +363,6 @@ export default function RoomPage() {
         setRoomMeta(null);
         setRoomLoadError(error.message || "Unable to load room.");
         setRoomReady(false);
-        setRoomMetaLoaded(true);
         setIsRoomLoading(false);
       });
     return () => {
@@ -388,6 +373,9 @@ export default function RoomPage() {
   useEffect(() => {
     joinedToastShownRef.current = false;
     setIsBoardSurfaceReady(false);
+    setRoomLoadError(null);
+    setPrivateRoomError(null);
+    setPrivateRoomPassword("");
   }, [roomId]);
 
   useEffect(() => {
@@ -414,8 +402,6 @@ export default function RoomPage() {
     const viewportHeight = Math.round(
       window.visualViewport?.height ?? window.innerHeight,
     );
-    const chromeInset = Math.max(0, window.innerHeight - viewportHeight);
-
     setIsTouchWorkspace(touchWorkspace);
     setIsPortraitViewport(viewportHeight > viewportWidth);
     document.documentElement.style.setProperty(
@@ -425,10 +411,6 @@ export default function RoomPage() {
     document.documentElement.style.setProperty(
       "--room-viewport-width",
       `${viewportWidth}px`,
-    );
-    document.documentElement.style.setProperty(
-      ROOM_IMMERSIVE_TOP_VAR,
-      `${chromeInset}px`,
     );
   }, []);
 
@@ -465,196 +447,12 @@ export default function RoomPage() {
     };
   }, [syncViewportState]);
 
-  const resetWorkspaceMode = useCallback(
-    async ({ preserveState = false }: { preserveState?: boolean } = {}) => {
-      document.body.classList.remove("room-workspace-body");
-      document.documentElement.classList.remove("room-workspace-root");
+  useEffect(() => {
+    return () => {
       document.documentElement.style.removeProperty(ROOM_VIEWPORT_HEIGHT_VAR);
-      document.documentElement.style.removeProperty(ROOM_IMMERSIVE_TOP_VAR);
       document.documentElement.style.removeProperty("--room-viewport-width");
-      if (immersiveUiRestoreTimerRef.current) {
-        window.clearTimeout(immersiveUiRestoreTimerRef.current);
-        immersiveUiRestoreTimerRef.current = null;
-      }
-      if (!preserveState && isMountedRef.current) {
-        setImmersiveUiRetryNeeded(false);
-      }
-      const screenOrientation = window.screen
-        .orientation as ScreenOrientation & { unlock?: () => void };
-      if (
-        orientationLockedRef.current &&
-        typeof screenOrientation.unlock === "function"
-      ) {
-        try {
-          screenOrientation.unlock();
-        } catch {
-          // noop
-        }
-      }
-      orientationLockedRef.current = false;
-      if (
-        document.fullscreenElement &&
-        document.fullscreenElement === document.documentElement
-      ) {
-        try {
-          await document.exitFullscreen();
-        } catch {
-          // noop
-        }
-      }
-    },
-    [],
-  );
-
-  const ensureImmersiveWorkspace = useCallback(
-    async ({ allowFullscreen = false }: { allowFullscreen?: boolean } = {}) => {
-      if (!roomReady || !isTouchWorkspace || !isMountedRef.current) return;
-
-      syncViewportState();
-      document.body.classList.add("room-workspace-body");
-      document.documentElement.classList.add("room-workspace-root");
-
-      const screenOrientation = window.screen
-        .orientation as ScreenOrientation & {
-        lock?: (orientation: string) => Promise<void>;
-      };
-
-      const canRequestFullscreen =
-        allowFullscreen &&
-        typeof document.documentElement.requestFullscreen === "function" &&
-        !document.fullscreenElement;
-
-      try {
-        if (canRequestFullscreen) {
-          await document.documentElement.requestFullscreen({
-            navigationUI: "hide",
-          } as FullscreenOptions);
-        }
-      } catch {
-        setImmersiveUiRetryNeeded(true);
-      }
-
-      try {
-        if (typeof screenOrientation.lock === "function") {
-          await screenOrientation.lock("landscape");
-          orientationLockedRef.current = true;
-        }
-      } catch {
-        orientationLockedRef.current = false;
-      }
-
-      setImmersiveUiRetryNeeded(
-        !document.fullscreenElement && isTouchWorkspace,
-      );
-
-      window.scrollTo({ top: 0, left: 0, behavior: "auto" });
-    },
-    [isTouchWorkspace, roomReady, syncViewportState],
-  );
-
-  useEffect(() => {
-    isMountedRef.current = true;
-
-    const cleanupWorkspace = () => {
-      void resetWorkspaceMode({ preserveState: true });
     };
-
-    window.addEventListener("pagehide", cleanupWorkspace);
-    window.addEventListener("beforeunload", cleanupWorkspace);
-    window.addEventListener("popstate", cleanupWorkspace);
-
-    return () => {
-      isMountedRef.current = false;
-      window.removeEventListener("pagehide", cleanupWorkspace);
-      window.removeEventListener("beforeunload", cleanupWorkspace);
-      window.removeEventListener("popstate", cleanupWorkspace);
-      void resetWorkspaceMode({ preserveState: true });
-    };
-  }, [resetWorkspaceMode]);
-
-  useEffect(() => {
-    if (!roomReady) {
-      void resetWorkspaceMode({ preserveState: true });
-      return;
-    }
-
-    void ensureImmersiveWorkspace();
-
-    const restoreImmersiveWorkspace = () => {
-      syncViewportState();
-      if (document.visibilityState === "hidden") return;
-      void ensureImmersiveWorkspace();
-      if (immersiveUiRestoreTimerRef.current) {
-        window.clearTimeout(immersiveUiRestoreTimerRef.current);
-      }
-      immersiveUiRestoreTimerRef.current = window.setTimeout(() => {
-        void ensureImmersiveWorkspace();
-      }, 240);
-    };
-
-    const handleFullscreenChange = () => {
-      setImmersiveUiRetryNeeded(
-        isTouchWorkspace && !document.fullscreenElement,
-      );
-      restoreImmersiveWorkspace();
-    };
-
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === "visible") {
-        restoreImmersiveWorkspace();
-      }
-    };
-
-    window.addEventListener("focus", restoreImmersiveWorkspace);
-    window.addEventListener("pageshow", restoreImmersiveWorkspace);
-    window.addEventListener("resize", restoreImmersiveWorkspace);
-    window.addEventListener("orientationchange", restoreImmersiveWorkspace);
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-    document.addEventListener("fullscreenchange", handleFullscreenChange);
-    window.visualViewport?.addEventListener(
-      "resize",
-      restoreImmersiveWorkspace,
-    );
-
-    const tryFullscreenFromGesture = () => {
-      void ensureImmersiveWorkspace({ allowFullscreen: true });
-    };
-    for (const eventName of IMMERSIVE_RETRY_EVENTS) {
-      window.addEventListener(eventName, tryFullscreenFromGesture, {
-        passive: true,
-      });
-    }
-
-    return () => {
-      window.removeEventListener("focus", restoreImmersiveWorkspace);
-      window.removeEventListener("pageshow", restoreImmersiveWorkspace);
-      window.removeEventListener("resize", restoreImmersiveWorkspace);
-      window.removeEventListener(
-        "orientationchange",
-        restoreImmersiveWorkspace,
-      );
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-      document.removeEventListener("fullscreenchange", handleFullscreenChange);
-      window.visualViewport?.removeEventListener(
-        "resize",
-        restoreImmersiveWorkspace,
-      );
-      for (const eventName of IMMERSIVE_RETRY_EVENTS) {
-        window.removeEventListener(eventName, tryFullscreenFromGesture);
-      }
-      if (immersiveUiRestoreTimerRef.current) {
-        window.clearTimeout(immersiveUiRestoreTimerRef.current);
-        immersiveUiRestoreTimerRef.current = null;
-      }
-      void resetWorkspaceMode({ preserveState: true });
-    };
-  }, [
-    ensureImmersiveWorkspace,
-    isTouchWorkspace,
-    resetWorkspaceMode,
-    roomReady,
-    syncViewportState,
-  ]);
+  }, []);
 
   useEffect(() => {
     if (!roomId || !userId || !isValidRoomId) return;
@@ -851,20 +649,13 @@ export default function RoomPage() {
     };
   }, [pushToast]);
 
-  const leaveRoomSafely = useCallback(async () => {
+  const leaveRoomSafely = useCallback(() => {
     closeFloatingPanels();
-    await resetWorkspaceMode();
     leaveSocketRoom();
     revokeRoomAccess(roomId);
     setIsExitModalOpen(false);
     router.push("/");
-  }, [
-    closeFloatingPanels,
-    leaveSocketRoom,
-    resetWorkspaceMode,
-    roomId,
-    router,
-  ]);
+  }, [closeFloatingPanels, leaveSocketRoom, roomId, router]);
 
   const unlockPrivateRoom = useCallback(async () => {
     if (!roomMeta || roomMeta.visibility !== "private") return;
@@ -1378,12 +1169,10 @@ export default function RoomPage() {
     );
 
   return (
-    <main
-      className={`relative overflow-hidden ${roomReady ? `room-workspace-shell ${isTouchWorkspace && isPortraitViewport ? "room-workspace-shell--portrait" : ""} p-1 sm:p-1.5` : "min-h-screen p-3 sm:p-4"}`}
-    >
+    <main className="room-workspace-shell relative min-h-screen overflow-hidden p-3 sm:p-4">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,#ffffff_0%,rgba(255,255,255,0.78)_18%,rgba(248,244,232,0)_58%)]" />
       <div
-        className={`relative mx-auto flex h-full min-h-0 w-full max-w-[1920px] gap-1.5 overflow-hidden rounded-[28px] border border-white/60 bg-[linear-gradient(150deg,rgba(12,26,43,0.05),rgba(255,255,255,0.72))] p-1.5 shadow-[0_24px_64px_rgba(26,26,26,0.12)] ${roomReady ? "" : "min-h-[calc(100vh-1.5rem)]"}`}
+        className={`relative mx-auto flex h-full min-h-0 w-full max-w-[1920px] gap-1.5 overflow-hidden rounded-[28px] border border-white/60 bg-[linear-gradient(150deg,rgba(12,26,43,0.05),rgba(255,255,255,0.72))] p-1.5 shadow-[0_24px_64px_rgba(26,26,26,0.12)] ${roomReady ? "" : "min-h-[calc(var(--room-viewport-height,100vh)-1.5rem)]"}`}
       >
         <aside
           className={`relative z-30 shrink-0 ${isTouchWorkspace ? "w-[56px]" : "w-[68px] xl:w-[72px]"}`}
@@ -1534,13 +1323,6 @@ export default function RoomPage() {
               onBoardReadyChange={setIsBoardSurfaceReady}
             />
           </div>
-          {immersiveUiRetryNeeded && isTouchWorkspace && (
-            <div className="pointer-events-none absolute left-1/2 top-3 z-40 w-[min(92vw,360px)] -translate-x-1/2 rounded-full border border-white/20 bg-[rgba(15,23,42,0.78)] px-4 py-2 text-center text-xs font-semibold text-white shadow-2xl backdrop-blur-sm">
-              Tap once if your browser shows bars again — Froddle will re-enter
-              immersive workspace mode automatically when the platform allows.
-            </div>
-          )}
-
           {reactionBursts.map((burst) => (
             <span
               key={burst.id}
