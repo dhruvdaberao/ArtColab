@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import { Router, type NextFunction, type Request, type Response } from 'express';
 import { z } from 'zod';
 import { connectMongo, isMongoReady } from '../db/mongo.js';
+import { env } from '../config/env.js';
 import { User } from '../models/User.js';
 import { Room } from '../models/Room.js';
 import type { RoomManager } from '../rooms/roomManager.js';
@@ -58,7 +59,7 @@ type GuestUpgradeContext = {
   guestDisplayName?: string;
 };
 
-const RESET_CODE_TTL_MS = 10 * 60 * 1000;
+const RESET_CODE_TTL_MS = env.OTP_EXPIRES_MINUTES * 60 * 1000;
 const RESET_SESSION_TTL_MS = 10 * 60 * 1000;
 
 const asyncHandler =
@@ -138,16 +139,7 @@ const mapEmailErrorToResponse = (error: EmailDeliveryError) => {
         status: 503,
         payload: {
           success: false,
-          message: 'Email service is not configured correctly on the server.',
-          code: error.code
-        }
-      };
-    case 'EMAIL_AUTH_FAILED':
-      return {
-        status: 503,
-        payload: {
-          success: false,
-          message: 'Email login failed. Please verify the SMTP credentials on the server.',
+          message: 'Failed to send OTP. Try again.',
           code: error.code
         }
       };
@@ -156,7 +148,7 @@ const mapEmailErrorToResponse = (error: EmailDeliveryError) => {
         status: 503,
         payload: {
           success: false,
-          message: 'The email provider rejected the password reset message. Please try again later.',
+          message: 'Failed to send OTP. Try again.',
           code: error.code
         }
       };
@@ -165,7 +157,7 @@ const mapEmailErrorToResponse = (error: EmailDeliveryError) => {
         status: 503,
         payload: {
           success: false,
-          message: 'Password reset email could not be sent right now. Please try again shortly.',
+          message: 'Failed to send OTP. Try again.',
           code: error.code
         }
       };
@@ -309,12 +301,12 @@ export const authRouter = (roomManager: RoomManager) => {
 
       return res.status(503).json({
         success: false,
-        message: 'Password reset email could not be sent right now. Please try again shortly.',
+        message: 'Failed to send OTP. Try again.',
         code: 'EMAIL_SEND_FAILED'
       });
     }
 
-    return res.json({ success: true, message: 'OTP sent to your email.', expiresInMinutes: RESET_CODE_TTL_MS / 60000 });
+    return res.json({ success: true, message: 'OTP sent to your email', expiresInMinutes: env.OTP_EXPIRES_MINUTES });
   }));
 
   router.post('/forgot-password/verify-otp', asyncHandler(async (req: Request, res: Response) => {

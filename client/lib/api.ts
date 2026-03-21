@@ -359,7 +359,7 @@ export const requestResetCode = async (email: string) =>
   request<{ message: string }>(
     "/api/auth/forgot-password/request",
     { method: "POST", body: JSON.stringify({ email }) },
-    "Failed to send email. Please try again.",
+    "Failed to send OTP. Try again",
   );
 
 export const verifyResetOtp = async (payload: {

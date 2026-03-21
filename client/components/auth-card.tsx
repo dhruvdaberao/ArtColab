@@ -61,7 +61,7 @@ function RegisterForm({ onSubmit, setError }: { onSubmit: (e: string, u: string,
 
 function ForgotRequest({ onBack, onSent, setError }: { onBack: () => void; onSent: (email: string) => void; setError: (v: string | null) => void }) {
 const [email,setEmail]=useState(''); const [message,setMessage]=useState(''); const [submitting,setSubmitting]=useState(false);
-return <form className="space-y-3" onSubmit={(e)=>{e.preventDefault(); setError(null); setMessage(''); setSubmitting(true); requestResetCode(email.trim()).then(()=>{const normalizedEmail=email.trim().toLowerCase(); setMessage('OTP sent to your email'); onSent(normalizedEmail);}).catch((err)=>setError((err as Error).message || 'Failed to send email. Please try again.')).finally(()=>setSubmitting(false));}}>
+return <form className="space-y-3" onSubmit={(e)=>{e.preventDefault(); setError(null); setMessage(''); setSubmitting(true); requestResetCode(email.trim()).then(()=>{const normalizedEmail=email.trim().toLowerCase(); setMessage('OTP sent to your email'); onSent(normalizedEmail);}).catch((err)=>setError((err as Error).message || 'Failed to send OTP. Try again')).finally(()=>setSubmitting(false));}}>
   <Input placeholder="Email" value={email} onChange={(e)=>setEmail(e.target.value)} autoComplete="email" />
   <Button className="w-full" disabled={submitting}>{submitting ? 'Sending...' : 'Send reset code'}</Button>
   {message && <p className="text-xs text-[color:var(--text-muted)]">{message}</p>}
