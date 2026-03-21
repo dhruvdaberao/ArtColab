@@ -8,7 +8,7 @@ import { Room } from '../models/Room.js';
 import type { RoomManager } from '../rooms/roomManager.js';
 import { serializeSafeUser } from '../serializers/user.js';
 import { areResetCodeHashesEqual, generateGuestUsername, generateResetCode, hashResetCode, signGuestToken, signUserToken, verifyToken } from '../utils/auth.js';
-import { EmailDeliveryError, sendPasswordResetCodeEmail } from '../utils/email.js';
+import { EmailDeliveryError, sendOTPEmail } from '../utils/email.js';
 
 const registerSchema = z
   .object({
@@ -35,12 +35,22 @@ const resetRequestSchema = z.object({
   email: z.string().trim().email()
 });
 
-const resetVerifySchema = z.object({
+const verifyOtpSchema = z.object({
   email: z.string().trim().email(),
-  code: z.string().trim().regex(/^\d{6}$/, 'Reset code must be 6 digits.'),
-  password: z.string().min(8).max(72),
-  confirmPassword: z.string().min(8).max(72)
+  otp: z.string().trim().regex(/^\d{6}$/, 'Reset code must be 6 digits.')
 });
+
+const resetPasswordSchema = z
+  .object({
+    email: z.string().trim().email(),
+    resetToken: z.string().trim().min(32),
+    password: z.string().min(8).max(72),
+    confirmPassword: z.string().min(8).max(72)
+  })
+  .refine((value) => value.password === value.confirmPassword, {
+    message: 'Passwords do not match.',
+    path: ['confirmPassword']
+  });
 
 type GuestUpgradeContext = {
   guestId: string;
@@ -49,6 +59,7 @@ type GuestUpgradeContext = {
 };
 
 const RESET_CODE_TTL_MS = 10 * 60 * 1000;
+const RESET_SESSION_TTL_MS = 10 * 60 * 1000;
 
 const asyncHandler =
   (handler: (req: Request, res: Response, next: NextFunction) => Promise<void | Response>) =>
@@ -127,7 +138,7 @@ const mapEmailErrorToResponse = (error: EmailDeliveryError) => {
         status: 503,
         payload: {
           success: false,
-          message: 'Password reset email is unavailable because the server email configuration is incomplete.',
+          message: 'Email service is not configured correctly on the server.',
           code: error.code
         }
       };
@@ -136,7 +147,7 @@ const mapEmailErrorToResponse = (error: EmailDeliveryError) => {
         status: 503,
         payload: {
           success: false,
-          message: 'Password reset email is temporarily unavailable. Please try again shortly.',
+          message: 'Email login failed. Please verify the SMTP credentials on the server.',
           code: error.code
         }
       };
@@ -161,6 +172,24 @@ const mapEmailErrorToResponse = (error: EmailDeliveryError) => {
   }
 };
 
+const clearResetState = async (user: any) => {
+  user.resetCodeHash = null;
+  user.resetCodeExpiresAt = null;
+  user.resetSessionHash = null;
+  user.resetSessionExpiresAt = null;
+  await user.save();
+};
+
+const issueResetSession = async (user: any) => {
+  const resetToken = crypto.randomBytes(32).toString('hex');
+  user.resetSessionHash = hashResetCode(resetToken);
+  user.resetSessionExpiresAt = new Date(Date.now() + RESET_SESSION_TTL_MS);
+  user.resetCodeHash = null;
+  user.resetCodeExpiresAt = null;
+  await user.save();
+  return resetToken;
+};
+
 export const authRouter = (roomManager: RoomManager) => {
   const router = Router();
 
@@ -178,65 +207,38 @@ export const authRouter = (roomManager: RoomManager) => {
   router.post('/register', asyncHandler(async (req: Request, res: Response) => {
     console.info('[auth] register request received');
 
-    if (!await ensureMongo(res)) {
-      console.error('[auth] register aborted: mongo unavailable');
-      return;
-    }
+    if (!await ensureMongo(res)) return;
 
     const parsed = registerSchema.safeParse(req.body);
     if (!parsed.success) {
-      console.warn('[auth] register validation failed', {
-        issues: parsed.error.issues.map((issue) => ({ path: issue.path.join('.'), message: issue.message }))
-      });
       return res.status(400).json({ success: false, message: parsed.error.issues[0]?.message || 'Invalid registration payload.' });
     }
 
     const { email, username, password, guestToken, guestDisplayName } = parsed.data;
-    const normalizedEmail = email.toLowerCase();
-    const upgrade = getGuestUpgradeContext(guestToken, guestDisplayName);
 
     try {
-      const existing = await User.findOne({
-        $or: [{ email: normalizedEmail }, { username }]
-      }).lean();
-
-      if (existing) {
-        const isEmailTaken = existing.email === normalizedEmail;
-        console.info('[auth] register rejected: duplicate value', { duplicateField: isEmailTaken ? 'email' : 'username' });
-        return res.status(409).json({ success: false, message: isEmailTaken ? 'Email already in use.' : 'Username already in use.' });
-      }
-
       const passwordHash = await bcrypt.hash(password, 12);
-      let user = await User.create({
-        email: normalizedEmail,
+      const created = await User.create({
+        email: email.toLowerCase(),
         username,
         password: passwordHash
       });
 
-      await migrateGuestData({ roomManager, userId: String(user._id), username: user.username, upgrade });
-      user = (await User.findById(user._id)) ?? user;
-
-      const token = signUserToken({ sub: String(user._id), username: user.username, email: user.email, role: 'user' });
-      return res.status(201).json({ success: true, token, user: serializeSafeUser(user) });
+      await migrateGuestData({ roomManager, userId: String(created._id), username: created.username, upgrade: getGuestUpgradeContext(guestToken, guestDisplayName) });
+      const token = signUserToken({ sub: String(created._id), username: created.username, email: created.email, role: 'user' });
+      return res.status(201).json({ success: true, token, user: serializeSafeUser(created) });
     } catch (error) {
-      const duplicateError = (error as { code?: number })?.code === 11000;
-      if (duplicateError) {
-        console.warn('[auth] register duplicate key from db layer', {
-          message: (error as Error).message
-        });
-        return res.status(409).json({ success: false, message: getDuplicateMessage(error) });
-      }
-
-      console.error('[auth] register db failure', error);
-      return res.status(500).json({ success: false, message: 'Unable to create account right now.' });
+      console.error('[auth] register failed', error);
+      return res.status(400).json({ success: false, message: getDuplicateMessage(error) });
     }
   }));
 
   router.post('/login', asyncHandler(async (req: Request, res: Response) => {
     if (!await ensureMongo(res)) return;
+
     const parsed = loginSchema.safeParse(req.body);
     if (!parsed.success) {
-      return res.status(400).json({ success: false, message: parsed.error.issues[0]?.message || 'Invalid login payload.' });
+      return res.status(400).json({ success: false, message: 'Please provide your email/username and password.' });
     }
 
     const { identifier, password, guestToken, guestDisplayName } = parsed.data;
@@ -280,37 +282,17 @@ export const authRouter = (roomManager: RoomManager) => {
       return res.status(404).json({ success: false, message: 'No account exists for that email address.', code: 'ACCOUNT_NOT_FOUND' });
     }
 
-    const code = generateResetCode();
+    const otp = generateResetCode();
     const expiresAt = new Date(Date.now() + RESET_CODE_TTL_MS);
 
-    console.info('[auth] forgot-password user located; storing reset code', {
-      userId: String(user._id),
-      email: user.email,
-      expiresAt: expiresAt.toISOString()
-    });
+    user.resetCodeHash = hashResetCode(otp);
+    user.resetCodeExpiresAt = expiresAt;
+    user.resetSessionHash = null;
+    user.resetSessionExpiresAt = null;
+    await user.save();
 
     try {
-      user.resetCodeHash = hashResetCode(code);
-      user.resetCodeExpiresAt = expiresAt;
-      await user.save();
-      console.info('[auth] forgot-password reset code persisted', {
-        userId: String(user._id),
-        email: user.email,
-        expiresAt: expiresAt.toISOString()
-      });
-    } catch (error) {
-      console.error('[auth] forgot-password failed to persist reset code', {
-        userId: String(user._id),
-        email: user.email,
-        error
-      });
-      return res.status(500).json({ success: false, message: 'Unable to create a reset code right now.', code: 'RESET_CODE_SAVE_FAILED' });
-    }
-
-    try {
-      console.info('[auth] forgot-password attempting email send', { userId: String(user._id), email: user.email });
-      await sendPasswordResetCodeEmail(user.email, code);
-      console.info('[auth] forgot-password email send succeeded', { userId: String(user._id), email: user.email });
+      await sendOTPEmail(user.email, otp);
     } catch (error) {
       console.error('[auth] forgot-password email send failed', {
         userId: String(user._id),
@@ -318,18 +300,7 @@ export const authRouter = (roomManager: RoomManager) => {
         error: error instanceof Error ? { name: error.name, message: error.message } : error
       });
 
-      user.resetCodeHash = null;
-      user.resetCodeExpiresAt = null;
-      try {
-        await user.save();
-        console.info('[auth] forgot-password cleared unsent reset code after email failure', { userId: String(user._id), email: user.email });
-      } catch (rollbackError) {
-        console.error('[auth] forgot-password failed to clear unsent reset code', {
-          userId: String(user._id),
-          email: user.email,
-          error: rollbackError
-        });
-      }
+      await clearResetState(user);
 
       if (error instanceof EmailDeliveryError) {
         const response = mapEmailErrorToResponse(error);
@@ -343,55 +314,105 @@ export const authRouter = (roomManager: RoomManager) => {
       });
     }
 
-    return res.json({ success: true, message: 'A reset code has been sent to your email.', expiresInMinutes: RESET_CODE_TTL_MS / 60000 });
+    return res.json({ success: true, message: 'OTP sent to your email.', expiresInMinutes: RESET_CODE_TTL_MS / 60000 });
   }));
 
-  router.post('/forgot-password/verify', asyncHandler(async (req: Request, res: Response) => {
+  router.post('/forgot-password/verify-otp', asyncHandler(async (req: Request, res: Response) => {
     if (!await ensureMongo(res)) return;
 
-    const parsed = resetVerifySchema.safeParse(req.body);
+    const parsed = verifyOtpSchema.safeParse(req.body);
     if (!parsed.success) {
-      console.warn('[auth] forgot-password verify validation failed', {
-        issues: parsed.error.issues.map((issue) => ({ path: issue.path.join('.'), message: issue.message }))
-      });
       return res.status(400).json({ success: false, message: parsed.error.issues[0]?.message || 'Invalid reset payload.', code: 'INVALID_RESET_PAYLOAD' });
-    }
-    if (parsed.data.password !== parsed.data.confirmPassword) {
-      return res.status(400).json({ success: false, message: 'Passwords do not match.', code: 'PASSWORD_MISMATCH' });
     }
 
     const normalizedEmail = parsed.data.email.toLowerCase();
-    console.info('[auth] forgot-password verify received', { email: normalizedEmail });
-
     const user = await User.findOne({ email: normalizedEmail });
     if (!user || !user.resetCodeHash || !user.resetCodeExpiresAt) {
-      console.warn('[auth] forgot-password verify missing reset state', { email: normalizedEmail, userFound: Boolean(user) });
-      return res.status(400).json({ success: false, message: 'Reset code is invalid or expired.', code: 'RESET_CODE_INVALID' });
+      return res.status(400).json({ success: false, message: 'OTP is invalid or expired.', code: 'RESET_CODE_INVALID' });
     }
 
     if (user.resetCodeExpiresAt.getTime() < Date.now()) {
-      console.warn('[auth] forgot-password verify expired reset code', {
-        userId: String(user._id),
-        email: user.email,
-        expiresAt: user.resetCodeExpiresAt.toISOString()
-      });
-      user.resetCodeHash = null;
-      user.resetCodeExpiresAt = null;
-      await user.save();
-      return res.status(400).json({ success: false, message: 'Reset code is invalid or expired.', code: 'RESET_CODE_EXPIRED' });
+      await clearResetState(user);
+      return res.status(400).json({ success: false, message: 'OTP is invalid or expired.', code: 'RESET_CODE_EXPIRED' });
     }
 
-    if (!areResetCodeHashesEqual(user.resetCodeHash, parsed.data.code)) {
-      console.warn('[auth] forgot-password verify invalid code', { userId: String(user._id), email: user.email });
-      return res.status(400).json({ success: false, message: 'Reset code is invalid or expired.', code: 'RESET_CODE_INVALID' });
+    if (!areResetCodeHashesEqual(user.resetCodeHash, parsed.data.otp)) {
+      return res.status(400).json({ success: false, message: 'OTP is invalid or expired.', code: 'RESET_CODE_INVALID' });
+    }
+
+    const resetToken = await issueResetSession(user);
+    return res.json({ success: true, message: 'OTP verified successfully.', resetToken, resetTokenExpiresInMinutes: RESET_SESSION_TTL_MS / 60000 });
+  }));
+
+  router.post('/forgot-password/reset-password', asyncHandler(async (req: Request, res: Response) => {
+    if (!await ensureMongo(res)) return;
+
+    const parsed = resetPasswordSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ success: false, message: parsed.error.issues[0]?.message || 'Invalid reset payload.', code: 'INVALID_RESET_PAYLOAD' });
+    }
+
+    const normalizedEmail = parsed.data.email.toLowerCase();
+    const user = await User.findOne({ email: normalizedEmail });
+    if (!user || !user.resetSessionHash || !user.resetSessionExpiresAt) {
+      return res.status(400).json({ success: false, message: 'Reset session is invalid or expired.', code: 'RESET_SESSION_INVALID' });
+    }
+
+    if (user.resetSessionExpiresAt.getTime() < Date.now()) {
+      await clearResetState(user);
+      return res.status(400).json({ success: false, message: 'Reset session is invalid or expired.', code: 'RESET_SESSION_EXPIRED' });
+    }
+
+    if (!areResetCodeHashesEqual(user.resetSessionHash, parsed.data.resetToken)) {
+      return res.status(400).json({ success: false, message: 'Reset session is invalid or expired.', code: 'RESET_SESSION_INVALID' });
     }
 
     user.password = await bcrypt.hash(parsed.data.password, 12);
     user.resetCodeHash = null;
     user.resetCodeExpiresAt = null;
+    user.resetSessionHash = null;
+    user.resetSessionExpiresAt = null;
     await user.save();
 
-    console.info('[auth] forgot-password verify succeeded', { userId: String(user._id), email: user.email });
+    return res.json({ success: true, message: 'Password updated successfully. You can now log in.' });
+  }));
+
+  router.post('/forgot-password/verify', asyncHandler(async (req: Request, res: Response) => {
+    if (!await ensureMongo(res)) return;
+
+    const otpParsed = verifyOtpSchema.safeParse({ email: req.body?.email, otp: req.body?.code });
+    if (!otpParsed.success) {
+      return res.status(400).json({ success: false, message: otpParsed.error.issues[0]?.message || 'Invalid reset payload.', code: 'INVALID_RESET_PAYLOAD' });
+    }
+
+    const passwordParsed = resetPasswordSchema.safeParse({
+      email: req.body?.email,
+      resetToken: 'placeholder-placeholder-placeholder-placeholder',
+      password: req.body?.password,
+      confirmPassword: req.body?.confirmPassword
+    });
+    if (!passwordParsed.success && passwordParsed.error.issues.some((issue) => issue.path[0] !== 'resetToken')) {
+      return res.status(400).json({ success: false, message: passwordParsed.error.issues[0]?.message || 'Invalid reset payload.', code: 'INVALID_RESET_PAYLOAD' });
+    }
+
+    const user = await User.findOne({ email: otpParsed.data.email.toLowerCase() });
+    if (!user || !user.resetCodeHash || !user.resetCodeExpiresAt) {
+      return res.status(400).json({ success: false, message: 'Reset code is invalid or expired.', code: 'RESET_CODE_INVALID' });
+    }
+    if (user.resetCodeExpiresAt.getTime() < Date.now()) {
+      await clearResetState(user);
+      return res.status(400).json({ success: false, message: 'Reset code is invalid or expired.', code: 'RESET_CODE_EXPIRED' });
+    }
+    if (!areResetCodeHashesEqual(user.resetCodeHash, otpParsed.data.otp)) {
+      return res.status(400).json({ success: false, message: 'Reset code is invalid or expired.', code: 'RESET_CODE_INVALID' });
+    }
+
+    user.password = await bcrypt.hash(req.body.password, 12);
+    user.resetCodeHash = null;
+    user.resetCodeExpiresAt = null;
+    user.resetSessionHash = null;
+    user.resetSessionExpiresAt = null;
+    await user.save();
     return res.json({ success: true, message: 'Password updated successfully. You can now log in.' });
   }));
 
