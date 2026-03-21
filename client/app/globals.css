@@ -174,3 +174,46 @@ body {
     min-height: var(--room-viewport-height, 100svh);
   }
 }
+
+html.room-page-active,
+body.room-page-active {
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+body.room-page-landscape {
+  touch-action: none;
+}
+
+.room-landscape-enforced {
+  min-height: var(--room-viewport-height, 100dvh);
+}
+
+@supports (height: 100svh) {
+  .room-landscape-enforced {
+    min-height: var(--room-viewport-height, 100svh);
+  }
+}
+
+@media (pointer: coarse) {
+  .room-landscape-enforced[data-landscape-only="true"] {
+    position: fixed;
+    inset: 0;
+    width: var(--room-viewport-width, 100vw);
+    height: var(--room-viewport-height, 100dvh);
+    max-width: none;
+    max-height: none;
+    padding: 0.75rem;
+  }
+
+  .room-landscape-enforced[data-landscape-only="true"][data-rotated="true"] {
+    top: 50%;
+    left: 50%;
+    inset: auto;
+    width: var(--room-viewport-height, 100dvh);
+    height: var(--room-viewport-width, 100vw);
+    padding: 0.5rem;
+    transform: translate(-50%, -50%) rotate(90deg);
+    transform-origin: center;
+  }
+}
