@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 import { useAuth } from "@/components/auth-provider";
 import { InfoCardsSection } from "@/components/info-cards";
@@ -26,6 +26,7 @@ import { rememberRoomEntryHint } from "@/lib/room-entry";
 
 export default function HomePage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user, loading, loginAsGuest } = useAuth();
   const [displayName, setDisplayName] = useState("");
   const [createName, setCreateName] = useState("");
@@ -42,10 +43,24 @@ export default function HomePage() {
   const [isJoining, setIsJoining] = useState(false);
   const [isGuesting, setIsGuesting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   useEffect(() => {
     if (user) setDisplayName(resolveSessionDisplayName(user));
   }, [user]);
+
+  useEffect(() => {
+    const deleted = searchParams.get("accountDeleted");
+    if (deleted !== "1") return;
+
+    const message = searchParams.get("message") || "Your account has been deleted.";
+    setSuccessMessage(message);
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("accountDeleted");
+    params.delete("message");
+    const nextQuery = params.toString();
+    router.replace(nextQuery ? `/?${nextQuery}` : "/");
+  }, [router, searchParams]);
 
   const persistDisplayName = (name: string) => {
     const normalized = name.trim();
@@ -185,6 +200,7 @@ export default function HomePage() {
     <main className="mx-auto flex min-h-screen w-full max-w-7xl flex-col px-4 py-5 sm:px-6 sm:py-6 lg:px-8">
       <SiteHeader />
 
+      {successMessage && <p className="mb-4 status-banner status-success">{successMessage}</p>}
       {error && <p className="mb-4 status-banner status-danger">{error}</p>}
 
       <section className="mb-6 space-y-4 px-1 py-1 text-center sm:mb-7 sm:space-y-5 lg:px-0">

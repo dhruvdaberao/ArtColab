@@ -91,7 +91,7 @@ app.get('/health', (_req, res) => {
 });
 
 app.use('/api/auth', authRouter(roomManager));
-app.use('/api/profile', profileRouter());
+app.use('/api/profile', profileRouter(roomManager, io));
 app.use('/api/rooms', roomsRouter(roomManager));
 
 registerSocketHandlers(io, roomManager);

@@ -9,6 +9,21 @@ if (env.CLOUDINARY_CLOUD_NAME && env.CLOUDINARY_API_KEY && env.CLOUDINARY_API_SE
   });
 }
 
+const extractPublicId = (assetUrl: string): string | null => {
+  try {
+    const url = new URL(assetUrl);
+    const marker = '/upload/';
+    const uploadIndex = url.pathname.indexOf(marker);
+    if (uploadIndex === -1) return null;
+
+    const assetPath = url.pathname.slice(uploadIndex + marker.length).replace(/^v\d+\//, '');
+    const lastDot = assetPath.lastIndexOf('.');
+    return lastDot >= 0 ? assetPath.slice(0, lastDot) : assetPath;
+  } catch {
+    return null;
+  }
+};
+
 export const uploadProfileImage = async (dataUri: string): Promise<string> => {
   if (!env.CLOUDINARY_CLOUD_NAME || !env.CLOUDINARY_API_KEY || !env.CLOUDINARY_API_SECRET) {
     throw new Error('Cloudinary is not configured.');
@@ -21,4 +36,13 @@ export const uploadProfileImage = async (dataUri: string): Promise<string> => {
   });
 
   return result.secure_url;
+};
+
+export const destroyProfileImage = async (assetUrl: string): Promise<void> => {
+  if (!env.CLOUDINARY_CLOUD_NAME || !env.CLOUDINARY_API_KEY || !env.CLOUDINARY_API_SECRET) return;
+
+  const publicId = extractPublicId(assetUrl);
+  if (!publicId) return;
+
+  await cloudinary.uploader.destroy(publicId, { resource_type: 'image' });
 };

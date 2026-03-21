@@ -401,3 +401,14 @@ export const logoutUser = async () =>
     { method: "POST" },
     "Logout failed.",
   );
+
+
+export const deleteAccount = async (payload: {
+  confirmationText: 'DELETE';
+  password: string;
+}) =>
+  request<{ success: boolean; deletedRoomIds: string[]; message: string }>(
+    '/api/profile/account',
+    { method: 'DELETE', body: JSON.stringify(payload) },
+    'Failed to delete account.',
+  );
