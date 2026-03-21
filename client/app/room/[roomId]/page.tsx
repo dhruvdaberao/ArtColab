@@ -9,6 +9,7 @@ import {
   useState,
 } from "react";
 import { useParams, useRouter } from "next/navigation";
+import Image from "next/image";
 import {
   Brush,
   Download,
@@ -56,6 +57,7 @@ import {
   getAvatarInitials,
   resolveSessionDisplayName,
 } from "@/lib/guest";
+import frogIcon from "../../../../frog icon.png";
 
 const REACTIONS = [
   { emoji: "❤️", label: "Appreciate" },
@@ -100,8 +102,6 @@ const PRESET_COLORS = [
 
 const MOBILE_WORKSPACE_MAX_WIDTH = 1366;
 const ROOM_VIEWPORT_HEIGHT_VAR = "--room-viewport-height";
-const ROOM_IMMERSIVE_TOP_VAR = "--room-immersive-top-offset";
-const IMMERSIVE_RETRY_EVENTS = ["pointerdown", "touchstart"] as const;
 
 const getInitialViewportState = () => {
   if (typeof window === "undefined") {
@@ -163,6 +163,47 @@ const compactSwatchButton =
 const customColorButton =
   "inline-flex min-h-10 items-center justify-center gap-2 rounded-full border border-black/10 bg-white px-3.5 text-sm font-semibold text-[color:var(--text-main)] shadow-sm transition hover:-translate-y-0.5 hover:bg-[color:var(--surface-soft)]";
 
+function RoomLoadingOverlay({
+  eyebrow,
+  title,
+  description,
+}: {
+  eyebrow: string;
+  title: string;
+  description: string;
+}) {
+  return (
+    <div className="absolute inset-0 z-20 flex items-center justify-center bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.98),rgba(241,248,255,0.96)_42%,rgba(226,240,251,0.94)_100%)] px-4">
+      <div className="flex w-full max-w-[320px] flex-col items-center rounded-[28px] border border-white/80 bg-white/90 px-6 py-7 text-center shadow-[0_24px_54px_rgba(15,23,42,0.14)] backdrop-blur-sm">
+        <Image
+          src={frogIcon}
+          alt="Froddle frog icon"
+          priority
+          className="h-auto w-20 sm:w-24"
+        />
+        <div className="mt-5 inline-flex items-center gap-2 rounded-full bg-[color:var(--surface-soft)] px-3 py-1 text-[11px] font-bold uppercase tracking-[0.22em] text-[color:var(--text-muted)]">
+          <span
+            className="h-2 w-2 animate-pulse rounded-full bg-[color:var(--brand-blue)]"
+            aria-hidden
+          />
+          {eyebrow}
+        </div>
+        <h1 className="mt-4 text-xl font-black text-[color:var(--text-main)]">
+          {title}
+        </h1>
+        <p className="mt-2 text-sm leading-6 text-[color:var(--text-muted)]">
+          {description}
+        </p>
+        <div className="mt-5 flex items-center gap-2" aria-hidden>
+          <span className="h-2.5 w-2.5 animate-[bounce_1s_infinite] rounded-full bg-[color:var(--brand-blue)] [animation-delay:-0.2s]" />
+          <span className="h-2.5 w-2.5 animate-[bounce_1s_infinite] rounded-full bg-[color:var(--brand-green)] [animation-delay:-0.1s]" />
+          <span className="h-2.5 w-2.5 animate-[bounce_1s_infinite] rounded-full bg-[color:var(--brand-yellow)]" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function RoomPage() {
   const params = useParams<{ roomId?: string | string[] }>();
   const router = useRouter();
@@ -220,7 +261,6 @@ export default function RoomPage() {
   const [isPortraitViewport, setIsPortraitViewport] = useState(
     () => getInitialViewportState().isPortraitViewport,
   );
-  const [immersiveUiRetryNeeded, setImmersiveUiRetryNeeded] = useState(false);
   const [activeToolPanel, setActiveToolPanel] = useState<ToolPanel>("brush");
   const [roomMetaLoaded, setRoomMetaLoaded] = useState(() =>
     Boolean(roomEntryHint),
@@ -232,9 +272,6 @@ export default function RoomPage() {
     useState<ColorPickerTarget>(null);
   const chatEndRef = useRef<HTMLDivElement | null>(null);
   const joinedToastShownRef = useRef(false);
-  const isMountedRef = useRef(true);
-  const orientationLockedRef = useRef(false);
-  const immersiveUiRestoreTimerRef = useRef<number | null>(null);
   const toolPanelRef = useRef<HTMLDivElement | null>(null);
   const functionPanelRef = useRef<HTMLDivElement | null>(null);
   const { user } = useAuth();
@@ -389,10 +426,6 @@ export default function RoomPage() {
       "--room-viewport-width",
       `${viewportWidth}px`,
     );
-    document.documentElement.style.setProperty(
-      ROOM_IMMERSIVE_TOP_VAR,
-      `${chromeInset}px`,
-    );
   }, []);
 
   useLayoutEffect(() => {
@@ -427,197 +460,6 @@ export default function RoomPage() {
       );
     };
   }, [syncViewportState]);
-
-  const resetWorkspaceMode = useCallback(
-    async ({ preserveState = false }: { preserveState?: boolean } = {}) => {
-      document.body.classList.remove("room-workspace-body");
-      document.documentElement.classList.remove("room-workspace-root");
-      document.documentElement.style.removeProperty(ROOM_VIEWPORT_HEIGHT_VAR);
-      document.documentElement.style.removeProperty(ROOM_IMMERSIVE_TOP_VAR);
-      document.documentElement.style.removeProperty("--room-viewport-width");
-      if (immersiveUiRestoreTimerRef.current) {
-        window.clearTimeout(immersiveUiRestoreTimerRef.current);
-        immersiveUiRestoreTimerRef.current = null;
-      }
-      if (!preserveState && isMountedRef.current) {
-        setImmersiveUiRetryNeeded(false);
-      }
-      const screenOrientation = window.screen
-        .orientation as ScreenOrientation & { unlock?: () => void };
-      if (
-        orientationLockedRef.current &&
-        typeof screenOrientation.unlock === "function"
-      ) {
-        try {
-          screenOrientation.unlock();
-        } catch {
-          // noop
-        }
-      }
-      orientationLockedRef.current = false;
-      if (
-        document.fullscreenElement &&
-        document.fullscreenElement === document.documentElement
-      ) {
-        try {
-          await document.exitFullscreen();
-        } catch {
-          // noop
-        }
-      }
-    },
-    [],
-  );
-
-  const ensureImmersiveWorkspace = useCallback(
-    async ({ allowFullscreen = false }: { allowFullscreen?: boolean } = {}) => {
-      if (!roomReady || !isTouchWorkspace || !isMountedRef.current) return;
-
-      syncViewportState();
-      document.body.classList.add("room-workspace-body");
-      document.documentElement.classList.add("room-workspace-root");
-
-      const screenOrientation = window.screen
-        .orientation as ScreenOrientation & {
-        lock?: (orientation: string) => Promise<void>;
-      };
-
-      const canRequestFullscreen =
-        allowFullscreen &&
-        typeof document.documentElement.requestFullscreen === "function" &&
-        !document.fullscreenElement;
-
-      try {
-        if (canRequestFullscreen) {
-          await document.documentElement.requestFullscreen({
-            navigationUI: "hide",
-          } as FullscreenOptions);
-        }
-      } catch {
-        setImmersiveUiRetryNeeded(true);
-      }
-
-      try {
-        if (typeof screenOrientation.lock === "function") {
-          await screenOrientation.lock("landscape");
-          orientationLockedRef.current = true;
-        }
-      } catch {
-        orientationLockedRef.current = false;
-      }
-
-      setImmersiveUiRetryNeeded(
-        !document.fullscreenElement && isTouchWorkspace,
-      );
-
-      window.scrollTo({ top: 0, left: 0, behavior: "auto" });
-    },
-    [isTouchWorkspace, roomReady, syncViewportState],
-  );
-
-  useEffect(() => {
-    isMountedRef.current = true;
-
-    const cleanupWorkspace = () => {
-      void resetWorkspaceMode({ preserveState: true });
-    };
-
-    window.addEventListener("pagehide", cleanupWorkspace);
-    window.addEventListener("beforeunload", cleanupWorkspace);
-    window.addEventListener("popstate", cleanupWorkspace);
-
-    return () => {
-      isMountedRef.current = false;
-      window.removeEventListener("pagehide", cleanupWorkspace);
-      window.removeEventListener("beforeunload", cleanupWorkspace);
-      window.removeEventListener("popstate", cleanupWorkspace);
-      void resetWorkspaceMode({ preserveState: true });
-    };
-  }, [resetWorkspaceMode]);
-
-  useEffect(() => {
-    if (!roomReady) {
-      void resetWorkspaceMode({ preserveState: true });
-      return;
-    }
-
-    void ensureImmersiveWorkspace();
-
-    const restoreImmersiveWorkspace = () => {
-      syncViewportState();
-      if (document.visibilityState === "hidden") return;
-      void ensureImmersiveWorkspace();
-      if (immersiveUiRestoreTimerRef.current) {
-        window.clearTimeout(immersiveUiRestoreTimerRef.current);
-      }
-      immersiveUiRestoreTimerRef.current = window.setTimeout(() => {
-        void ensureImmersiveWorkspace();
-      }, 240);
-    };
-
-    const handleFullscreenChange = () => {
-      setImmersiveUiRetryNeeded(
-        isTouchWorkspace && !document.fullscreenElement,
-      );
-      restoreImmersiveWorkspace();
-    };
-
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === "visible") {
-        restoreImmersiveWorkspace();
-      }
-    };
-
-    window.addEventListener("focus", restoreImmersiveWorkspace);
-    window.addEventListener("pageshow", restoreImmersiveWorkspace);
-    window.addEventListener("resize", restoreImmersiveWorkspace);
-    window.addEventListener("orientationchange", restoreImmersiveWorkspace);
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-    document.addEventListener("fullscreenchange", handleFullscreenChange);
-    window.visualViewport?.addEventListener(
-      "resize",
-      restoreImmersiveWorkspace,
-    );
-
-    const tryFullscreenFromGesture = () => {
-      void ensureImmersiveWorkspace({ allowFullscreen: true });
-    };
-    for (const eventName of IMMERSIVE_RETRY_EVENTS) {
-      window.addEventListener(eventName, tryFullscreenFromGesture, {
-        passive: true,
-      });
-    }
-
-    return () => {
-      window.removeEventListener("focus", restoreImmersiveWorkspace);
-      window.removeEventListener("pageshow", restoreImmersiveWorkspace);
-      window.removeEventListener("resize", restoreImmersiveWorkspace);
-      window.removeEventListener(
-        "orientationchange",
-        restoreImmersiveWorkspace,
-      );
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-      document.removeEventListener("fullscreenchange", handleFullscreenChange);
-      window.visualViewport?.removeEventListener(
-        "resize",
-        restoreImmersiveWorkspace,
-      );
-      for (const eventName of IMMERSIVE_RETRY_EVENTS) {
-        window.removeEventListener(eventName, tryFullscreenFromGesture);
-      }
-      if (immersiveUiRestoreTimerRef.current) {
-        window.clearTimeout(immersiveUiRestoreTimerRef.current);
-        immersiveUiRestoreTimerRef.current = null;
-      }
-      void resetWorkspaceMode({ preserveState: true });
-    };
-  }, [
-    ensureImmersiveWorkspace,
-    isTouchWorkspace,
-    resetWorkspaceMode,
-    roomReady,
-    syncViewportState,
-  ]);
 
   useEffect(() => {
     if (!roomId || !userId || !isValidRoomId) return;
@@ -669,6 +511,7 @@ export default function RoomPage() {
   );
 
   const isBoardInitializing = roomReady && (!hasJoined || !isBoardSurfaceReady);
+  const showRoomLoader = isRoomLoading || isBoardInitializing;
   const connectionMessage =
     error ||
     (status === "connecting" && "Connecting to the collaboration server…") ||
@@ -815,18 +658,11 @@ export default function RoomPage() {
 
   const leaveRoomSafely = useCallback(async () => {
     closeFloatingPanels();
-    await resetWorkspaceMode();
     leaveSocketRoom();
     revokeRoomAccess(roomId);
     setIsExitModalOpen(false);
     router.push("/");
-  }, [
-    closeFloatingPanels,
-    leaveSocketRoom,
-    resetWorkspaceMode,
-    roomId,
-    router,
-  ]);
+  }, [closeFloatingPanels, leaveSocketRoom, roomId, router]);
 
   const unlockPrivateRoom = useCallback(async () => {
     if (!roomMeta || roomMeta.visibility !== "private") return;
@@ -1341,7 +1177,7 @@ export default function RoomPage() {
 
   return (
     <main
-      className={`relative overflow-hidden ${roomReady ? `room-workspace-shell ${isTouchWorkspace && isPortraitViewport ? "room-workspace-shell--portrait" : ""} p-1 sm:p-1.5` : "min-h-screen p-3 sm:p-4"}`}
+      className={`relative overflow-hidden ${roomReady ? "room-workspace-shell p-1 sm:p-1.5" : "min-h-screen p-3 sm:p-4"}`}
     >
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,#ffffff_0%,rgba(255,255,255,0.78)_18%,rgba(248,244,232,0)_58%)]" />
       <div
@@ -1451,67 +1287,52 @@ export default function RoomPage() {
             </div>
           )}
 
-          {isRoomLoading && !roomMetaLoaded && (
-            <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center bg-[linear-gradient(180deg,rgba(244,249,255,0.92),rgba(231,244,253,0.74))] backdrop-blur-[2px]">
-              <div className="rounded-[24px] border border-white/70 bg-white/88 px-5 py-4 text-center shadow-[0_18px_42px_rgba(15,23,42,0.14)]">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">
-                  Preparing room
-                </p>
-                <h1 className="mt-1 text-lg font-black text-slate-900">
-                  Opening your canvas…
-                </h1>
-                <p className="mt-1 text-sm text-slate-500">
-                  Warming realtime sync, room details, and the drawing surface
-                  in parallel.
-                </p>
-              </div>
-            </div>
-          )}
+          {isRoomLoading ? (
+            <RoomLoadingOverlay
+              eyebrow="Joining room"
+              title="Loading Froddle…"
+              description="Fetching room details, connecting realtime sync, and preparing your whiteboard in parallel."
+            />
+          ) : null}
 
-          {isBoardInitializing && !(isRoomLoading && !roomMetaLoaded) && (
-            <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center bg-[linear-gradient(180deg,rgba(244,249,255,0.72),rgba(231,244,253,0.34))] backdrop-blur-[1px]">
-              <div className="rounded-[24px] border border-white/70 bg-white/90 px-5 py-4 text-center shadow-[0_18px_42px_rgba(15,23,42,0.14)]">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">
-                  Initializing board
-                </p>
-                <h1 className="mt-1 text-lg font-black text-slate-900">
-                  Preparing the drawing workspace…
-                </h1>
-                <p className="mt-1 text-sm text-slate-500">
-                  Finalizing canvas sizing, whiteboard base layer, and live room
-                  hydration.
-                </p>
-              </div>
-            </div>
-          )}
+          {isBoardInitializing && !isRoomLoading ? (
+            <RoomLoadingOverlay
+              eyebrow="Preparing board"
+              title="Opening your canvas…"
+              description="Finalizing canvas sizing, base layer painting, and live room hydration so the board is ready immediately."
+            />
+          ) : null}
 
-          <CanvasBoard
-            roomId={roomId}
-            userId={userId}
-            displayName={displayName}
-            avatarUrl={avatarUrl}
-            tool={tool}
-            brushStyle={brushStyle}
-            color={strokeColor}
-            fillColor={fillColor}
-            fillEnabled={fillEnabled}
-            size={size}
-            strokes={strokes}
-            cursors={cursors}
-            setStrokes={setStrokes}
-            disabled={!hasJoined}
-            resetViewSignal={resetViewSignal}
-            compact={isTouchWorkspace}
-            layoutReadySignal={boardLayoutReadySignal}
-            onSurfaceInteract={() => closeFloatingPanels()}
-            onBoardReadyChange={setIsBoardSurfaceReady}
-          />
-          {immersiveUiRetryNeeded && isTouchWorkspace && (
-            <div className="pointer-events-none absolute left-1/2 top-3 z-40 w-[min(92vw,360px)] -translate-x-1/2 rounded-full border border-white/20 bg-[rgba(15,23,42,0.78)] px-4 py-2 text-center text-xs font-semibold text-white shadow-2xl backdrop-blur-sm">
-              Tap once if your browser shows bars again — Froddle will re-enter
-              immersive workspace mode automatically when the platform allows.
-            </div>
-          )}
+          <div
+            className={
+              showRoomLoader
+                ? "pointer-events-none opacity-0"
+                : "opacity-100 transition-opacity duration-200"
+            }
+          >
+            <CanvasBoard
+              key={roomId}
+              roomId={roomId}
+              userId={userId}
+              displayName={displayName}
+              avatarUrl={avatarUrl}
+              tool={tool}
+              brushStyle={brushStyle}
+              color={strokeColor}
+              fillColor={fillColor}
+              fillEnabled={fillEnabled}
+              size={size}
+              strokes={strokes}
+              cursors={cursors}
+              setStrokes={setStrokes}
+              disabled={!hasJoined}
+              resetViewSignal={resetViewSignal}
+              compact={isTouchWorkspace}
+              layoutReadySignal={boardLayoutReadySignal}
+              onSurfaceInteract={() => closeFloatingPanels()}
+              onBoardReadyChange={setIsBoardSurfaceReady}
+            />
+          </div>
 
           {reactionBursts.map((burst) => (
             <span

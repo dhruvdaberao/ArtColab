@@ -40,7 +40,17 @@ export function useRoomSocket(
         roomId: joinedRoomRef.current,
       });
     joinedRoomRef.current = null;
+    setParticipants([]);
+    setStrokes([]);
+    setChatMessages([]);
+    setMode("free-draw");
     setCursors({});
+    setStatus("disconnected");
+    setError(null);
+    setExpired(false);
+    setHasJoined(false);
+    setRedoCounts({});
+    strokeIndexRef.current = new Map();
     pendingAppendRef.current.clear();
     if (appendFrameRef.current !== null) {
       cancelAnimationFrame(appendFrameRef.current);
@@ -311,6 +321,7 @@ export function useRoomSocket(
 
     return () => {
       pendingAppendRef.current.clear();
+      strokeIndexRef.current = new Map();
       if (appendFrameRef.current !== null) {
         cancelAnimationFrame(appendFrameRef.current);
         appendFrameRef.current = null;
@@ -338,6 +349,16 @@ export function useRoomSocket(
       getSocket().off(SOCKET_EVENTS.STROKE_REDONE);
       getSocket().off(SOCKET_EVENTS.ROOM_EXPIRED);
       getSocket().off(SOCKET_EVENTS.ROOM_ERROR);
+      setParticipants([]);
+      setStrokes([]);
+      setChatMessages([]);
+      setMode("free-draw");
+      setCursors({});
+      setStatus("disconnected");
+      setError(null);
+      setExpired(false);
+      setHasJoined(false);
+      setRedoCounts({});
       getSocket().disconnect();
     };
   }, [roomId, userId, displayName, avatarUrl]);

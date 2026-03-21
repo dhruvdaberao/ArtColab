@@ -165,31 +165,11 @@ body {
   }
 }
 
-html.room-workspace-root,
-body.room-workspace-body {
-  height: 100%;
-  overflow: hidden;
-  overscroll-behavior: none;
-}
-
-html.room-workspace-root {
-  background: #08111b;
-}
-
-body.room-workspace-body {
-  position: fixed;
-  inset: 0;
-  width: 100%;
-  min-height: 100%;
-  touch-action: manipulation;
-  overscroll-behavior: none;
-  -webkit-overflow-scrolling: auto;
-}
-
 .room-workspace-shell {
   height: var(--room-viewport-height, 100dvh);
   min-height: var(--room-viewport-height, 100dvh);
   max-height: var(--room-viewport-height, 100dvh);
+  width: 100%;
   padding-top: max(env(safe-area-inset-top, 0px), 0px);
   padding-right: max(env(safe-area-inset-right, 0px), 0px);
   padding-bottom: max(env(safe-area-inset-bottom, 0px), 0px);
@@ -204,32 +184,7 @@ body.room-workspace-body {
   }
 }
 
-.room-workspace-shell--portrait {
-  width: var(--room-viewport-height, 100dvh);
-  height: var(--room-viewport-width, 100vw);
-  min-height: var(--room-viewport-width, 100vw);
-  max-height: var(--room-viewport-width, 100vw);
-  transform: rotate(90deg) translateY(-100%);
-  transform-origin: top left;
-  position: absolute;
-  top: 0;
-  left: 100%;
-}
-
-@supports (width: 100svh) {
-  .room-workspace-shell--portrait {
-    width: var(--room-viewport-height, 100svh);
-  }
-}
-
-
 button,
 [role="button"] {
   touch-action: manipulation;
-}
-
-@media (pointer: coarse) {
-  .room-workspace-shell--portrait {
-    will-change: transform;
-  }
 }
