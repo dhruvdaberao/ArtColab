@@ -39,6 +39,7 @@ import type { BrushStyle, DrawingTool, ShapeKind } from "@cloudcanvas/shared";
 import { CanvasBoard } from "@/components/canvas-board";
 import { ColorWheelPicker } from "@/components/color-wheel-picker";
 import { ConfirmModal } from "@/components/confirm-modal";
+import { FroddleLogo } from "@/components/froddle-logo";
 import { ToastStack, type ToastMessage } from "@/components/toast";
 import { Button, Card, SecondaryButton } from "@/components/ui";
 import { getSocket } from "@/lib/socket";
@@ -162,6 +163,42 @@ const compactSwatchButton =
   "relative h-10 w-10 rounded-full border border-black/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)] transition hover:-translate-y-0.5";
 const customColorButton =
   "inline-flex min-h-10 items-center justify-center gap-2 rounded-full border border-black/10 bg-white px-3.5 text-sm font-semibold text-[color:var(--text-main)] shadow-sm transition hover:-translate-y-0.5 hover:bg-[color:var(--surface-soft)]";
+
+function RoomLoadingOverlay({
+  eyebrow,
+  title,
+  description,
+}: {
+  eyebrow: string;
+  title: string;
+  description: string;
+}) {
+  return (
+    <div className="absolute inset-0 z-20 flex items-center justify-center bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.98),rgba(241,248,255,0.96)_42%,rgba(226,240,251,0.94)_100%)] px-4">
+      <div className="flex w-full max-w-[320px] flex-col items-center rounded-[28px] border border-white/80 bg-white/90 px-6 py-7 text-center shadow-[0_24px_54px_rgba(15,23,42,0.14)] backdrop-blur-sm">
+        <FroddleLogo priority imageClassName="max-w-[140px] sm:max-w-[160px]" />
+        <div className="mt-5 inline-flex items-center gap-2 rounded-full bg-[color:var(--surface-soft)] px-3 py-1 text-[11px] font-bold uppercase tracking-[0.22em] text-[color:var(--text-muted)]">
+          <span
+            className="h-2 w-2 animate-pulse rounded-full bg-[color:var(--brand-blue)]"
+            aria-hidden
+          />
+          {eyebrow}
+        </div>
+        <h1 className="mt-4 text-xl font-black text-[color:var(--text-main)]">
+          {title}
+        </h1>
+        <p className="mt-2 text-sm leading-6 text-[color:var(--text-muted)]">
+          {description}
+        </p>
+        <div className="mt-5 flex items-center gap-2" aria-hidden>
+          <span className="h-2.5 w-2.5 animate-[bounce_1s_infinite] rounded-full bg-[color:var(--brand-blue)] [animation-delay:-0.2s]" />
+          <span className="h-2.5 w-2.5 animate-[bounce_1s_infinite] rounded-full bg-[color:var(--brand-green)] [animation-delay:-0.1s]" />
+          <span className="h-2.5 w-2.5 animate-[bounce_1s_infinite] rounded-full bg-[color:var(--brand-yellow)]" />
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function RoomPage() {
   const params = useParams<{ roomId?: string | string[] }>();
@@ -669,6 +706,7 @@ export default function RoomPage() {
   );
 
   const isBoardInitializing = roomReady && (!hasJoined || !isBoardSurfaceReady);
+  const showRoomLoader = isRoomLoading || isBoardInitializing;
   const connectionMessage =
     error ||
     (status === "connecting" && "Connecting to the collaboration server…") ||
@@ -1451,61 +1489,51 @@ export default function RoomPage() {
             </div>
           )}
 
-          {isRoomLoading && !roomMetaLoaded && (
-            <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center bg-[linear-gradient(180deg,rgba(244,249,255,0.92),rgba(231,244,253,0.74))] backdrop-blur-[2px]">
-              <div className="rounded-[24px] border border-white/70 bg-white/88 px-5 py-4 text-center shadow-[0_18px_42px_rgba(15,23,42,0.14)]">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">
-                  Preparing room
-                </p>
-                <h1 className="mt-1 text-lg font-black text-slate-900">
-                  Opening your canvas…
-                </h1>
-                <p className="mt-1 text-sm text-slate-500">
-                  Warming realtime sync, room details, and the drawing surface
-                  in parallel.
-                </p>
-              </div>
-            </div>
-          )}
+          {isRoomLoading ? (
+            <RoomLoadingOverlay
+              eyebrow="Joining room"
+              title="Loading Froddle…"
+              description="Fetching room details, connecting realtime sync, and preparing your whiteboard in parallel."
+            />
+          ) : null}
 
-          {isBoardInitializing && !(isRoomLoading && !roomMetaLoaded) && (
-            <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center bg-[linear-gradient(180deg,rgba(244,249,255,0.72),rgba(231,244,253,0.34))] backdrop-blur-[1px]">
-              <div className="rounded-[24px] border border-white/70 bg-white/90 px-5 py-4 text-center shadow-[0_18px_42px_rgba(15,23,42,0.14)]">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">
-                  Initializing board
-                </p>
-                <h1 className="mt-1 text-lg font-black text-slate-900">
-                  Preparing the drawing workspace…
-                </h1>
-                <p className="mt-1 text-sm text-slate-500">
-                  Finalizing canvas sizing, whiteboard base layer, and live room
-                  hydration.
-                </p>
-              </div>
-            </div>
-          )}
+          {isBoardInitializing && !isRoomLoading ? (
+            <RoomLoadingOverlay
+              eyebrow="Preparing board"
+              title="Opening your canvas…"
+              description="Finalizing canvas sizing, base layer painting, and live room hydration so the board is ready immediately."
+            />
+          ) : null}
 
-          <CanvasBoard
-            roomId={roomId}
-            userId={userId}
-            displayName={displayName}
-            avatarUrl={avatarUrl}
-            tool={tool}
-            brushStyle={brushStyle}
-            color={strokeColor}
-            fillColor={fillColor}
-            fillEnabled={fillEnabled}
-            size={size}
-            strokes={strokes}
-            cursors={cursors}
-            setStrokes={setStrokes}
-            disabled={!hasJoined}
-            resetViewSignal={resetViewSignal}
-            compact={isTouchWorkspace}
-            layoutReadySignal={boardLayoutReadySignal}
-            onSurfaceInteract={() => closeFloatingPanels()}
-            onBoardReadyChange={setIsBoardSurfaceReady}
-          />
+          <div
+            className={
+              showRoomLoader
+                ? "pointer-events-none opacity-0"
+                : "opacity-100 transition-opacity duration-200"
+            }
+          >
+            <CanvasBoard
+              roomId={roomId}
+              userId={userId}
+              displayName={displayName}
+              avatarUrl={avatarUrl}
+              tool={tool}
+              brushStyle={brushStyle}
+              color={strokeColor}
+              fillColor={fillColor}
+              fillEnabled={fillEnabled}
+              size={size}
+              strokes={strokes}
+              cursors={cursors}
+              setStrokes={setStrokes}
+              disabled={!hasJoined}
+              resetViewSignal={resetViewSignal}
+              compact={isTouchWorkspace}
+              layoutReadySignal={boardLayoutReadySignal}
+              onSurfaceInteract={() => closeFloatingPanels()}
+              onBoardReadyChange={setIsBoardSurfaceReady}
+            />
+          </div>
           {immersiveUiRetryNeeded && isTouchWorkspace && (
             <div className="pointer-events-none absolute left-1/2 top-3 z-40 w-[min(92vw,360px)] -translate-x-1/2 rounded-full border border-white/20 bg-[rgba(15,23,42,0.78)] px-4 py-2 text-center text-xs font-semibold text-white shadow-2xl backdrop-blur-sm">
               Tap once if your browser shows bars again — Froddle will re-enter
