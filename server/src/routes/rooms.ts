@@ -401,9 +401,19 @@ export const roomsRouter = (roomManager: RoomManager) => {
       }
       if (parsedBody.data.visibility === "public") updates.passwordHash = null;
 
-      Object.assign(meta, updates, { updatedAt: Date.now() });
+      const nextUpdatedAt = Date.now();
+      Object.assign(meta, updates, { updatedAt: nextUpdatedAt });
       if (isMongoReady()) {
-        await Room.findOneAndUpdate({ roomId: meta.roomId }, { $set: updates });
+        await Room.findOneAndUpdate(
+          { roomId: meta.roomId },
+          {
+            $set: {
+              ...updates,
+              updatedAt: new Date(nextUpdatedAt),
+              lastActiveAt: new Date(nextUpdatedAt),
+            },
+          },
+        );
       }
       return res.json({
         success: true,

@@ -1,1001 +1,889 @@
-# Froddle Technical Report
+# Froddle / ArtColab Technical Report
 
-## 1. INTRODUCTION
+> A room-based real-time collaborative whiteboard for lightweight sketching, discussion, and shared visual ideation.
 
-### What problem this project solves
-Froddle solves the problem of lightweight, instant, browser-based visual collaboration. Traditional whiteboard tools can feel heavy for quick sketching sessions, brainstorming, informal teaching, or playful collaboration. Froddle reduces that friction by allowing users to create or join named rooms, collaborate in real time, and start drawing immediately without forcing a full account-based onboarding flow.
-
-### Why this project is important
-This project is important because it brings together several real-world product engineering concerns in one system:
-- real-time communication,
-- collaborative state synchronization,
-- account and guest identity management,
-- room security for private spaces,
-- profile management,
-- password-reset recovery,
-- mobile/touch UX,
-- and a deployable monorepo architecture.
-
-It demonstrates how to build more than a static CRUD application. It shows an event-driven, collaborative product with both REST and WebSocket communication paths.
-
-### Target users
-Primary users include:
-- students collaborating on diagrams or study sketches,
-- small teams brainstorming visually,
-- interview candidates demonstrating system design or realtime engineering skills,
-- creators who want an instant room without a complex setup,
-- guests who want immediate entry,
-- and registered users who want saved identity and room ownership.
-
-### Real-world relevance
-Froddle maps directly to the kinds of collaborative products used in education, remote work, design workshops, lightweight ideation, and social drawing apps. It also mirrors the engineering patterns used in production systems such as collaborative editors, whiteboards, and event-driven multiplayer interfaces.
+**Project identity:** Froddle is the user-facing product brand, while ArtColab reflects the repository and deployment identity used in the codebase.  
+**Authorship:** _Add student / team names here_  
+**Primary stack:** Next.js, React, TypeScript, Express, Socket.IO, MongoDB, Mongoose, Tailwind CSS.
 
 ---
 
-## 2. PROJECT OVERVIEW
+## 1. Executive Summary
 
-### High-level explanation
-Froddle is a full-stack monorepo application built around real-time collaborative rooms. Users can create public or private rooms, join ongoing sessions, and draw on a shared whiteboard. The product supports guests and registered users, offers room browsing and management, includes live chat and emoji reactions, and keeps client/server contracts synchronized through a shared workspace.
+Froddle / ArtColab is a browser-based collaborative whiteboard application designed for low-friction shared drawing. It allows users to create rooms, join existing sessions, draw in real time, chat, send quick reactions, and manage their rooms without installing software or navigating a heavy onboarding flow.
 
-### Core idea
-The core idea is simple: combine room-based collaboration with a fast shared canvas, then wrap it in an approachable user experience that works for both anonymous and authenticated users.
+The project addresses a practical problem: most collaborative whiteboard systems are either too complex for quick sessions or too limited for meaningful multi-user interaction. Froddle aims to provide a simpler alternative that still supports room-based access control, guest participation, private rooms with passwords, responsive board interaction, and live synchronization across connected users.
 
-### Unique aspects vs similar apps
-Compared with a typical whiteboard demo, this project stands out because it includes:
-- guest-to-user upgrade behavior,
-- private room join flow with passwords,
-- browse/manage room experiences,
-- OTP-driven password reset,
-- profile image upload support,
-- per-user undo/redo behavior,
-- mobile-aware canvas and orientation support,
-- a shared TypeScript contracts package,
-- and a mixed persistence strategy where room metadata/auth lives in MongoDB while active collaboration runs from an in-memory room manager with debounced persistence.
+From an engineering perspective, the project combines:
+
+- a responsive Next.js frontend,
+- a REST API for room and account workflows,
+- a Socket.IO layer for real-time collaboration,
+- MongoDB-backed persistence for users and rooms,
+- and a shared TypeScript package for socket and canvas contracts.
 
 ---
 
-## 3. TECH STACK (DETAILED)
+## 2. Problem Statement
 
-### Frontend
-**Stack:** Next.js 14 App Router, React 18, TypeScript, Tailwind CSS, Socket.IO Client, Zod.
+Modern collaboration often requires people to explain ideas visually in real time. Static drawing tools and single-user whiteboards are insufficient when multiple participants need to sketch, annotate, react, and discuss together inside a shared space.
 
-#### Why chosen
-- **Next.js** gives file-based routing, production-ready React architecture, metadata support, and strong developer ergonomics.
-- **React** is a natural fit for highly interactive UI like canvas controls, modals, room state, and auth flows.
-- **TypeScript** improves correctness across a collaboration-heavy codebase.
-- **Tailwind CSS** makes it easier to build a custom, visually distinctive UI rapidly.
-- **Socket.IO Client** simplifies resilient realtime connections and reconnect handling.
-- **Zod** helps validate client-consumed payload structures.
+The core problems this project solves are:
 
-#### Alternatives
-- Vite + React could have been simpler for a SPA.
-- Remix could provide a different data-loading model.
-- Zustand or Redux could have been used for app-wide state management.
-- Native WebSocket libraries could replace Socket.IO.
-
-#### Trade-offs
-- Next.js adds framework structure and some runtime complexity that a pure SPA would not require.
-- Tailwind speeds UI work but can create dense JSX class strings.
-- React state is sufficient here, but as collaboration grows, a dedicated client-side store may become more maintainable.
-
-### Backend
-**Stack:** Node.js, Express, TypeScript, Socket.IO.
-
-#### Why chosen
-- **Express** provides a low-friction way to expose REST APIs for auth, rooms, and profiles.
-- **Socket.IO** provides room abstractions, reconnect handling, and cross-browser fallback transport support.
-- **TypeScript** helps enforce safer contracts between route handlers, validators, and room logic.
-
-#### Alternatives
-- Fastify for better performance and schema-centric APIs.
-- NestJS for a more opinionated module architecture.
-- Native `ws` for lower-level WebSocket handling.
-
-#### Trade-offs
-- Express is flexible but less opinionated, so architecture discipline depends on the developer.
-- Socket.IO is convenient but introduces abstraction overhead compared with raw WebSockets.
-
-### Database
-**Stack:** MongoDB with Mongoose.
-
-#### Why chosen
-- User, room, and canvas state documents fit naturally into a document database.
-- Flexible nested structures are useful for strokes, stickers, and room metadata.
-- Mongoose provides schema validation, indexes, and familiar document operations.
-
-#### Alternatives
-- PostgreSQL with normalized tables and JSONB.
-- DynamoDB or Firestore for event/state storage.
-- Redis for ephemeral room state.
-
-#### Trade-offs
-- MongoDB is convenient for nested canvas state, but concurrency and transactional modeling are less rigid than SQL.
-- Large arrays of strokes may require further optimization as rooms grow.
-
-### Realtime
-**Stack:** Socket.IO rooms and shared event constants/types.
-
-#### Why chosen
-- Rooms map directly to collaborative room IDs.
-- Automatic reconnection behavior helps real users recover from temporary network disruption.
-- Shared event names/types reduce protocol drift.
-
-#### Alternatives
-- Native WebSockets with a custom protocol.
-- WebRTC data channels for peer-to-peer collaboration.
-
-#### Trade-offs
-- Socket.IO is not the lightest protocol, but it dramatically lowers implementation complexity for room broadcasting, reconnect flows, and browser compatibility.
-
-### Deployment
-**Observed deployment shape:** frontend-oriented Vercel URLs and Render-style backend URL/fallback.
-
-#### Why chosen
-- Vercel aligns well with Next.js frontend hosting.
-- Render fits a long-running Node/Express + Socket.IO server.
-
-#### Alternatives
-- Fly.io, Railway, AWS ECS, or DigitalOcean App Platform.
-- Full containerized deployment with Kubernetes.
-
-#### Trade-offs
-- Splitting frontend and backend across hosts is common and simple, but requires careful CORS and environment management.
-- Socket-heavy workloads may require more advanced infra planning as traffic scales.
+- the lack of a lightweight, browser-based collaborative whiteboard for instant use,
+- the friction of account-only onboarding for casual participants,
+- the need for room-level access control for public and private collaboration,
+- the need for synchronized live drawing among multiple users,
+- and the challenge of making such a workspace usable across mobile and desktop form factors.
 
 ---
 
-## 4. SYSTEM ARCHITECTURE (VERY IMPORTANT)
+## 3. Objectives
 
-### High-level flow
-```text
-[Browser / Next.js Client]
-        |
-        | REST (fetch)
-        v
-[Express API Layer] -----> [MongoDB via Mongoose]
-        |
-        | Socket.IO events
-        v
-[RoomManager in-memory collaboration state]
-        |
-        | broadcast updates
-        v
-[Connected clients in same room]
-```
+The main objectives of Froddle / ArtColab are:
 
-### Request flow
-1. A user logs in, registers, browses rooms, edits profile data, or manages rooms via REST APIs.
-2. The Express server validates payloads with Zod and auth middleware.
-3. The server reads/writes MongoDB documents for users and persisted room metadata.
-4. The frontend consumes JSON responses through a typed API wrapper.
-
-### Response flow
-1. The server returns normalized JSON payloads.
-2. The client validates important room payloads using Zod.
-3. The client updates local React state and session storage/local storage helpers.
-
-### Realtime sync flow
-1. The user enters a room page.
-2. The client creates/connects a singleton Socket.IO client.
-3. The client emits `room:join` with room ID, user ID, display name, and optional avatar URL.
-4. The server validates the join payload.
-5. The `RoomManager` adds the participant to in-memory room state.
-6. The server emits room hydration, participants updates, and future stroke/chat/reaction/sticker events.
-7. Each peer updates local state as events arrive.
-
-### Persistence flow
-```text
-stroke start/append/end
-    -> server validates
-    -> in-memory RoomManager updated immediately
-    -> server broadcasts realtime event
-    -> RoomManager schedules debounced persistence
-    -> MongoDB room.canvasState updated
-```
-
-### Conceptual room lifecycle diagram
-```text
-User creates room
-   -> POST /api/rooms/create
-   -> RoomManager.createRoom()
-   -> optional Mongo Room.create()
-   -> client navigates to /room/:roomId
-   -> socket join handshake
-   -> collaborative session begins
-   -> state persists incrementally
-```
-
-### Architectural observations
-- Room collaboration is optimized for responsiveness first through in-memory state.
-- Persistence is secondary and debounced, reducing DB write frequency.
-- Authentication and ownership are handled via REST + JWT.
-- Shared contracts improve correctness between the frontend and backend.
+1. Enable real-time shared drawing in a room-scoped workspace.
+2. Support public and private room collaboration.
+3. Allow both guest and registered-user access paths.
+4. Synchronize drawing, chat, reactions, and participant presence live.
+5. Provide an intuitive, responsive interface across mobile, tablet, and desktop devices.
+6. Keep room access and collaboration flows simple enough for fast ad hoc use.
+7. Provide room management and account/profile maintenance for authenticated users.
 
 ---
 
-## 5. FEATURE-BY-FEATURE DEEP EXPLANATION
+## 4. System Overview
 
-### 5.1 Authentication
+At a high level, the system is split into five major layers:
 
-#### What exists
+- **Frontend:** Next.js App Router application that renders room pages, browse/manage views, auth flows, and profile management.
+- **Backend API:** Express routes for authentication, room CRUD-style operations, profile updates, and room metadata retrieval.
+- **Realtime layer:** Socket.IO server and client used for room joins, drawing events, participant presence, chat, and reactions.
+- **Persistence layer:** MongoDB with Mongoose models for users and persisted room state.
+- **Shared contracts:** A shared package containing socket event names and canvas/room types to reduce drift between frontend and backend.
+
+### User journey summary
+
+A typical user journey is:
+
+1. Open the home page.
+2. Continue as guest or authenticate as a registered user.
+3. Create a room or join an existing room.
+4. Enter the room workspace.
+5. Connect to the Socket.IO room.
+6. Receive the current room state.
+7. Draw, chat, react, and collaborate live.
+8. Optionally manage rooms or update account/profile settings later.
+
+---
+
+## 5. Detailed Feature List
+
+Only features confirmed in the codebase are listed below.
+
+### 5.1 Room features
+
+- Create room.
+- Join room by room code or room name.
+- Browse active rooms.
+- Manage owned rooms.
+- Leave joined rooms.
+- Delete owned rooms.
+- Update room name.
+- Update room visibility between public and private.
+- Set or replace private-room password.
+- Public/private room access control.
+
+### 5.2 Whiteboard features
+
+- Brush tool.
+- Eraser tool.
+- Fill tool.
+- Shape tools: line, rectangle, square, circle, ellipse, triangle, and star.
+- Undo and redo.
+- Clear board.
+- Export board as PNG.
+- Copy board image.
+- Reset zoom/view.
+- Pinch-to-zoom / viewport zoom and pan behavior.
+- Cursor presence indicators for collaborators.
+
+### 5.3 Realtime collaboration features
+
+- Live drawing synchronization.
+- Live participant list updates.
+- In-room chat.
+- Emoji reactions.
+- Room-scoped event broadcasting.
+- Reconnection-aware client behavior.
+
+### 5.4 Authentication and user features
+
 - Guest login.
 - User registration.
-- User login using email or username.
-- Session recovery via `/api/auth/me`.
-- Forgot-password OTP flow.
-- Logout.
+- User login by username or email.
+- Session retrieval.
+- OTP-based forgot-password flow.
+- Profile update.
+- Profile image upload.
+- Account deletion.
 
-#### How it works internally
-- Guest login issues a JWT containing a generated guest identity.
-- User registration hashes passwords with bcrypt.
-- Login verifies bcrypt password hashes.
-- JWTs are stored client-side and attached as `Authorization: Bearer ...` headers.
-- The server distinguishes `guest` vs `user` roles inside token payloads.
+### 5.5 UX and responsive features
 
-#### APIs involved
-- `POST /api/auth/guest`
-- `POST /api/auth/register`
-- `POST /api/auth/login`
-- `GET /api/auth/me`
-- `POST /api/auth/logout`
-- `POST /api/auth/forgot-password/request`
-- `POST /api/auth/forgot-password/verify-otp`
-- `POST /api/auth/forgot-password/reset-password`
+- Desktop and mobile room workspace behavior.
+- Orientation-aware room handling for touch devices.
+- Password prompt flow for private rooms.
+- Toasts, modals, and inline status banners.
 
-#### Data flow
-- Client form -> REST request -> validation -> DB lookup/write -> JWT response -> local storage update -> auth context refresh.
+### Features intentionally **not** claimed
 
-#### Challenges faced
-- Guest users need instant access without losing later ownership.
-- Password reset requires secure verification without exposing raw OTPs.
+The current report does **not** claim the following as shipped user features:
 
-#### How solved
-- A guest token can be passed into register/login requests.
-- The server migrates guest-owned or guest-joined room references to the newly authenticated user.
-- OTP/reset tokens are hashed server-side before storage.
+- stickers as a surfaced user-facing feature,
+- room ownership transfer as a user-facing room-management feature.
 
-### 5.2 Guest-to-user migration
-
-#### What it does
-Allows users to start as a guest, create/join rooms, then register/login without losing room ownership and memberships.
-
-#### Internal mechanism
-- Server decodes the guest token.
-- It finds rooms owned by the guest and updates owner fields.
-- It also updates joined/created room arrays on the user document.
-
-#### Why it matters
-This is product-smart. It removes friction from onboarding while preserving continuity when a guest decides to create an account.
-
-### 5.3 Room creation and joining
-
-#### Features
-- Public rooms.
-- Private rooms with passwords.
-- Join by room name or code.
-- Duplicate room name prevention.
-
-#### Internal behavior
-- REST endpoint validates the request.
-- Duplicate names are checked against persisted and in-memory room metadata.
-- Private room passwords are hashed with bcrypt.
-- Joining validates visibility and password if required.
-
-#### Challenges
-- A room can exist in both persisted storage and live memory.
-- Join lookup needs to work by room ID or human-readable name.
-
-#### Solution
-The server resolves room metadata from MongoDB when available and falls back to in-memory metadata when needed.
-
-### 5.4 Drawing system
-
-#### Supported tools
-- pen
-- eraser
-- fill
-- line
-- rectangle
-- square
-- circle
-- ellipse
-- triangle
-- star
-
-#### Internal working
-- The canvas component captures pointer input.
-- It converts pointer activity into logical board coordinates.
-- Stroke events are emitted in three phases: start, append, end.
-- The server validates strokes and appends them to room state.
-- Other clients receive broadcast events and update their local stroke lists.
-
-#### Shape handling
-Shapes are encoded as `shape` metadata with `start`, `end`, and `kind`, rather than as dense freehand point arrays.
-
-#### Fill handling
-Fill strokes are modeled as a single logical point and rendered via flood-fill in the canvas renderer.
-
-#### Challenges
-- Freehand drawing and shapes need different data representations.
-- Canvas rendering must remain smooth during live appends.
-
-#### Solution
-The shared stroke type supports both point-based and shape-based strokes. Client append events are buffered and flushed in batches to reduce rendering churn.
-
-### 5.5 Chat system
-
-#### What it does
-Users in a room can send lightweight text messages.
-
-#### Internals
-- Chat messages are emitted via socket events.
-- The server constructs authoritative message IDs and timestamps.
-- RoomManager stores a bounded chat history in memory.
-- Messages are broadcast to all clients in the room.
-
-#### Limits
-- Chat is in-memory only during live room lifecycle.
-- It is intentionally capped to a max message count for bounded memory use.
-
-### 5.6 Reactions and stickers
-
-#### Reactions
-Emoji reactions are transient events broadcast to the room.
-
-#### Stickers
-Sticker placement is persisted in room state and synchronized to all clients.
-
-#### Why both exist
-Reactions provide lightweight, ephemeral feedback. Stickers provide semi-persistent visual decoration on the board.
-
-### 5.7 Realtime sync
-
-#### Internals
-- Room join triggers hydration.
-- Stroke start/append/end updates flow through Socket.IO.
-- Cursors are maintained per room in server memory.
-- Board clear, mode changes, sticker placements, and chat all emit specific events.
-
-#### Reliability measures
-- Client reconnect handling via Socket.IO manager hooks.
-- Room state re-request if append events arrive before base stroke hydration.
-- Room version timestamps to avoid applying stale room snapshots.
-
-### 5.8 Undo/Redo
-
-#### How it works
-- Undo is per-user, not global across all users.
-- The server removes the last stroke belonging to that user.
-- Removed strokes are pushed onto a redo stack by user.
-- Redo restores the last removed stroke for that same user.
-
-#### Challenges
-In collaborative systems, global undo can become ambiguous and disruptive.
-
-#### Solution
-Per-user undo/redo avoids one participant accidentally rewinding another participant’s work.
-
-### 5.9 Zoom, pan, and canvas handling
-
-#### What exists
-- Touch-friendly interactions.
-- Pinch/pan support.
-- Desktop panning support.
-- Logical canvas size abstraction.
-
-#### Why it matters
-A fixed viewport collaborative canvas becomes unusable on smaller devices without navigation controls.
-
-#### Likely design advantage
-The logical drawing surface remains stable while the viewport transform changes, which simplifies stroke coordinate consistency across clients.
-
-### 5.10 State management
-
-#### Pattern used
-- React local state for page/component state.
-- Context for auth/session.
-- Dedicated custom hook for room socket state.
-- Session/local storage helpers for room hints, access grants, and guest names.
-
-#### Why this is sufficient
-The app has modular state domains, and each domain is scoped clearly enough that a heavyweight state library is not yet required.
+These were removed because they are not part of the actual delivered product behavior expected by users.
 
 ---
 
-## 6. DATABASE DESIGN
+## 6. Tech Stack
 
-### Main collections
-1. `users`
-2. `rooms`
+### Frontend
 
-### User schema
-Fields include:
-- `username`
-- `email`
-- `password`
-- `profileImage`
-- `createdRooms`
-- `joinedRooms`
-- `resetCodeHash`
-- `resetCodeExpiresAt`
-- `resetSessionHash`
-- `resetSessionExpiresAt`
-- timestamps
+- **Next.js 14 App Router** for routing and application structure.
+- **React 18** for interactive UI.
+- **TypeScript** for static typing.
+- **Tailwind CSS** for utility-first styling.
+- **Lucide React** for iconography.
+- **Zod** for client-side response validation.
+- **Socket.IO Client** for realtime communication.
 
-### Room schema
-Fields include:
-- `roomId`
-- `name`
-- `visibility`
-- `passwordHash`
-- `ownerType`
-- `ownerId`
-- `ownerName`
-- `lastActiveAt`
-- `canvasState.strokes`
-- `canvasState.stickers`
-- `canvasState.lastSavedAt`
-- `canvasState.version`
-- `previewImageUrl`
-- timestamps
+### Backend
 
-### Relationships
-- A user owns zero or more rooms through `ownerId` + `ownerType='user'`.
-- A user references room IDs in `createdRooms` and `joinedRooms` arrays.
-- Guest ownership is represented in room documents using `ownerType='guest'` and a guest ID.
+- **Node.js** runtime.
+- **Express** for REST endpoints.
+- **TypeScript** for route and service typing.
+- **Socket.IO** for realtime room communication.
 
-### Example user document
-```json
-{
-  "_id": "65f...",
-  "username": "alice",
-  "email": "alice@example.com",
-  "password": "$2a$12$...",
-  "profileImage": "https://res.cloudinary.com/...",
-  "createdRooms": ["AB12CD"],
-  "joinedRooms": ["ZX98QP"],
-  "resetCodeHash": null,
-  "resetCodeExpiresAt": null,
-  "resetSessionHash": null,
-  "resetSessionExpiresAt": null
-}
+### Database / storage
+
+- **MongoDB** for user and room persistence.
+- **Mongoose** for schema modeling and data access.
+- **Cloudinary** for profile image storage.
+
+### Realtime
+
+- **Socket.IO rooms** for room-scoped event broadcasting.
+- Shared socket event constants from the `shared` workspace package.
+
+### Utilities / tooling
+
+- **bcryptjs** for password hashing.
+- **jsonwebtoken** for JWT-based auth.
+- **Resend** for OTP email delivery.
+- **nanoid** for short IDs.
+- **ESLint**, **Prettier**, and TypeScript compiler checks.
+
+### Deployment shape
+
+The codebase is designed for a split frontend/backend deployment model:
+
+- Next.js frontend deployment,
+- long-running Node/Socket.IO backend deployment,
+- external MongoDB database,
+- and third-party services for email and image storage.
+
+The environment configuration includes built-in client origin defaults for localhost plus deployed frontend hosts, which indicates intended hosted operation in addition to local development.
+
+---
+
+## 7. Architecture
+
+### 7.1 High-level architecture
+
+```mermaid
+flowchart LR
+    U[User Browser] --> F[Next.js Frontend]
+    F -->|REST /api/*| A[Express API Layer]
+    F -->|Socket.IO| S[Realtime Socket Layer]
+    A --> R[RoomManager]
+    A --> D[(MongoDB)]
+    S --> R
+    R --> D
+    S --> B[Room Broadcast to Connected Clients]
 ```
 
-### Example room document
-```json
-{
-  "roomId": "AB12CD",
-  "name": "Sprint Planning",
-  "visibility": "private",
-  "passwordHash": "$2a$10$...",
-  "ownerType": "user",
-  "ownerId": "65f...",
-  "ownerName": "alice",
-  "canvasState": {
-    "strokes": [],
-    "stickers": [],
-    "lastSavedAt": "2026-03-22T00:00:00.000Z",
-    "version": 3
-  },
-  "previewImageUrl": null
-}
+### 7.2 Request and data flow
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Frontend
+    participant API
+    participant Mongo
+
+    User->>Frontend: Submit create/join/manage/auth action
+    Frontend->>API: HTTP request
+    API->>API: Validate payload
+    API->>Mongo: Read or write persisted data
+    Mongo-->>API: Result
+    API-->>Frontend: JSON response
+    Frontend-->>User: Update UI state
 ```
 
-### Why this structure was chosen
-- It is easy to persist nested canvas state in MongoDB.
-- Room ownership works for both guest and authenticated users.
-- User documents directly expose joined/created room references for profile/manage views.
+### 7.3 Realtime synchronization flow
 
----
+```mermaid
+sequenceDiagram
+    participant ClientA
+    participant SocketServer
+    participant RoomManager
+    participant ClientB
 
-## 7. API DESIGN
+    ClientA->>SocketServer: room:join
+    SocketServer->>RoomManager: add participant
+    RoomManager-->>SocketServer: hydrated room state
+    SocketServer-->>ClientA: room:joined
+    SocketServer-->>ClientB: participant joined
 
-### Authentication endpoints
-#### `POST /api/auth/guest`
-Creates a guest token and guest identity.
-
-#### `POST /api/auth/register`
-Registers a user and optionally migrates guest data.
-
-**Request**
-```json
-{
-  "email": "user@example.com",
-  "username": "newuser",
-  "password": "strongpassword",
-  "confirmPassword": "strongpassword",
-  "guestToken": "optional",
-  "guestDisplayName": "optional"
-}
+    ClientA->>SocketServer: stroke:start / stroke:append / stroke:end
+    SocketServer->>RoomManager: update room state
+    SocketServer-->>ClientB: stroke event broadcast
 ```
 
-#### `POST /api/auth/login`
-Logs in with username/email and password.
+### 7.4 Room management update flow
 
-#### `GET /api/auth/me`
-Returns current session user if token is valid.
+```mermaid
+flowchart LR
+    M[Manage Rooms Page] --> E[Select Edit]
+    E --> F[Populate edit form with selected room]
+    F --> S[Submit updated name / visibility / password]
+    S --> A[PATCH room settings API]
+    A --> V[Validate owner and payload]
+    V --> U[Update in-memory metadata and MongoDB]
+    U --> R[Reload room lists]
+    R --> UI[Show refreshed room state and success feedback]
+```
 
-#### `POST /api/auth/logout`
-Client-side logout confirmation endpoint.
+### 7.5 Deployment diagram
 
-#### `POST /api/auth/forgot-password/request`
-Starts OTP reset flow.
-
-#### `POST /api/auth/forgot-password/verify-otp`
-Exchanges OTP for a reset session token.
-
-#### `POST /api/auth/forgot-password/reset-password`
-Resets password using email + reset token.
-
-### Profile endpoints
-#### `GET /api/profile`
-Returns authenticated user profile.
-
-#### `PATCH /api/profile`
-Updates username, email, and/or profile image.
-
-#### `DELETE /api/profile/account`
-Deletes account after explicit confirmation and password verification.
-
-### Room endpoints
-#### `POST /api/rooms/create`
-Creates a room.
-
-#### `POST /api/rooms/join`
-Resolves and authorizes room entry.
-
-#### `GET /api/rooms/browse?q=`
-Lists active room metadata filtered by query.
-
-#### `GET /api/rooms/manage`
-Returns owned and joined rooms for the current user.
-
-#### `PATCH /api/rooms/:roomId/settings`
-Updates room name, visibility, and password.
-
-#### `DELETE /api/rooms/:roomId`
-Deletes a room if caller is owner.
-
-#### `POST /api/rooms/:roomId/leave`
-Removes joined-room association for the current user.
-
-#### `GET /api/rooms/:roomId`
-Loads room metadata for room entry flow.
-
-### Authentication handling
-- Optional auth is used on room-related endpoints to support guests.
-- Required auth is enforced on profile endpoints.
-- JWT verification happens in middleware.
-- Registered-user-only actions reject guest tokens where appropriate.
+```mermaid
+flowchart LR
+    C[Client Browser] --> FE[Frontend Hosting<br/>Next.js App]
+    C --> BE[Backend Hosting<br/>Express + Socket.IO]
+    BE --> DB[(MongoDB)]
+    BE --> EM[Resend Email]
+    BE --> IMG[Cloudinary]
+```
 
 ---
 
-## 8. REALTIME SYSTEM (IMPORTANT)
+## 8. Data Flow / Pipeline
 
-### How users sync
-When a room page loads:
-1. client connects socket,
-2. emits `room:join`,
-3. server adds participant,
-4. server emits `room:joined`,
-5. server updates all clients with participant list and cursor presence.
+### 8.1 Room creation flow
 
-### How drawing sync works
-1. Local user starts a stroke.
-2. Client emits `stroke:start`.
-3. Server validates and stores authoritative stroke with timestamp.
-4. Server broadcasts `stroke:event` with start payload.
-5. Client emits batched `stroke:append` events as drawing continues.
-6. Server appends points and rebroadcasts append payloads.
-7. `stroke:end` indicates stroke completion.
+1. User submits room name, visibility, and optional password.
+2. Frontend calls `POST /api/rooms/create`.
+3. Backend validates the payload with Zod.
+4. Backend checks for duplicate room names.
+5. If private, backend hashes the password with bcrypt.
+6. `RoomManager` creates the live room.
+7. If MongoDB is available, the room is also persisted.
+8. Frontend stores a room-entry hint and navigates to the room page.
 
-### How chat sync works
-1. User emits `chat:send`.
-2. Server validates message.
-3. Server stamps ID/timestamp.
-4. Server broadcasts `chat:message` to the whole room.
+### 8.2 Room join flow
 
-### How conflicts are handled
-This app uses a pragmatic event-order approach rather than CRDTs:
-- strokes are append-only once started,
-- undo/redo is scoped per user,
-- room hydration uses `updatedAt` checks to avoid stale overwrite,
-- client requests fresh room state if append events arrive before base stroke state.
+1. User enters room code or room name.
+2. Frontend calls `POST /api/rooms/join`.
+3. Backend resolves the room from persisted or in-memory metadata.
+4. Backend checks visibility and password rules.
+5. Frontend navigates to `/room/[roomId]`.
+6. Client emits `room:join` over Socket.IO.
+7. Server adds the participant and returns room hydration.
 
-This is a sensible design for a drawing app where strict collaborative object editing is limited.
+### 8.3 Board load flow
 
----
+1. Room page fetches room metadata via REST.
+2. Room page opens the socket connection.
+3. Client joins the socket room.
+4. Server responds with room state.
+5. Board component initializes canvas resolution and renders existing strokes.
 
-## 9. PERFORMANCE OPTIMIZATION
+### 8.4 Drawing event flow
 
-### Caching strategy
-- Browse/manage/get-room fetches use `no-store` where freshness matters.
-- Session and room hint data are cached in browser storage for UX continuity.
+1. Pointer or touch interaction occurs on the canvas.
+2. Frontend converts screen coordinates to logical board coordinates.
+3. Local draft stroke is rendered for immediate feedback.
+4. Frontend emits `stroke:start`, then batched `stroke:append`, then `stroke:end`.
+5. Server validates and stores the stroke in `RoomManager`.
+6. Server broadcasts the stroke event to other room participants.
+7. Other clients incrementally render the updates.
+8. RoomManager schedules persistence of updated canvas state.
 
-### Lazy loading / minimal loading
-- Room entry uses a small metadata-first load and then socket hydration.
-- The room page does not require the entire rest of the application state tree to initialize first.
+### 8.5 Board synchronization and persistence flow
 
-### Optimistic UI
-- Undo/redo is optimistic on the client.
-- Room navigation uses remembered room hints and access grants to reduce repeated friction.
+1. Live room state is updated in memory first.
+2. Persistence is debounced to reduce database write frequency.
+3. MongoDB stores room canvas state, timestamps, and version increments.
+4. Rehydrated rooms are loaded into memory on server startup.
 
-### Minimizing re-renders
-- `useRoomSocket` batches stroke append points.
-- Stroke index maps prevent repeated full scans for appends.
-- Latest room version refs help avoid stale state replacement.
+### 8.6 Manage-room update flow
 
-### Network optimization
-- Debounced persistence avoids writing to MongoDB on every point append.
-- Append payloads are limited in size and validated.
-- Chat/sticker/reaction payloads are small and purpose-specific.
-
----
-
-## 10. UI/UX DESIGN DECISIONS
-
-### Why certain layouts were chosen
-- Landing page separates discovery and action: create, join, browse, manage.
-- Auth page clearly distinguishes login, registration, and password reset.
-- Room page prioritizes the board while exposing collaboration tools, chat, and room utilities.
-
-### Mobile responsiveness strategy
-- The app adapts for coarse pointers and touch workspaces.
-- The room experience includes touch-aware canvas controls.
-- The UI uses compact modal/card patterns that fit small screens.
-
-### Orientation handling
-- Non-room routes enforce portrait mode behavior.
-- Room routes manage their own orientation lifecycle and viewport CSS variables.
-- This indicates intentional handling of mobile whiteboard ergonomics.
-
-### User experience improvements
-- Guest mode allows immediate entry.
-- Private room access is remembered per session.
-- User avatar menu adapts for guest vs authenticated states.
-- Toasts, confirmation modals, and inline status banners improve feedback quality.
+1. User opens the Manage Rooms page.
+2. Frontend fetches owned and joined rooms.
+3. User clicks **Edit** on an owned room.
+4. Frontend stores the selected room in edit state and populates the form.
+5. User updates name, visibility, and optional password.
+6. Frontend submits `PATCH /api/rooms/:roomId/settings`.
+7. Backend verifies ownership, validates payload, checks duplicate names, hashes password when needed, and updates in-memory metadata plus MongoDB.
+8. Frontend reloads room lists and shows success feedback.
 
 ---
 
-## 11. ISSUES FACED & SOLUTIONS
+## 9. Core Modules / Components
 
-### 1. Orientation bugs on mobile
-**Root cause:** drawing surfaces and browser chrome behavior often break viewport assumptions on mobile.
+### 9.1 Frontend application pages
 
-**Fix:** custom room orientation helpers manage fullscreen/orientation state, viewport CSS variables, and cleanup when leaving room routes.
+- **`client/app/page.tsx`**: home page, create/join room flows, guest entry path.
+- **`client/app/room/[roomId]/page.tsx`**: main collaboration workspace and room shell.
+- **`client/app/browse-rooms/page.tsx`**: room discovery and join flow.
+- **`client/app/manage-rooms/page.tsx`**: room management for owned/joined rooms.
+- **`client/app/profile/page.tsx`**: profile editing and account deletion.
+- **`client/app/auth/page.tsx`**: login, registration, and reset-password UI.
 
-### 2. Socket lag / out-of-order append events
-**Root cause:** append payloads can arrive before base stroke hydration, especially during reconnects.
+### 9.2 Whiteboard and workspace components
 
-**Fix:** the client detects missing stroke IDs and requests full room state hydration.
+- **`client/components/canvas-board.tsx`**: board rendering, pointer handling, zoom/pan, drawing emission, cursor display.
+- **`client/components/color-wheel-picker.tsx`**: extended color selection.
+- **`client/components/confirm-modal.tsx`**: confirmation flows for destructive actions.
+- **`client/components/toast.tsx`**: short-lived toast notifications.
+- **`client/components/room-password-modal.tsx`**: private-room access prompt.
+- **`client/components/site-header.tsx`** and UI atoms provide shared shell patterns.
 
-### 3. Canvas scaling and cross-device consistency
-**Root cause:** different device resolutions and pixel densities can distort drawing behavior.
+### 9.3 Hooks and client libraries
 
-**Fix:** the canvas uses a logical drawing surface with transform-based viewport behavior.
+- **`client/hooks/use-room-socket.ts`**: socket join lifecycle, room hydration, stroke/chat/reaction handling, reconnect logic.
+- **`client/lib/api.ts`**: typed REST request helpers.
+- **`client/lib/room-access.ts`**: local private-room access grant tracking.
+- **`client/lib/room-entry.ts`**: room hint persistence between pages.
+- **`client/lib/room-orientation.ts`**: touch-device room orientation/session behavior.
+- **`client/lib/socket.ts`**: singleton socket client.
 
-### 4. Undo conflicts in collaborative sessions
-**Root cause:** global undo is ambiguous in a multi-user board.
+### 9.4 Backend modules
 
-**Fix:** undo/redo is user-scoped.
+- **`server/src/index.ts`**: Express app setup, Socket.IO setup, room hydration on startup.
+- **`server/src/routes/rooms.ts`**: room create, join, browse, manage, update, delete, leave, and room fetch endpoints.
+- **`server/src/routes/auth.ts`**: guest auth, register, login, session, and forgot-password flow.
+- **`server/src/routes/profile.ts`**: profile update and account deletion.
+- **`server/src/socket/registerHandlers.ts`**: socket event registration and broadcasting.
+- **`server/src/rooms/roomManager.ts`**: in-memory room state and persistence scheduling.
+- **`server/src/models/User.ts`** and **`server/src/models/Room.ts`**: MongoDB models.
 
-### 5. Guest identity continuity
-**Root cause:** guest sessions often disappear or fracture when users later register.
+### 9.5 Shared package
 
-**Fix:** guest tokens and room ownership migration preserve continuity.
-
-### 6. Password reset security
-**Root cause:** raw reset codes should not be stored or trusted indefinitely.
-
-**Fix:** OTPs and reset session tokens are hashed and time-bound.
-
-### 7. Room persistence without overloading DB writes
-**Root cause:** writing every stroke point directly to MongoDB is wasteful.
-
-**Fix:** the RoomManager debounces persistence.
-
-### 8. Account deletion consistency
-**Root cause:** deleting a user can orphan owned rooms and references in other users.
-
-**Fix:** account deletion removes owned rooms, updates affected user references, emits room-expired events, and disconnects live participation.
-
----
-
-## 12. SECURITY CONSIDERATIONS
-
-### Auth security
-- Passwords are hashed with bcrypt.
-- JWTs distinguish user vs guest roles.
-- Registered-user-only endpoints use strict auth middleware.
-
-### Input validation
-- Zod validates room IDs, room names, stroke payloads, chat payloads, cursor payloads, auth payloads, and profile payloads.
-
-### API protection
-- CORS is explicitly configured using normalized allowed origins and wildcard support.
-- Sensitive profile/account operations require authenticated user tokens.
-
-### Data privacy
-- Password reset uses hashed OTP and reset session values.
-- Profile image upload requires Cloudinary configuration.
-- Password confirmation is required before account deletion.
-
-### Remaining security improvements
-- HTTP-only cookies would reduce token exposure compared with localStorage.
-- Rate limiting should be added for login, guest issue, room create, and OTP endpoints.
-- CSRF considerations become more important if cookie-based auth is adopted later.
+- **`shared/types/socket.ts`**: socket event names and payload types.
+- **`shared/types/canvas.ts`** and **`shared/types/room.ts`**: collaboration domain models.
 
 ---
 
-## 13. SCALABILITY DISCUSSION
+## 10. Database / Data Model
 
-### What happens with 1000+ users?
-At current scale, the architecture will work for small-to-moderate concurrency, but several pressure points appear:
-- in-memory room state is process-local,
-- Socket.IO rooms are local to one server instance,
-- chat history is not persisted,
-- Mongo stroke arrays may grow large,
-- room browsing only reflects live in-memory room metadata.
+### 10.1 User entity
 
-### How to scale backend
-- Introduce a Socket.IO Redis adapter so multiple Node instances can share room broadcasts.
-- Move live room coordination into Redis or a dedicated realtime state layer.
-- Separate REST/API and realtime workloads if needed.
+The `User` model supports:
 
-### Load balancing ideas
-- Use sticky sessions if WebSocket traffic remains instance-bound.
-- Or centralize event propagation with Redis and remove strict stickiness dependence.
+- email,
+- username,
+- hashed password,
+- profile image,
+- created rooms list,
+- joined rooms list,
+- reset-code / reset-session fields for OTP-based password reset,
+- and timestamps.
 
-### DB scaling
-- Split room metadata from large canvas event history.
-- Store stroke event logs or snapshots separately.
-- Use periodic board snapshots instead of only ever-growing arrays.
-- Add indexes for room browse/search if persisted browse becomes primary.
+### 10.2 Room entity
 
-### Product scaling strategy
-For serious scale, a more event-sourced or CRDT-oriented collaboration model may be introduced, especially if object editing, full persistence, or replay is needed.
+The `Room` model stores:
 
----
+- room ID,
+- room name,
+- visibility,
+- password hash,
+- owner type (`user` or `guest`),
+- owner ID,
+- owner display name,
+- activity timestamps,
+- persisted canvas state,
+- preview image placeholder field,
+- and Mongo timestamps.
 
-## 14. FUTURE IMPROVEMENTS
+### 10.3 Canvas state
 
-- AI-assisted sketch recognition or prompt-to-diagram features.
-- Export board to image/PDF.
-- Persistent chat history.
-- Room invitations/share links.
-- Offline sketch drafts and sync-on-reconnect.
-- Redis-backed distributed room state.
-- Role-based room permissions.
-- Moderation tools for shared public rooms.
-- Board templates and saved sessions.
-- Better cleanup/expiration implementation tied to idle policy.
+Persisted room canvas state includes:
 
----
+- `strokes`,
+- `lastSavedAt`,
+- and a `version` counter.
 
-## 15. TOP 50 INTERVIEW QUESTIONS + ANSWERS
+The live collaboration state also holds participants, chat messages, redo stacks, and transient cursor information in memory through `RoomManager`.
 
-### 1. What is Froddle?
-Froddle is a real-time collaborative whiteboard application where users can create or join public/private rooms, draw together, chat, react, and manage identities as guests or registered users.
+### 10.4 In-memory room state
 
-### 2. What problem does it solve?
-It reduces friction for browser-based visual collaboration by combining instant room-based entry with realtime sketching and account-backed persistence when needed.
+The `RoomManager` maintains:
 
-### 3. Why did you use Next.js?
-It provides production-grade React routing, app structure, metadata handling, and a clean foundation for a polished frontend experience.
+- active participants,
+- live strokes,
+- chat history,
+- redo stacks,
+- room mode,
+- room expiration metadata,
+- and debounced persistence timers.
 
-### 4. Why did you use Express instead of a more opinionated backend framework?
-Express was enough for a focused REST + Socket.IO server. It kept the backend lightweight while letting the realtime room logic stay explicit.
-
-### 5. Why did you use Socket.IO instead of raw WebSockets?
-Socket.IO gives rooms, reconnect behavior, transport fallbacks, and a simpler event model, which speeds up delivery for realtime collaboration.
-
-### 6. Why MongoDB over SQL?
-Room and canvas state naturally fit nested document structures, and Mongoose made it easy to model users and rooms with flexible embedded arrays.
-
-### 7. How does realtime sync work?
-Clients join a Socket.IO room, emit drawing/chat/cursor events, and the server updates in-memory room state before broadcasting the authoritative event to other participants.
-
-### 8. Why keep room state in memory?
-In-memory room state gives low-latency collaboration. Persisting every realtime action directly to the database would be slower and more expensive.
-
-### 9. Why persist to MongoDB at all?
-MongoDB provides durability for room metadata, auth, and canvas state snapshots so rooms and user ownership survive process restarts.
-
-### 10. Why debounce persistence?
-Drawing can generate many rapid point updates. Debouncing reduces write amplification while keeping persisted state reasonably fresh.
-
-### 11. How do you validate incoming payloads?
-I use Zod on the server for REST and socket payloads, and I also validate important responses on the client.
-
-### 12. How do you secure passwords?
-Passwords are hashed with bcrypt before storage.
-
-### 13. How does forgot password work?
-The server generates a 6-digit OTP, stores only its hash, emails it with Resend, verifies it, then issues a time-limited reset session token whose hash is also stored server-side.
-
-### 14. Why hash OTPs too?
-If the database is exposed, raw OTPs should not be readable. Hashing them reduces that risk.
-
-### 15. How are guest users handled?
-Guests receive a JWT with a generated guest identity and can use most room features without a formal account.
-
-### 16. What happens when a guest later registers?
-The server migrates guest-owned rooms and joined-room references to the new registered account.
-
-### 17. Why is that migration valuable?
-It removes onboarding friction while preserving user continuity.
-
-### 18. How are private rooms secured?
-Private rooms store hashed passwords and require password verification during join.
-
-### 19. Can guests create private rooms?
-Yes. Ownership can belong to either a guest or a registered user.
-
-### 20. How do you manage room ownership?
-Rooms store `ownerType`, `ownerId`, and `ownerName`, which supports both guest and registered ownership models.
-
-### 21. How do you prevent duplicate room names?
-The create/update flows resolve room metadata against persisted and in-memory room sources before accepting a name.
-
-### 22. How are strokes represented?
-Each stroke has metadata such as tool, color, size, user ID, points, timestamp, and optional shape definition.
-
-### 23. How do shape tools differ from pen strokes?
-Shape tools use a `shape` object with start/end geometry instead of a dense sequence of freehand points.
-
-### 24. How is the fill tool implemented?
-The fill tool is modeled as a stroke with a single point and rendered via flood-fill in the canvas renderer.
-
-### 25. How do you handle cursor sync?
-The server tracks current cursor payloads by room and broadcasts updates/presence lists to connected users.
-
-### 26. How do you avoid stale room state on reconnect?
-The client tracks a latest room version timestamp and ignores stale hydration. It can also request full room state if append events arrive before the base stroke exists locally.
-
-### 27. Why not use CRDTs?
-The current collaboration model is simpler: append-only strokes, room hydration, and per-user undo/redo. CRDTs are powerful, but unnecessary complexity for this feature scope.
-
-### 28. How is undo/redo implemented?
-Undo removes the last stroke for the requesting user, stores it in that user’s redo stack, and redo restores it.
-
-### 29. Why per-user undo instead of global undo?
-Global undo is confusing in multi-user collaboration because one person could accidentally revert someone else’s work.
-
-### 30. How does chat work?
-Chat messages are validated, timestamped, stored in a bounded in-memory list, and broadcast to all room participants.
-
-### 31. Are chat messages persisted?
-Not currently. They are scoped to the live room session in memory.
-
-### 32. How do profile images work?
-The client uploads a data URI through the profile API, and the server uploads it to Cloudinary when configured.
-
-### 33. What happens on account deletion?
-The system deletes the user, deletes owned rooms, removes references from other users, emits room-expired events, and cleans up live participation.
-
-### 34. How is CORS handled?
-Allowed client origins are parsed from environment variables, normalized, and matched against exact or wildcard patterns.
-
-### 35. How do you handle offline or reconnect scenarios?
-Socket.IO reconnection is enabled. The client transitions between connecting/reconnecting/disconnected states and re-emits room join after reconnect.
-
-### 36. How do you manage frontend state without Redux?
-State is scoped: auth context for session, custom socket hook for room collaboration, and local component state for UI concerns.
-
-### 37. Why a monorepo?
-The monorepo keeps client, server, and shared contracts aligned, reduces duplication, and simplifies workspace builds.
-
-### 38. Why a shared package?
-It gives one source of truth for socket event names and shared room/canvas types.
-
-### 39. What is the biggest architectural strength of this project?
-It cleanly combines REST, realtime collaboration, typed contracts, guest/auth flows, and persistence in a cohesive product.
-
-### 40. What is the biggest architectural limitation right now?
-Realtime state is process-local, so horizontal scaling requires additional infrastructure such as Redis.
-
-### 41. How would you scale to multiple server instances?
-I would introduce the Socket.IO Redis adapter and externalize active room coordination/state.
-
-### 42. How would you improve persistence for large rooms?
-I would move from large embedded arrays toward snapshots + event logs or chunked stroke storage.
-
-### 43. Why store room metadata separately from live state?
-It allows the live room experience to remain fast while still keeping durable identifiers, ownership, and saved board state.
-
-### 44. How do you support mobile devices?
-The room page includes touch-aware viewport logic, orientation handling, and panning/zoom support.
-
-### 45. What performance decisions did you make on the client?
-I batched append updates, used refs/maps for stroke indexing, and avoided stale hydration overwrites.
-
-### 46. What security improvements would you make next?
-Rate limiting, HTTP-only cookie auth, audit logging, stronger abuse prevention for OTP endpoints, and stricter upload constraints.
-
-### 47. How would you test this system?
-Unit tests for validators and auth utilities, integration tests for REST routes, socket event flow tests, and end-to-end tests for create/join/draw/auth flows.
-
-### 48. What kind of product can this architecture evolve into?
-It could evolve into a collaborative teaching board, lightweight multiplayer design whiteboard, or team brainstorming tool.
-
-### 49. What did you learn from building it?
-How to coordinate REST and realtime patterns, manage guest-to-user transitions, design for mobile collaboration, and build practical synchronization without overengineering.
-
-### 50. If you had more time, what would you build next?
-Redis-backed scaling, persistent chat, export/import, richer object editing, and AI-assisted board features.
+This enables fast room interactions without waiting for database round-trips on every stroke append.
 
 ---
 
-## 16. RAPID-FIRE INTERVIEW EXPLANATION
+## 11. API Documentation
 
-### Explain your project in 30 seconds
-Froddle is a real-time collaborative whiteboard built with Next.js, Express, Socket.IO, and MongoDB. Users can join as guests or registered accounts, create public/private rooms, draw together live, chat, send reactions, and manage rooms and profiles. I used a shared TypeScript contract package so the client and server stay aligned.
+### 11.1 Authentication APIs
 
-### Explain in 2 minutes
-Froddle is a room-based collaborative drawing platform. The frontend is a Next.js app that handles auth, room creation/join flows, browsing, profile management, and a touch-friendly canvas UI. The backend is an Express + Socket.IO server. REST APIs handle authentication, profile operations, and room management, while Socket.IO handles live room participation, drawing, chat, reactions, stickers, and cursor updates.
+- `POST /api/auth/guest` — create guest session.
+- `POST /api/auth/register` — register a user account.
+- `POST /api/auth/login` — log in by email or username.
+- `GET /api/auth/me` — fetch current session.
+- `POST /api/auth/logout` — end session client-side flow.
+- `POST /api/auth/forgot-password/request` — request OTP.
+- `POST /api/auth/forgot-password/verify-otp` — verify OTP.
+- `POST /api/auth/forgot-password/reset-password` — set new password.
 
-The interesting architectural choice is that live room state is stored in memory for responsiveness, while MongoDB stores durable user data and room metadata plus debounced snapshots of strokes and stickers. It also supports guest users, and if a guest later signs up or logs in, their room ownership and room associations are migrated to the registered account. I also implemented OTP-based password reset, Cloudinary-backed profile uploads, and per-user undo/redo to keep collaboration intuitive.
+### 11.2 Room APIs
 
-### Explain in 5 minutes
-Froddle is designed as a practical realtime collaboration product instead of just a canvas demo. It has three workspaces in a monorepo: a Next.js client, an Express/Socket.IO server, and a shared package for typed contracts. On the frontend, I use React state, an auth provider, and a dedicated room socket hook to manage collaboration lifecycle. The room page provides drawing tools, shape tools, fill, zoom/pan, chat, reactions, participant presence, and mobile-aware orientation handling.
+- `POST /api/rooms/create` — create a room.
+- `POST /api/rooms/join` — validate room join.
+- `GET /api/rooms/browse?q=...` — search active rooms.
+- `GET /api/rooms/manage` — fetch owned/joined rooms.
+- `PATCH /api/rooms/:roomId/settings` — update owned room settings.
+- `DELETE /api/rooms/:roomId` — delete owned room.
+- `POST /api/rooms/:roomId/leave` — leave joined room.
+- `GET /api/rooms/:roomId` — get room metadata for room page entry.
 
-On the backend, REST endpoints cover guest login, registration, login, session recovery, password reset, profile update, account deletion, room creation/joining, room browsing, and room settings. For realtime collaboration, users connect over Socket.IO and join a room. The server validates every socket payload, updates the in-memory room state, and broadcasts events. To balance performance and durability, room state is persisted to MongoDB using debounced writes rather than writing every point immediately.
+### 11.3 Profile APIs
 
-A design decision I’m proud of is guest-to-user migration. Many apps either force login too early or lose continuity when a guest converts. Here, a guest can create rooms first and still preserve ownership later. Another good decision is per-user undo/redo, which avoids collaborative conflicts. If I scaled this further, I would add Redis-backed Socket.IO coordination, better board snapshotting, persistent chat, and stronger rate limiting/security hardening.
+- `GET /api/profile` — fetch current user profile.
+- `PATCH /api/profile` — update username, email, or profile image.
+- `DELETE /api/profile/account` — delete authenticated user account.
+
+### 11.4 API validation approach
+
+The backend validates request payloads using Zod. This helps ensure:
+
+- room names follow allowed format and length rules,
+- passwords meet required constraints,
+- room IDs use the expected 6-character pattern,
+- and realtime payloads stay within expected shapes.
 
 ---
 
-## 17. CODE WALKTHROUGH GUIDE
+## 12. Socket / Realtime Event Design
 
-### How to explain the code to an interviewer
-Start from architecture, then walk the request path, then walk the realtime path.
+### 12.1 Connection model
 
-### Recommended file order to show
-1. `package.json` at repo root
-   - Explain workspace structure.
-2. `shared/types/socket.ts`, `shared/types/room.ts`, `shared/types/canvas.ts`
-   - Show the contract-first design.
-3. `server/src/index.ts`
-   - Explain how Express and Socket.IO are wired.
-4. `server/src/rooms/roomManager.ts`
-   - Show the heart of collaboration state.
-5. `server/src/socket/registerHandlers.ts`
-   - Show realtime event flow.
-6. `server/src/routes/auth.ts`
-   - Show auth, OTP reset, and guest upgrade flow.
-7. `server/src/routes/rooms.ts`
-   - Show public/private room lifecycle.
-8. `server/src/routes/profile.ts`
-   - Show profile update and account deletion strategy.
-9. `client/lib/api.ts`
-   - Show typed frontend API access.
-10. `client/components/auth-provider.tsx`
-    - Explain session handling.
-11. `client/hooks/use-room-socket.ts`
-    - Explain client-side realtime state handling.
-12. `client/components/canvas-board.tsx`
-    - Explain drawing/rendering logic.
-13. `client/app/room/[roomId]/page.tsx`
-    - Explain how UI, auth, room entry, and realtime collaboration come together.
+The frontend keeps a singleton Socket.IO client. When a room page is ready, the client connects and emits a room join payload containing:
 
-### Flow explanation to narrate
-#### Auth flow
-- Show auth provider -> API functions -> auth routes -> token issuance.
+- room ID,
+- local user ID,
+- display name,
+- and optional avatar URL.
 
-#### Room creation/join flow
-- Show home page -> API create/join -> room route -> socket join.
+### 12.2 Room-scoped events
 
-#### Drawing flow
-- Show canvas-board pointer handling -> socket event -> server validation -> RoomManager update -> broadcast -> peer UI update.
+The server uses Socket.IO rooms to isolate collaboration traffic. Users only receive events for the room they joined.
 
-#### Persistence flow
-- Show RoomManager debounced persist callback -> Mongo room update.
+### 12.3 Main realtime events
 
-### What to emphasize in interviews
-- clear separation of concerns,
-- shared contracts,
-- mixed REST + realtime architecture,
-- guest-to-user migration,
-- mobile/orientation handling,
-- per-user undo/redo,
-- and the scalability path beyond the current design.
+#### Room events
+
+- `room:join`
+- `room:leave`
+- `room:joined`
+- `room:state`
+- `room:participant:joined`
+- `room:participant:left`
+- `room:participants:updated`
+- `room:expired`
+- `room:error`
+
+#### Drawing events
+
+- `stroke:start`
+- `stroke:append`
+- `stroke:end`
+- `stroke:event`
+- `stroke:undo`
+- `stroke:undone`
+- `stroke:redo`
+- `stroke:redone`
+- `board:clear`
+- `board:cleared`
+
+#### Presence and collaboration events
+
+- `cursor:update`
+- `cursor:presence`
+- `chat:send`
+- `chat:message`
+- `reaction:send`
+- `reaction:event`
+
+### 12.4 Broadcast strategy
+
+- The initiating client renders optimistically.
+- The server updates room state in memory.
+- The server broadcasts relevant deltas to peers in the same room.
+- Full room state can be requested again if out-of-order append events occur.
+
+### 12.5 Reconnection behavior
+
+The frontend explicitly tracks `connecting`, `connected`, `reconnecting`, and `disconnected` states. On reconnect, the client re-emits room join so the room state can be rehydrated.
+
+### 12.6 Consistency considerations
+
+This design favors responsiveness and practical consistency over strict CRDT-style conflict resolution. It works well for lightweight collaborative drawing, but it does not yet implement sophisticated merging or authoritative version history.
+
+---
+
+## 13. UI/UX Design Decisions
+
+### 13.1 Why the board is central
+
+The board is the primary task surface. All room UI is built around keeping drawing central, visible, and accessible so the user’s attention remains on collaboration rather than navigation chrome.
+
+### 13.2 Why side rails are used
+
+The room workspace uses left and right rails to:
+
+- keep high-frequency actions visible,
+- separate board utilities from tool selection,
+- reduce toolbar sprawl,
+- and preserve a focused center workspace.
+
+### 13.3 Why mobile differs from desktop
+
+Touch-first use has different constraints:
+
+- smaller viewport,
+- stronger need for orientation handling,
+- and a higher cost for oversized fixed panels.
+
+For that reason, the project uses touch-aware room orientation logic and compact tool behavior for smaller/coarse-pointer environments.
+
+### 13.4 Why large screens prioritize full-board visibility
+
+On desktop and laptop screens, the main goal is to show the entire board and both tool rails together as one balanced workspace. This supports faster orientation, cleaner composition, and reduced unnecessary scrolling.
+
+### 13.5 Why manage rooms and profile pages use card-based structure
+
+These are administrative flows rather than immersive collaboration flows. A card-based structure keeps them readable, low-risk, and consistent with the overall Froddle visual language.
+
+---
+
+## 14. Challenges Faced
+
+The project surfaces several practical engineering challenges:
+
+1. **Board layout responsiveness:** fitting a fixed-aspect drawing surface into highly variable viewports.
+2. **Mobile orientation handling:** touch devices require different room-shell behavior from desktop.
+3. **Realtime synchronization:** drawing events must feel immediate while remaining stable across peers.
+4. **Canvas rendering efficiency:** repeated rerenders can become expensive if not batched or incrementally drawn.
+5. **Reconnect safety:** users should recover from temporary network loss without manual refresh.
+6. **Room metadata consistency:** room state exists both in live memory and persisted storage.
+7. **Private room access:** password handling must be simple for users but secure in storage.
+8. **Hosted environment limitations:** auth, profile, Mongo, email, and image features depend on external services and environment variables.
+9. **Manage-room edit flow reliability:** selected-room state and update persistence must remain consistent with existing delete/leave/open flows.
+
+---
+
+## 15. Fixes and Improvements Made
+
+### 15.1 Desktop workspace layout fix
+
+The room workspace was improved so that large screens prioritize full board visibility and balanced side rails. The main changes were:
+
+- constraining the room shell to the viewport height on large screens,
+- reducing layout-driven overflow,
+- balancing left and right rail spacing vertically,
+- and fitting the board surface to the available room workspace while preserving its aspect ratio.
+
+### 15.2 Manage Rooms edit flow fix
+
+The Manage Rooms page was improved so that:
+
+- the selected room reliably enters edit state,
+- the edit form populates correctly,
+- visibility and password logic behave correctly,
+- save/cancel feedback is clear,
+- and the list refreshes cleanly after updates.
+
+### 15.3 Report hardening
+
+The report itself was rewritten to remove inaccurate claims and document only implemented or code-supported project behavior.
+
+---
+
+## 16. Limitations
+
+The current implementation has honest technical limitations:
+
+1. Performance may degrade as stroke counts grow very large.
+2. In-memory room management is fast, but horizontal scaling would require a stronger distributed-state strategy.
+3. The project does not yet implement version-history snapshots or full collaborative conflict-resolution semantics.
+4. Browser differences can affect canvas behavior, pointer events, and fullscreen/orientation support.
+5. Realtime collaboration is room-scoped and practical, but not yet optimized for very large concurrent sessions.
+6. Authentication- and profile-related features depend on MongoDB availability.
+7. Password reset depends on email service configuration.
+8. Profile image upload depends on Cloudinary configuration.
+
+---
+
+## 17. Future Enhancements
+
+Realistic next steps include:
+
+- board snapshots and version history,
+- richer collaboration permissions and moderation controls,
+- scalable distributed room state for larger concurrency,
+- improved replay or event-log support,
+- richer import/export formats,
+- advanced cursor and selection tools,
+- stronger analytics/observability around room health,
+- and performance tuning for large boards or longer sessions.
+
+---
+
+## 18. Testing / Validation
+
+The system should be validated across the following scenarios:
+
+### Functional checks
+
+- room creation for public and private rooms,
+- room join with valid and invalid passwords,
+- room browse flow,
+- room management edit/update/delete/leave behavior,
+- auth login/register/guest flows,
+- profile update and account deletion flows.
+
+### Realtime checks
+
+- two or more users drawing in the same room,
+- chat and reaction synchronization,
+- participant join/leave updates,
+- cursor presence rendering,
+- reconnect and room rehydration behavior.
+
+### Layout and responsiveness checks
+
+- desktop board visibility without unnecessary scroll,
+- balanced desktop side-rail alignment,
+- mobile room entry and room orientation behavior,
+- tablet and profile page regression checks.
+
+### Data-integrity checks
+
+- password hashing for private-room updates,
+- room metadata refresh after save,
+- persistence of updated room settings,
+- room cleanup after account deletion.
+
+---
+
+## 19. Deployment Notes
+
+### 19.1 Frontend
+
+The frontend is a Next.js application that can be hosted on a platform optimized for React SSR/SPA delivery.
+
+### 19.2 Backend
+
+The backend requires a long-running process because it handles:
+
+- REST APIs,
+- Socket.IO connections,
+- room hydration,
+- and scheduled cleanup of expired rooms.
+
+### 19.3 Infrastructure dependencies
+
+Production deployment requires:
+
+- MongoDB connection string,
+- JWT secret,
+- allowed client origin configuration,
+- Resend API credentials for OTP delivery,
+- and Cloudinary credentials for profile-image upload.
+
+### 19.4 Operational note
+
+If MongoDB is unavailable, database-backed features degrade. The codebase explicitly logs this condition and warns that auth/profile functionality becomes unavailable.
+
+---
+
+## 20. Conclusion
+
+Froddle / ArtColab is a full-stack collaborative whiteboard system built around room-based realtime interaction. It combines a responsive client, a practical backend API, Socket.IO-based live synchronization, and persistent storage for users and rooms. The result is a lightweight but technically meaningful project that demonstrates frontend engineering, backend API design, realtime systems, state synchronization, responsive UX, and production-oriented integration concerns in one cohesive application.
+
+---
+
+## 21. Top Interview Questions and Answers
+
+### 1. Why did you choose Socket.IO instead of raw WebSockets?
+
+Socket.IO provides room abstractions, reconnect handling, and a simpler event-based API, which reduced implementation complexity for a room-based collaboration product.
+
+### 2. How does realtime board synchronization work?
+
+The client emits stroke lifecycle events, the server updates room state in memory, and peers receive broadcast updates scoped to the same room.
+
+### 3. Why is room state stored in memory first?
+
+Drawing needs low latency. In-memory updates keep the board responsive while persistence happens asynchronously.
+
+### 4. Why do you still persist room data to MongoDB?
+
+Persistence allows room recovery, room hydration after restart, and durable user/room metadata.
+
+### 5. How do you handle multiple users drawing at once?
+
+Each client emits its own stroke stream, and the server stores and relays events in a room-scoped way so all participants can render the combined result.
+
+### 6. How do you prevent invalid room updates?
+
+The backend validates all room-setting payloads with Zod and checks room ownership before allowing updates.
+
+### 7. How are private rooms secured?
+
+Private-room passwords are hashed with bcrypt and validated on join.
+
+### 8. Can guests use the app?
+
+Yes. Guests can enter quickly, create/join rooms, and later upgrade to a user account.
+
+### 9. What is guest-to-user migration?
+
+It is the backend logic that preserves a guest’s room relationships when they register or log in to a permanent account.
+
+### 10. Why use a shared TypeScript package?
+
+It keeps socket event names and collaboration types consistent across frontend and backend.
+
+### 11. How does undo/redo work?
+
+Undo/redo is user-scoped in the room state, with redo stacks stored in memory by the room manager.
+
+### 12. How is the board rendered efficiently?
+
+The canvas component uses a committed backing canvas, incremental updates where possible, and batched append handling.
+
+### 13. Why use a logical board size?
+
+A logical coordinate space makes cross-device rendering more consistent while allowing responsive scaling in the viewport.
+
+### 14. How is zoom and pan implemented?
+
+The board tracks viewport scale and offsets, then maps pointer coordinates back into logical board coordinates.
+
+### 15. Why is desktop layout treated differently from mobile?
+
+Desktop has room for a balanced full workspace, while touch devices need compact controls and orientation-aware handling.
+
+### 16. What was the desktop board-visibility issue?
+
+The room shell and board sizing were allowing layout overflow on larger screens, which could force scrolling instead of fitting the full board into the viewport.
+
+### 17. How did you fix the desktop workspace issue?
+
+By constraining the large-screen workspace to viewport height, fitting the board within the available shell, and balancing side-rail spacing.
+
+### 18. What was broken in Manage Rooms?
+
+The edit workflow was not providing a clear, reliable selected-room editing experience with strong feedback and refresh behavior.
+
+### 19. How did you fix the Manage Rooms edit flow?
+
+I made the edit state explicit, ensured the form is populated from the selected room, improved save/cancel behavior, and refreshed room data after save.
+
+### 20. Why do you use REST and sockets together?
+
+REST is better for request/response workflows like auth and room management, while sockets are better for low-latency collaboration events.
+
+### 21. How is room access controlled?
+
+Room access starts with REST validation for room metadata and private-room password rules, then moves into socket-based room participation.
+
+### 22. What happens if a user disconnects?
+
+Socket.IO reconnection logic attempts recovery, and the client can rejoin the room and rehydrate state.
+
+### 23. How do you track participant presence?
+
+The server stores room participants and broadcasts participant updates and cursor presence to connected users.
+
+### 24. How do you handle room cleanup?
+
+The backend runs periodic cleanup for expired/idle rooms using a timed interval and room manager cleanup logic.
+
+### 25. Why use MongoDB here?
+
+The room and user documents fit naturally in a document model, especially with nested canvas state.
+
+### 26. What are the tradeoffs of MongoDB for this project?
+
+It is flexible for nested state, but very large arrays and strict concurrency control need careful future scaling decisions.
+
+### 27. Why validate responses on the client too?
+
+Client-side validation protects the UI from malformed backend responses and makes failures easier to diagnose.
+
+### 28. How is authentication implemented?
+
+Users authenticate with JWTs, while guests receive guest tokens. Tokens are attached to API requests through the client helper layer.
+
+### 29. How does forgot-password work?
+
+The server generates a short-lived OTP, stores only hashed reset data, and verifies it before issuing a temporary reset session token.
+
+### 30. How do profile images work?
+
+The frontend sends a data URI to the backend, which uploads it to Cloudinary and stores the resulting URL in the user profile.
+
+### 31. How do you avoid breaking mobile while improving desktop?
+
+By scoping layout changes to the room workspace and using breakpoint- and pointer-aware behavior instead of global layout rewrites.
+
+### 32. How is chat implemented?
+
+Chat uses socket events to send and broadcast room-scoped messages, while the room manager stores a bounded in-memory chat history.
+
+### 33. How do reactions work?
+
+They are lightweight socket broadcasts that let all clients render short-lived visual feedback in the room.
+
+### 34. What are the biggest scaling risks?
+
+High stroke volume, many concurrent participants, and single-instance in-memory room coordination are the main future scaling limits.
+
+### 35. How would you scale this system further?
+
+I would introduce shared/distributed room state, stronger event persistence, horizontal socket coordination, and more deliberate canvas-state compaction.
+
+### 36. Why not use CRDTs here?
+
+The current product scope focuses on practical collaborative drawing rather than complex object-level concurrent editing, so a simpler event-stream model is sufficient.
+
+### 37. What makes this project interview-worthy?
+
+It demonstrates full-stack engineering, realtime systems, responsive UI/UX, API design, persistence, external-service integration, and production-oriented tradeoffs.
+
+### 38. What is one limitation you would mention honestly in a viva or interview?
+
+The current architecture is excellent for lightweight collaboration but would need additional distributed-state design to support significantly larger concurrency.
