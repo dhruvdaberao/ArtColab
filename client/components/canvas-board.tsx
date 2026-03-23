@@ -491,6 +491,13 @@ function CanvasBoardComponent({
   const strokesRef = useRef(strokes);
   const committedStrokesRef = useRef<Stroke[]>([]);
   const [canvasVersion, setCanvasVersion] = useState(0);
+  const [boardFrameSize, setBoardFrameSize] = useState<{
+    width: number;
+    height: number;
+  }>({
+    width: LOGICAL_CANVAS_WIDTH,
+    height: LOGICAL_CANVAS_HEIGHT,
+  });
   const [viewport, setViewport] = useState<Viewport>({
     scale: 1,
     offsetX: 0,
@@ -862,10 +869,42 @@ function CanvasBoardComponent({
     queueRender();
   }, [commitDraftStroke, queueRender, roomId]);
 
+  const syncBoardFrameSize = useCallback(() => {
+    const surface = surfaceRef.current;
+    if (!surface) return false;
+    const rect = surface.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) {
+      setBoardFrameSize((current) =>
+        current.width === 0 && current.height === 0
+          ? current
+          : { width: 0, height: 0 },
+      );
+      return false;
+    }
+
+    const widthFromHeight =
+      (rect.height * LOGICAL_CANVAS_WIDTH) / LOGICAL_CANVAS_HEIGHT;
+    const heightFromWidth =
+      (rect.width * LOGICAL_CANVAS_HEIGHT) / LOGICAL_CANVAS_WIDTH;
+    const nextSize =
+      widthFromHeight <= rect.width
+        ? { width: widthFromHeight, height: rect.height }
+        : { width: rect.width, height: heightFromWidth };
+
+    setBoardFrameSize((current) =>
+      Math.abs(current.width - nextSize.width) < 0.5 &&
+      Math.abs(current.height - nextSize.height) < 0.5
+        ? current
+        : nextSize,
+    );
+    return true;
+  }, []);
+
   const syncCanvasResolution = useCallback(() => {
     const canvas = canvasRef.current;
     const boardFrame = boardFrameRef.current;
     if (!canvas || !boardFrame) return false;
+    syncBoardFrameSize();
     const rect = boardFrame.getBoundingClientRect();
     const dpr = window.devicePixelRatio || 1;
     if (rect.width <= 0 || rect.height <= 0) {
@@ -895,16 +934,18 @@ function CanvasBoardComponent({
     }
     updateSurfaceReady(true);
     return true;
-  }, [roomId, updateSurfaceReady]);
+  }, [roomId, syncBoardFrameSize, updateSurfaceReady]);
 
   useEffect(() => {
     const boardFrame = boardFrameRef.current;
     if (!boardFrame) return;
+    syncBoardFrameSize();
     syncCanvasResolution();
     const observer = new ResizeObserver(() => {
+      syncBoardFrameSize();
       syncCanvasResolution();
     });
-    observer.observe(boardFrame);
+    observer.observe(surfaceRef.current ?? boardFrame);
     window.addEventListener("resize", syncCanvasResolution);
     window.addEventListener("orientationchange", syncCanvasResolution);
     window.visualViewport?.addEventListener("resize", syncCanvasResolution);
@@ -1406,57 +1447,65 @@ function CanvasBoardComponent({
         <div className="pointer-events-none absolute left-3 top-3 z-10 rounded-full bg-[rgba(12,22,34,0.74)] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-white shadow-lg">
           {Math.round(viewport.scale * 100)}%
         </div>
-        <div
-          ref={boardFrameRef}
-          className="relative aspect-[12/7] h-full w-full overflow-hidden"
-        >
+        <div className="grid h-full w-full place-items-center overflow-hidden">
           <div
-            style={viewportStyle}
-            className="absolute inset-0 will-change-transform"
+            ref={boardFrameRef}
+            className="relative overflow-hidden rounded-[20px] sm:rounded-[22px]"
+            style={{
+              width: `${boardFrameSize.width}px`,
+              height: `${boardFrameSize.height}px`,
+              maxWidth: "100%",
+              maxHeight: "100%",
+            }}
           >
-            <canvas ref={committedCanvasRef} className="hidden" aria-hidden />
-            <canvas
-              ref={canvasRef}
-              className="h-full w-full rounded-[20px] bg-white sm:rounded-[22px]"
-            />
-            <div className="pointer-events-none absolute inset-0">
-              {Object.values(cursors)
-                .filter(
-                  (cursor) =>
-                    cursor.userId !== userId &&
-                    Date.now() - cursor.updatedAt < 4000,
-                )
-                .map((cursor) => (
-                  <div
-                    key={cursor.userId}
-                    className="absolute -translate-x-1/2 -translate-y-1/2 transition-all duration-150 ease-out"
-                    style={{
-                      left: `${(cursor.x / LOGICAL_CANVAS_WIDTH) * 100}%`,
-                      top: `${(cursor.y / LOGICAL_CANVAS_HEIGHT) * 100}%`,
-                    }}
-                  >
-                    <div className="flex flex-col items-center gap-1">
-                      <div
-                        className={`flex items-center justify-center overflow-hidden rounded-full border-2 border-white bg-slate-900 text-white shadow-md ring-1 ring-slate-200 ${compact ? "h-7 w-7 text-[10px]" : "h-8 w-8 text-[11px] sm:h-9 sm:w-9"}`}
-                      >
-                        {cursor.avatarUrl ? (
-                          <img
-                            src={cursor.avatarUrl}
-                            alt={cursor.displayName}
-                            className="h-full w-full object-cover"
-                          />
-                        ) : (
-                          <span className="font-semibold leading-none">
-                            {getAvatarInitials(cursor.displayName)}
-                          </span>
-                        )}
+            <div
+              style={viewportStyle}
+              className="absolute inset-0 will-change-transform"
+            >
+              <canvas ref={committedCanvasRef} className="hidden" aria-hidden />
+              <canvas
+                ref={canvasRef}
+                className="h-full w-full rounded-[20px] bg-white sm:rounded-[22px]"
+              />
+              <div className="pointer-events-none absolute inset-0">
+                {Object.values(cursors)
+                  .filter(
+                    (cursor) =>
+                      cursor.userId !== userId &&
+                      Date.now() - cursor.updatedAt < 4000,
+                  )
+                  .map((cursor) => (
+                    <div
+                      key={cursor.userId}
+                      className="absolute -translate-x-1/2 -translate-y-1/2 transition-all duration-150 ease-out"
+                      style={{
+                        left: `${(cursor.x / LOGICAL_CANVAS_WIDTH) * 100}%`,
+                        top: `${(cursor.y / LOGICAL_CANVAS_HEIGHT) * 100}%`,
+                      }}
+                    >
+                      <div className="flex flex-col items-center gap-1">
+                        <div
+                          className={`flex items-center justify-center overflow-hidden rounded-full border-2 border-white bg-slate-900 text-white shadow-md ring-1 ring-slate-200 ${compact ? "h-7 w-7 text-[10px]" : "h-8 w-8 text-[11px] sm:h-9 sm:w-9"}`}
+                        >
+                          {cursor.avatarUrl ? (
+                            <img
+                              src={cursor.avatarUrl}
+                              alt={cursor.displayName}
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            <span className="font-semibold leading-none">
+                              {getAvatarInitials(cursor.displayName)}
+                            </span>
+                          )}
+                        </div>
+                        <span className="max-w-[92px] rounded-full bg-white/95 px-2 py-0.5 text-center text-[10px] font-black leading-none text-[color:var(--text-main)] shadow-sm">
+                          {cursor.displayName}
+                        </span>
                       </div>
-                      <span className="max-w-[92px] rounded-full bg-white/95 px-2 py-0.5 text-center text-[10px] font-black leading-none text-[color:var(--text-main)] shadow-sm">
-                        {cursor.displayName}
-                      </span>
                     </div>
-                  </div>
-                ))}
+                  ))}
+              </div>
             </div>
           </div>
         </div>

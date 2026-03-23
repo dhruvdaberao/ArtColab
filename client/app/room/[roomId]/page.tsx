@@ -158,6 +158,10 @@ type ColorPickerTarget = "stroke" | "fill" | null;
 
 const sidebarShell =
   "rounded-[24px] border border-black/5 bg-white/78 p-1.5 shadow-[0_16px_38px_rgba(15,23,42,0.12)] backdrop-blur-xl";
+const desktopRailColumn =
+  "min-[960px]:justify-between min-[960px]:gap-4 min-[960px]:py-3";
+const desktopRailGroup =
+  "flex flex-col items-center gap-1.5 min-[960px]:flex-1 min-[960px]:justify-evenly";
 const railButtonBase =
   "group inline-flex h-11 w-11 touch-manipulation select-none items-center justify-center rounded-[18px] border border-black/5 bg-white/92 text-[color:var(--text-main)] shadow-[0_6px_16px_rgba(15,23,42,0.08)] transition hover:-translate-y-0.5 hover:bg-[color:var(--surface-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--brand-blue)]/35 disabled:cursor-not-allowed disabled:opacity-40 sm:h-12 sm:w-12";
 const floatingPanelCard =
@@ -1333,106 +1337,109 @@ export default function RoomPage() {
 
   return (
     <main
-      className={`room-workspace-shell relative min-h-screen overflow-hidden p-3 sm:p-4 ${isLandscapeWorkspaceOnly ? "room-landscape-enforced" : ""}`}
+      className={`room-workspace-shell relative overflow-hidden p-3 sm:p-4 min-[960px]:h-[var(--room-viewport-height,100vh)] min-[960px]:p-4 ${isLandscapeWorkspaceOnly ? "room-landscape-enforced" : ""}`}
       data-landscape-only={isLandscapeWorkspaceOnly ? "true" : "false"}
       data-rotated={shouldRotateWorkspace ? "true" : "false"}
     >
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,#ffffff_0%,rgba(255,255,255,0.78)_18%,rgba(248,244,232,0)_58%)]" />
       <div
-        className={`relative mx-auto flex h-full min-h-0 w-full max-w-[1920px] gap-1.5 overflow-hidden rounded-[28px] border border-white/60 bg-[linear-gradient(150deg,rgba(12,26,43,0.05),rgba(255,255,255,0.72))] p-1.5 shadow-[0_24px_64px_rgba(26,26,26,0.12)] ${roomReady ? "" : "min-h-[calc(var(--room-viewport-height,100vh)-1.5rem)]"}`}
+        className={`relative mx-auto flex h-full min-h-0 w-full max-w-[1920px] gap-1.5 overflow-hidden rounded-[28px] border border-white/60 bg-[linear-gradient(150deg,rgba(12,26,43,0.05),rgba(255,255,255,0.72))] p-1.5 shadow-[0_24px_64px_rgba(26,26,26,0.12)] min-[960px]:gap-2 min-[960px]:p-2 ${roomReady ? "" : "min-h-[calc(var(--room-viewport-height,100vh)-1.5rem)] min-[960px]:min-h-0"}`}
       >
         <aside
           className={`relative z-30 shrink-0 ${isTouchWorkspace ? "w-[56px]" : "w-[68px] xl:w-[72px]"}`}
         >
           <div
-            className={`${sidebarShell} flex h-full w-full flex-col items-center gap-1.5 py-1.5`}
+            className={`${sidebarShell} flex h-full w-full flex-col items-center gap-1.5 py-1.5 ${desktopRailColumn}`}
           >
-            <button
-              type="button"
-              className={railButtonBase}
-              onPointerDown={(event) => event.preventDefault()}
-              onClick={() => undoStroke()}
-              disabled={!hasJoined || !canUndo}
-              aria-label="Undo"
-            >
-              <Undo2 size={18} />
-            </button>
-            <button
-              type="button"
-              className={railButtonBase}
-              onPointerDown={(event) => event.preventDefault()}
-              onClick={() => redoStroke()}
-              disabled={!hasJoined || !canRedo}
-              aria-label="Redo"
-            >
-              <Redo2 size={18} />
-            </button>
-            <button
-              type="button"
-              className={railButtonBase}
-              onPointerDown={(event) => event.preventDefault()}
-              onClick={download}
-              disabled={!hasJoined}
-              aria-label="Export board"
-            >
-              <Download size={18} />
-            </button>
-            <button
-              type="button"
-              className={railButtonBase}
-              onPointerDown={(event) => event.preventDefault()}
-              onClick={() => setIsClearModalOpen(true)}
-              disabled={!hasJoined}
-              aria-label="Clear board"
-            >
-              <Trash2 size={18} />
-            </button>
-            <button
-              type="button"
-              className={railButtonBase}
-              onPointerDown={(event) => event.preventDefault()}
-              onClick={() => {
-                navigator.clipboard.writeText(window.location.href);
-                pushToast("Room link copied.");
-              }}
-              aria-label="Copy room link"
-            >
-              <Link2 size={18} />
-            </button>
-            <button
-              type="button"
-              className={`${railButtonBase} relative ${activeFunctionPanel === "chat" ? "bg-[color:var(--brand-blue)] text-white" : ""}`}
-              onPointerDown={(event) => event.preventDefault()}
-              onClick={(event) => {
-                event.stopPropagation();
-                setActiveToolPanel(null);
-                setActiveFunctionPanel((value) =>
-                  value === "chat" ? null : "chat",
-                );
-              }}
-              aria-label="Open chat"
-            >
-              <MessageSquare size={18} />
-              {!!chatMessages.length && (
-                <span className={railBadge}>
-                  {Math.min(chatMessages.length, 9)}
-                </span>
-              )}
-            </button>
-            <div className="mt-auto" />
-            <button
-              type="button"
-              className={`${railButtonBase} text-[color:var(--brand-red)]`}
-              onPointerDown={(event) => event.preventDefault()}
-              onClick={() => setIsExitModalOpen(true)}
-              aria-label="Leave room"
-            >
-              <LogOut size={18} />
-            </button>
+            <div className={desktopRailGroup}>
+              <button
+                type="button"
+                className={railButtonBase}
+                onPointerDown={(event) => event.preventDefault()}
+                onClick={() => undoStroke()}
+                disabled={!hasJoined || !canUndo}
+                aria-label="Undo"
+              >
+                <Undo2 size={18} />
+              </button>
+              <button
+                type="button"
+                className={railButtonBase}
+                onPointerDown={(event) => event.preventDefault()}
+                onClick={() => redoStroke()}
+                disabled={!hasJoined || !canRedo}
+                aria-label="Redo"
+              >
+                <Redo2 size={18} />
+              </button>
+              <button
+                type="button"
+                className={railButtonBase}
+                onPointerDown={(event) => event.preventDefault()}
+                onClick={download}
+                disabled={!hasJoined}
+                aria-label="Export board"
+              >
+                <Download size={18} />
+              </button>
+              <button
+                type="button"
+                className={railButtonBase}
+                onPointerDown={(event) => event.preventDefault()}
+                onClick={() => setIsClearModalOpen(true)}
+                disabled={!hasJoined}
+                aria-label="Clear board"
+              >
+                <Trash2 size={18} />
+              </button>
+            </div>
+            <div className={desktopRailGroup}>
+              <button
+                type="button"
+                className={railButtonBase}
+                onPointerDown={(event) => event.preventDefault()}
+                onClick={() => {
+                  navigator.clipboard.writeText(window.location.href);
+                  pushToast("Room link copied.");
+                }}
+                aria-label="Copy room link"
+              >
+                <Link2 size={18} />
+              </button>
+              <button
+                type="button"
+                className={`${railButtonBase} relative ${activeFunctionPanel === "chat" ? "bg-[color:var(--brand-blue)] text-white" : ""}`}
+                onPointerDown={(event) => event.preventDefault()}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setActiveToolPanel(null);
+                  setActiveFunctionPanel((value) =>
+                    value === "chat" ? null : "chat",
+                  );
+                }}
+                aria-label="Open chat"
+              >
+                <MessageSquare size={18} />
+                {!!chatMessages.length && (
+                  <span className={railBadge}>
+                    {Math.min(chatMessages.length, 9)}
+                  </span>
+                )}
+              </button>
+              <button
+                type="button"
+                className={`${railButtonBase} text-[color:var(--brand-red)]`}
+                onPointerDown={(event) => event.preventDefault()}
+                onClick={() => setIsExitModalOpen(true)}
+                aria-label="Leave room"
+              >
+                <LogOut size={18} />
+              </button>
+            </div>
           </div>
         </aside>
 
-        <section className="relative min-h-0 flex-1 overflow-hidden rounded-[24px] bg-[linear-gradient(180deg,rgba(199,232,255,0.95),rgba(231,244,253,0.94))] ring-1 ring-black/5">
+        <section className="relative min-h-0 flex-1 overflow-hidden rounded-[24px] bg-[linear-gradient(180deg,rgba(199,232,255,0.95),rgba(231,244,253,0.94))] ring-1 ring-black/5 min-[960px]:px-3 min-[960px]:py-2">
           {connectionMessage && (
             <div
               className={`pointer-events-none absolute left-3 top-3 z-30 rounded-full px-3 py-1.5 text-[11px] font-semibold shadow-sm ${error || status === "reconnecting" || status === "disconnected" ? "bg-[color:var(--danger-soft)] text-[#8f2323]" : "bg-white/92 text-[color:var(--text-muted)]"}`}
@@ -1489,75 +1496,77 @@ export default function RoomPage() {
           className={`relative z-30 shrink-0 ${isTouchWorkspace ? "w-[56px]" : "w-[68px] xl:w-[72px]"}`}
         >
           <div
-            className={`${sidebarShell} flex h-full w-full flex-col items-center gap-1.5 py-1.5`}
+            className={`${sidebarShell} flex h-full w-full flex-col items-center gap-1.5 py-1.5 ${desktopRailColumn}`}
           >
-            {[
-              {
-                id: "brush",
-                icon: Brush,
-                active: tool === "pen",
-                onClick: () => {
-                  setTool("pen");
-                  openToolPanel("brush");
+            <div className={desktopRailGroup}>
+              {[
+                {
+                  id: "brush",
+                  icon: Brush,
+                  active: tool === "pen",
+                  onClick: () => {
+                    setTool("pen");
+                    openToolPanel("brush");
+                  },
+                  label: "Brush",
                 },
-                label: "Brush",
-              },
-              {
-                id: "eraser",
-                icon: Eraser,
-                active: tool === "eraser",
-                onClick: () => {
-                  setTool("eraser");
-                  openToolPanel("eraser");
+                {
+                  id: "eraser",
+                  icon: Eraser,
+                  active: tool === "eraser",
+                  onClick: () => {
+                    setTool("eraser");
+                    openToolPanel("eraser");
+                  },
+                  label: "Eraser",
                 },
-                label: "Eraser",
-              },
-              {
-                id: "fill",
-                icon: PaintBucket,
-                active: tool === "fill",
-                onClick: () => {
-                  setTool("fill");
-                  openToolPanel("fill");
+                {
+                  id: "fill",
+                  icon: PaintBucket,
+                  active: tool === "fill",
+                  onClick: () => {
+                    setTool("fill");
+                    openToolPanel("fill");
+                  },
+                  label: "Fill",
                 },
-                label: "Fill",
-              },
-              {
-                id: "shapes",
-                icon: Shapes,
-                active: isShapeTool,
-                onClick: () => openToolPanel("shapes"),
-                label: "Shapes",
-              },
-              {
-                id: "reactions",
-                icon: Sparkles,
-                active: activeToolPanel === "reactions",
-                onClick: () => openToolPanel("reactions"),
-                label: "Reactions",
-              },
-              {
-                id: "info",
-                icon: Info,
-                active: activeToolPanel === "info",
-                onClick: () => openToolPanel("info"),
-                label: "Room info",
-              },
-            ].map(({ id, icon: Icon, active, onClick, label }) => (
-              <button
-                key={id}
-                type="button"
-                className={`${railButtonBase} ${active ? "bg-[color:var(--brand-blue)] text-white" : ""}`}
-                onPointerDown={(event) => event.preventDefault()}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  onClick();
-                }}
-                aria-label={label}
-              >
-                <Icon size={18} />
-              </button>
-            ))}
+                {
+                  id: "shapes",
+                  icon: Shapes,
+                  active: isShapeTool,
+                  onClick: () => openToolPanel("shapes"),
+                  label: "Shapes",
+                },
+                {
+                  id: "reactions",
+                  icon: Sparkles,
+                  active: activeToolPanel === "reactions",
+                  onClick: () => openToolPanel("reactions"),
+                  label: "Reactions",
+                },
+                {
+                  id: "info",
+                  icon: Info,
+                  active: activeToolPanel === "info",
+                  onClick: () => openToolPanel("info"),
+                  label: "Room info",
+                },
+              ].map(({ id, icon: Icon, active, onClick, label }) => (
+                <button
+                  key={id}
+                  type="button"
+                  className={`${railButtonBase} ${active ? "bg-[color:var(--brand-blue)] text-white" : ""}`}
+                  onPointerDown={(event) => event.preventDefault()}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onClick();
+                  }}
+                  aria-label={label}
+                >
+                  <Icon size={18} />
+                </button>
+              ))}
+            </div>
           </div>
         </aside>
 
