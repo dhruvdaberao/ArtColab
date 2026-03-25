@@ -1,0 +1,36 @@
+{
+  "name": "cloudcanvas-server",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@cloudcanvas/shared": "file:../shared",
+    "@types/bcryptjs": "^2.4.6",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/jsonwebtoken": "^9.0.7",
+    "@types/node": "^22.7.7",
+    "express": "^4.21.1",
+    "ioredis": "^5.4.1",
+    "nanoid": "^5.0.8",
+    "socket.io": "^4.8.1",
+    "zod": "^3.23.8",
+    "bcryptjs": "^2.4.3",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.9.5",
+    "resend": "^4.1.2",
+    "cloudinary": "^2.5.1",
+    "typescript": "^5.6.3"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.1"
+  }
+}
