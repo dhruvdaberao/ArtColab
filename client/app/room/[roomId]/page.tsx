@@ -1337,7 +1337,7 @@ export default function RoomPage() {
 
   return (
     <main
-      className={`room-workspace-shell relative overflow-hidden p-3 sm:p-4 min-[960px]:h-[var(--room-viewport-height,100vh)] min-[960px]:p-4 ${isLandscapeWorkspaceOnly ? "room-landscape-enforced" : ""}`}
+      className={`room-workspace-shell relative h-[var(--room-viewport-height,100dvh)] min-h-[var(--room-viewport-height,100dvh)] overflow-hidden p-3 sm:p-4 min-[960px]:p-4 ${isLandscapeWorkspaceOnly ? "room-landscape-enforced" : ""}`}
       data-landscape-only={isLandscapeWorkspaceOnly ? "true" : "false"}
       data-rotated={shouldRotateWorkspace ? "true" : "false"}
     >
@@ -1439,7 +1439,7 @@ export default function RoomPage() {
           </div>
         </aside>
 
-        <section className="relative min-h-0 flex-1 overflow-hidden rounded-[24px] bg-[linear-gradient(180deg,rgba(199,232,255,0.95),rgba(231,244,253,0.94))] ring-1 ring-black/5 min-[960px]:px-3 min-[960px]:py-2">
+        <section className="relative flex min-h-0 flex-1 overflow-hidden rounded-[24px] bg-[linear-gradient(180deg,rgba(199,232,255,0.95),rgba(231,244,253,0.94))] ring-1 ring-black/5 min-[960px]:px-3 min-[960px]:py-2">
           {connectionMessage && (
             <div
               className={`pointer-events-none absolute left-3 top-3 z-30 rounded-full px-3 py-1.5 text-[11px] font-semibold shadow-sm ${error || status === "reconnecting" || status === "disconnected" ? "bg-[color:var(--danger-soft)] text-[#8f2323]" : "bg-white/92 text-[color:var(--text-muted)]"}`}
@@ -1458,7 +1458,7 @@ export default function RoomPage() {
             </div>
           ) : null}
 
-          <div className="opacity-100 transition-opacity duration-200">
+          <div className="h-full w-full opacity-100 transition-opacity duration-200">
             <CanvasBoard
               roomId={roomId}
               userId={userId}
