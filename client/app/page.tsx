@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, Suspense, useEffect, useState } from "react";
 import { useAuth } from "@/components/auth-provider";
 import { InfoCardsSection } from "@/components/info-cards";
 import { FroddleLogo } from "@/components/froddle-logo";
@@ -24,7 +24,7 @@ import {
 import { grantRoomAccess } from "@/lib/room-access";
 import { rememberRoomEntryHint } from "@/lib/room-entry";
 
-export default function HomePage() {
+function HomeContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, loading, loginAsGuest } = useAuth();
@@ -355,5 +355,19 @@ export default function HomePage() {
         <InfoCardsSection />
       </section>
     </main>
+  );
+}
+
+export default function HomePage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="grid min-h-screen place-items-center text-lg font-semibold text-[color:var(--text-main)]">
+          Loading Froodle…
+        </main>
+      }
+    >
+      <HomeContent />
+    </Suspense>
   );
 }

@@ -1,0 +1,100 @@
+﻿  Γû▓ Next.js 14.2.15
+  - Experiments (use with caution):
+    ┬╖ externalDir
+
+   Creating an optimized production build ...
+node.exe :  ΓÜá 
+Mismatching @next/swc 
+version, detected: 15.4.5 
+while Next.js is on 
+14.2.15. Please ensure 
+these match
+At C:\Program 
+Files\nodejs\npx.ps1:29 
+char:3
++   & $NODE_EXE 
+$NPX_CLI_JS $args
++   ~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~
+    + CategoryInfo        
+      : NotSpecified: (   
+  ΓÜá Mismatchin...ure    
+ these match:String) [    
+], RemoteException
+    + FullyQualifiedError 
+   Id : NativeCommandErr  
+  or
+ 
+Failed to compile.
+
+../node_modules/next/dist/
+pages/_app.js
+Error: 
+
+Caused by:
+    data did not match 
+any variant of untagged 
+enum Config at line 1 
+column 1093
+
+../node_modules/next/dist/
+pages/_document.js
+Error: 
+
+Caused by:
+    data did not match 
+any variant of untagged 
+enum Config at line 1 
+column 1093
+
+../node_modules/next/dist/
+pages/_error.js
+Error: 
+
+Caused by:
+    data did not match 
+any variant of untagged 
+enum Config at line 1 
+column 1093
+
+Import trace for 
+requested module:
+../node_modules/next/dist/
+pages/_error.js
+
+./app/auth/page.tsx
+Error: 
+
+Caused by:
+    data did not match 
+any variant of untagged 
+enum Config at line 1 
+column 1053
+
+Import trace for 
+requested module:
+./app/auth/page.tsx
+
+./app/browse-rooms/page.ts
+x
+Error: 
+
+Caused by:
+    data did not match 
+any variant of untagged 
+enum Config at line 1 
+column 1053
+
+Import trace for 
+requested module:
+./app/browse-rooms/page.ts
+x
+
+ ΓÜá Mismatching 
+@next/swc version, 
+detected: 15.4.5 while 
+Next.js is on 14.2.15. 
+Please ensure these match
+
+> Build failed because of 
+webpack errors
