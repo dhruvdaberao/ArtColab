@@ -27,6 +27,7 @@ import {
   Triangle,
   Star,
   Slash,
+  Smile,
   Sparkles,
   Lock,
   Globe,
@@ -157,13 +158,13 @@ type FunctionPanel = "chat" | null;
 type ColorPickerTarget = "stroke" | "fill" | null;
 
 const sidebarShell =
-  "rounded-[24px] border border-black/5 bg-white/78 p-1.5 shadow-[0_16px_38px_rgba(15,23,42,0.12)] backdrop-blur-xl";
+  "overflow-y-auto no-scrollbar overscroll-contain rounded-[20px] sm:rounded-[24px] border border-black/5 bg-white/78 p-1 sm:p-1.5 shadow-[0_16px_38px_rgba(15,23,42,0.12)] backdrop-blur-xl";
 const desktopRailColumn =
   "min-[960px]:justify-between min-[960px]:gap-4 min-[960px]:py-3";
 const desktopRailGroup =
-  "flex flex-col items-center gap-1.5 min-[960px]:flex-1 min-[960px]:justify-evenly";
+  "flex w-full flex-col items-center gap-1 sm:gap-1.5 min-[960px]:flex-1 min-[960px]:justify-evenly";
 const railButtonBase =
-  "group inline-flex h-11 w-11 touch-manipulation select-none items-center justify-center rounded-[18px] border border-black/5 bg-white/92 text-[color:var(--text-main)] shadow-[0_6px_16px_rgba(15,23,42,0.08)] transition hover:-translate-y-0.5 hover:bg-[color:var(--surface-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--brand-blue)]/35 disabled:cursor-not-allowed disabled:opacity-40 sm:h-12 sm:w-12";
+  "group inline-flex shrink-0 h-10 w-10 sm:h-12 sm:w-12 touch-manipulation select-none items-center justify-center rounded-[16px] sm:rounded-[18px] border border-black/5 bg-white/92 text-[color:var(--text-main)] shadow-[0_6px_16px_rgba(15,23,42,0.08)] transition hover:-translate-y-0.5 hover:bg-[color:var(--surface-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--brand-blue)]/35 disabled:cursor-not-allowed disabled:opacity-40";
 const floatingPanelCard =
   "rounded-[20px] border border-black/5 bg-white/95 p-3 shadow-[0_22px_44px_rgba(15,23,42,0.18)] backdrop-blur-xl";
 const floatingPanelBody =
@@ -1337,13 +1338,13 @@ export default function RoomPage() {
 
   return (
     <main
-      className={`room-workspace-shell relative h-[var(--room-viewport-height,100dvh)] min-h-[var(--room-viewport-height,100dvh)] overflow-hidden p-3 sm:p-4 min-[960px]:p-4 ${isLandscapeWorkspaceOnly ? "room-landscape-enforced" : ""}`}
+      className={`room-workspace-shell relative flex flex-col h-[var(--room-viewport-height,100dvh)] overflow-hidden p-1.5 sm:p-2 min-[960px]:p-4 ${isLandscapeWorkspaceOnly ? "room-landscape-enforced" : ""}`}
       data-landscape-only={isLandscapeWorkspaceOnly ? "true" : "false"}
       data-rotated={shouldRotateWorkspace ? "true" : "false"}
     >
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,#ffffff_0%,rgba(255,255,255,0.78)_18%,rgba(248,244,232,0)_58%)]" />
       <div
-        className={`relative mx-auto flex h-full min-h-0 w-full max-w-[1920px] gap-1.5 overflow-hidden rounded-[28px] border border-white/60 bg-[linear-gradient(150deg,rgba(12,26,43,0.05),rgba(255,255,255,0.72))] p-1.5 shadow-[0_24px_64px_rgba(26,26,26,0.12)] min-[960px]:gap-2 min-[960px]:p-2 ${roomReady ? "" : "min-h-[calc(var(--room-viewport-height,100vh)-1.5rem)] min-[960px]:min-h-0"}`}
+        className={`relative mx-auto flex h-full min-h-0 w-full max-w-[1920px] gap-1.5 overflow-hidden rounded-[24px] sm:rounded-[28px] border border-white/60 bg-[linear-gradient(150deg,rgba(12,26,43,0.05),rgba(255,255,255,0.72))] p-1 sm:p-1.5 shadow-[0_24px_64px_rgba(26,26,26,0.12)] min-[960px]:gap-2 min-[960px]:p-2`}
       >
         <aside
           className={`relative z-30 shrink-0 ${isTouchWorkspace ? "w-[56px]" : "w-[68px] xl:w-[72px]"}`}
@@ -1393,7 +1394,7 @@ export default function RoomPage() {
                 <Trash2 size={18} />
               </button>
             </div>
-            <div className={desktopRailGroup}>
+            <div className={`${desktopRailGroup} mt-auto`}>
               <button
                 type="button"
                 className={railButtonBase}
@@ -1539,7 +1540,7 @@ export default function RoomPage() {
                 },
                 {
                   id: "reactions",
-                  icon: Sparkles,
+                  icon: Smile,
                   active: activeToolPanel === "reactions",
                   onClick: () => openToolPanel("reactions"),
                   label: "Reactions",
