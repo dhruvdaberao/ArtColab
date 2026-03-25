@@ -1433,10 +1433,10 @@ function CanvasBoardComponent({
   };
 
   return (
-    <div className="h-full min-h-0 p-0.5 sm:p-1">
+    <div className="flex h-full min-h-0 p-0.5 sm:p-1">
       <div
         ref={surfaceRef}
-        className="relative h-full overflow-hidden rounded-[22px] bg-[#c7e8ff] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.28),0_18px_44px_rgba(15,23,42,0.14)] sm:rounded-[24px]"
+        className="relative h-full min-h-0 flex-1 overflow-hidden rounded-[22px] bg-[#c7e8ff] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.28),0_18px_44px_rgba(15,23,42,0.14)] sm:rounded-[24px]"
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
