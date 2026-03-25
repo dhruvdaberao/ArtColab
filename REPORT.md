@@ -1,8 +1,8 @@
-# Froddle / ArtColab Technical Report
+# Froodle / ArtColab Technical Report
 
 > A room-based real-time collaborative whiteboard for lightweight sketching, discussion, and shared visual ideation.
 
-**Project identity:** Froddle is the user-facing product brand, while ArtColab reflects the repository and deployment identity used in the codebase.  
+**Project identity:** Froodle is the user-facing product brand, while ArtColab reflects the repository and deployment identity used in the codebase.  
 **Authorship:** _Add student / team names here_  
 **Primary stack:** Next.js, React, TypeScript, Express, Socket.IO, MongoDB, Mongoose, Tailwind CSS.
 
@@ -10,9 +10,9 @@
 
 ## 1. Executive Summary
 
-Froddle / ArtColab is a browser-based collaborative whiteboard application designed for low-friction shared drawing. It allows users to create rooms, join existing sessions, draw in real time, chat, send quick reactions, and manage their rooms without installing software or navigating a heavy onboarding flow.
+Froodle / ArtColab is a browser-based collaborative whiteboard application designed for low-friction shared drawing. It allows users to create rooms, join existing sessions, draw in real time, chat, send quick reactions, and manage their rooms without installing software or navigating a heavy onboarding flow.
 
-The project addresses a practical problem: most collaborative whiteboard systems are either too complex for quick sessions or too limited for meaningful multi-user interaction. Froddle aims to provide a simpler alternative that still supports room-based access control, guest participation, private rooms with passwords, responsive board interaction, and live synchronization across connected users.
+The project addresses a practical problem: most collaborative whiteboard systems are either too complex for quick sessions or too limited for meaningful multi-user interaction. Froodle aims to provide a simpler alternative that still supports room-based access control, guest participation, private rooms with passwords, responsive board interaction, and live synchronization across connected users.
 
 From an engineering perspective, the project combines:
 
@@ -40,7 +40,7 @@ The core problems this project solves are:
 
 ## 3. Objectives
 
-The main objectives of Froddle / ArtColab are:
+The main objectives of Froodle / ArtColab are:
 
 1. Enable real-time shared drawing in a room-scoped workspace.
 2. Support public and private room collaboration.
@@ -583,7 +583,7 @@ On desktop and laptop screens, the main goal is to show the entire board and bot
 
 ### 13.5 Why manage rooms and profile pages use card-based structure
 
-These are administrative flows rather than immersive collaboration flows. A card-based structure keeps them readable, low-risk, and consistent with the overall Froddle visual language.
+These are administrative flows rather than immersive collaboration flows. A card-based structure keeps them readable, low-risk, and consistent with the overall Froodle visual language.
 
 ---
 
@@ -730,160 +730,4 @@ If MongoDB is unavailable, database-backed features degrade. The codebase explic
 
 ## 20. Conclusion
 
-Froddle / ArtColab is a full-stack collaborative whiteboard system built around room-based realtime interaction. It combines a responsive client, a practical backend API, Socket.IO-based live synchronization, and persistent storage for users and rooms. The result is a lightweight but technically meaningful project that demonstrates frontend engineering, backend API design, realtime systems, state synchronization, responsive UX, and production-oriented integration concerns in one cohesive application.
-
----
-
-## 21. Top Interview Questions and Answers
-
-### 1. Why did you choose Socket.IO instead of raw WebSockets?
-
-Socket.IO provides room abstractions, reconnect handling, and a simpler event-based API, which reduced implementation complexity for a room-based collaboration product.
-
-### 2. How does realtime board synchronization work?
-
-The client emits stroke lifecycle events, the server updates room state in memory, and peers receive broadcast updates scoped to the same room.
-
-### 3. Why is room state stored in memory first?
-
-Drawing needs low latency. In-memory updates keep the board responsive while persistence happens asynchronously.
-
-### 4. Why do you still persist room data to MongoDB?
-
-Persistence allows room recovery, room hydration after restart, and durable user/room metadata.
-
-### 5. How do you handle multiple users drawing at once?
-
-Each client emits its own stroke stream, and the server stores and relays events in a room-scoped way so all participants can render the combined result.
-
-### 6. How do you prevent invalid room updates?
-
-The backend validates all room-setting payloads with Zod and checks room ownership before allowing updates.
-
-### 7. How are private rooms secured?
-
-Private-room passwords are hashed with bcrypt and validated on join.
-
-### 8. Can guests use the app?
-
-Yes. Guests can enter quickly, create/join rooms, and later upgrade to a user account.
-
-### 9. What is guest-to-user migration?
-
-It is the backend logic that preserves a guest’s room relationships when they register or log in to a permanent account.
-
-### 10. Why use a shared TypeScript package?
-
-It keeps socket event names and collaboration types consistent across frontend and backend.
-
-### 11. How does undo/redo work?
-
-Undo/redo is user-scoped in the room state, with redo stacks stored in memory by the room manager.
-
-### 12. How is the board rendered efficiently?
-
-The canvas component uses a committed backing canvas, incremental updates where possible, and batched append handling.
-
-### 13. Why use a logical board size?
-
-A logical coordinate space makes cross-device rendering more consistent while allowing responsive scaling in the viewport.
-
-### 14. How is zoom and pan implemented?
-
-The board tracks viewport scale and offsets, then maps pointer coordinates back into logical board coordinates.
-
-### 15. Why is desktop layout treated differently from mobile?
-
-Desktop has room for a balanced full workspace, while touch devices need compact controls and orientation-aware handling.
-
-### 16. What was the desktop board-visibility issue?
-
-The room shell and board sizing were allowing layout overflow on larger screens, which could force scrolling instead of fitting the full board into the viewport.
-
-### 17. How did you fix the desktop workspace issue?
-
-By constraining the large-screen workspace to viewport height, fitting the board within the available shell, and balancing side-rail spacing.
-
-### 18. What was broken in Manage Rooms?
-
-The edit workflow was not providing a clear, reliable selected-room editing experience with strong feedback and refresh behavior.
-
-### 19. How did you fix the Manage Rooms edit flow?
-
-I made the edit state explicit, ensured the form is populated from the selected room, improved save/cancel behavior, and refreshed room data after save.
-
-### 20. Why do you use REST and sockets together?
-
-REST is better for request/response workflows like auth and room management, while sockets are better for low-latency collaboration events.
-
-### 21. How is room access controlled?
-
-Room access starts with REST validation for room metadata and private-room password rules, then moves into socket-based room participation.
-
-### 22. What happens if a user disconnects?
-
-Socket.IO reconnection logic attempts recovery, and the client can rejoin the room and rehydrate state.
-
-### 23. How do you track participant presence?
-
-The server stores room participants and broadcasts participant updates and cursor presence to connected users.
-
-### 24. How do you handle room cleanup?
-
-The backend runs periodic cleanup for expired/idle rooms using a timed interval and room manager cleanup logic.
-
-### 25. Why use MongoDB here?
-
-The room and user documents fit naturally in a document model, especially with nested canvas state.
-
-### 26. What are the tradeoffs of MongoDB for this project?
-
-It is flexible for nested state, but very large arrays and strict concurrency control need careful future scaling decisions.
-
-### 27. Why validate responses on the client too?
-
-Client-side validation protects the UI from malformed backend responses and makes failures easier to diagnose.
-
-### 28. How is authentication implemented?
-
-Users authenticate with JWTs, while guests receive guest tokens. Tokens are attached to API requests through the client helper layer.
-
-### 29. How does forgot-password work?
-
-The server generates a short-lived OTP, stores only hashed reset data, and verifies it before issuing a temporary reset session token.
-
-### 30. How do profile images work?
-
-The frontend sends a data URI to the backend, which uploads it to Cloudinary and stores the resulting URL in the user profile.
-
-### 31. How do you avoid breaking mobile while improving desktop?
-
-By scoping layout changes to the room workspace and using breakpoint- and pointer-aware behavior instead of global layout rewrites.
-
-### 32. How is chat implemented?
-
-Chat uses socket events to send and broadcast room-scoped messages, while the room manager stores a bounded in-memory chat history.
-
-### 33. How do reactions work?
-
-They are lightweight socket broadcasts that let all clients render short-lived visual feedback in the room.
-
-### 34. What are the biggest scaling risks?
-
-High stroke volume, many concurrent participants, and single-instance in-memory room coordination are the main future scaling limits.
-
-### 35. How would you scale this system further?
-
-I would introduce shared/distributed room state, stronger event persistence, horizontal socket coordination, and more deliberate canvas-state compaction.
-
-### 36. Why not use CRDTs here?
-
-The current product scope focuses on practical collaborative drawing rather than complex object-level concurrent editing, so a simpler event-stream model is sufficient.
-
-### 37. What makes this project interview-worthy?
-
-It demonstrates full-stack engineering, realtime systems, responsive UI/UX, API design, persistence, external-service integration, and production-oriented tradeoffs.
-
-### 38. What is one limitation you would mention honestly in a viva or interview?
-
-The current architecture is excellent for lightweight collaboration but would need additional distributed-state design to support significantly larger concurrency.
+Froodle / ArtColab is a full-stack collaborative whiteboard system built around room-based realtime interaction. It combines a responsive client, a practical backend API, Socket.IO-based live synchronization, and persistent storage for users and rooms. The result is a lightweight but technically meaningful project that demonstrates frontend engineering, backend API design, realtime systems, state synchronization, responsive UX, and production-oriented integration concerns in one cohesive application.
