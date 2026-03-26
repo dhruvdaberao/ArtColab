@@ -297,13 +297,16 @@ export default function RoomPage() {
   }, [roomEntryHint]);
 
   useEffect(() => {
-    const existing = localStorage.getItem("cloudcanvas-user-id");
+    const existing =
+      localStorage.getItem("froodle-user-id") ??
+      localStorage.getItem("cloudcanvas-user-id");
     if (existing) setUserId(existing);
     else {
       const next = crypto.randomUUID();
-      localStorage.setItem("cloudcanvas-user-id", next);
+      localStorage.setItem("froodle-user-id", next);
       setUserId(next);
     }
+    localStorage.removeItem("cloudcanvas-user-id");
     setDisplayName(
       user?.role === "guest"
         ? ensureGuestDisplayName()

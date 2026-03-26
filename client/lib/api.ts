@@ -110,10 +110,16 @@ const withNetworkErrorHandling = async <T>(
   }
 };
 
-const authToken = () =>
-  typeof window !== "undefined"
-    ? localStorage.getItem("cloudcanvas-auth-token")
-    : null;
+const FROODLE_AUTH_TOKEN_KEY = "froodle-auth-token";
+const LEGACY_AUTH_TOKEN_KEY = "cloudcanvas-auth-token";
+
+export const getAuthToken = () => {
+  if (typeof window === "undefined") return null;
+  return (
+    localStorage.getItem(FROODLE_AUTH_TOKEN_KEY) ??
+    localStorage.getItem(LEGACY_AUTH_TOKEN_KEY)
+  );
+};
 
 const REQUEST_TIMEOUT_MS = 15000;
 
@@ -133,11 +139,15 @@ const combineSignals = (
 
 const request = async <T>(
   path: string,
-  options: RequestInit = {},
+  options: RequestInit & {
+    timeoutMs?: number;
+    retryOnTimeout?: boolean;
+    retryAttempts?: number;
+  } = {},
   fallback = "Request failed.",
 ): Promise<T> => {
   return withNetworkErrorHandling(async () => {
-    const token = authToken();
+    const token = getAuthToken();
     const headers = new Headers(options.headers);
     if (!headers.has("Content-Type") && options.body) {
       headers.set("Content-Type", "application/json");
@@ -150,48 +160,68 @@ const request = async <T>(
     if (!token && guestDisplayName && !headers.has("X-Guest-Display-Name")) {
       headers.set("X-Guest-Display-Name", guestDisplayName);
     }
-    const timeoutController = new AbortController();
-    const timeoutId = globalThis.setTimeout(
-      () => timeoutController.abort(),
-      REQUEST_TIMEOUT_MS,
-    );
-    const signal = combineSignals(options.signal, timeoutController.signal);
-    let response: Response;
-    try {
-      response = await fetch(`${API_URL}${path}`, {
-        ...options,
-        headers,
-        signal,
-      });
-    } catch (error) {
-      if (
-        error instanceof DOMException &&
-        error.name === "AbortError" &&
-        timeoutController.signal.aborted
-      ) {
-        throw new ApiError(
-          `${fallback} The server took too long to respond.`,
-          504,
-          "REQUEST_TIMEOUT",
-        );
+    const timeoutMs = options.timeoutMs ?? REQUEST_TIMEOUT_MS;
+    const retryOnTimeout = options.retryOnTimeout ?? false;
+    const retryAttempts = options.retryAttempts ?? 0;
+    const maxAttempts = retryOnTimeout ? Math.max(0, retryAttempts) + 1 : 1;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      const timeoutController = new AbortController();
+      const timeoutId = globalThis.setTimeout(
+        () => timeoutController.abort(),
+        timeoutMs,
+      );
+      const signal = combineSignals(options.signal, timeoutController.signal);
+      try {
+        const response = await fetch(`${API_URL}${path}`, {
+          ...options,
+          headers,
+          signal,
+        });
+
+        const contentType = response.headers.get("content-type") || "";
+        const body = contentType.includes("application/json")
+          ? await response.json()
+          : null;
+
+        if (!response.ok) {
+          const payload = body as
+            | { message?: string; error?: string; code?: string }
+            | null;
+          const message = payload?.message || fallback;
+          throw new ApiError(
+            message,
+            response.status,
+            payload?.code || payload?.error,
+          );
+        }
+
+        return body as T;
+      } catch (error) {
+        const isTimeoutAbort =
+          error instanceof DOMException &&
+          error.name === "AbortError" &&
+          timeoutController.signal.aborted;
+
+        if (isTimeoutAbort && attempt < maxAttempts) {
+          await new Promise((resolve) => globalThis.setTimeout(resolve, 250));
+          continue;
+        }
+
+        if (isTimeoutAbort) {
+          throw new ApiError(
+            `${fallback} The server took too long to respond.`,
+            504,
+            "REQUEST_TIMEOUT",
+          );
+        }
+
+        throw error;
+      } finally {
+        globalThis.clearTimeout(timeoutId);
       }
-      throw error;
-    } finally {
-      globalThis.clearTimeout(timeoutId);
     }
-
-    const contentType = response.headers.get("content-type") || "";
-    const body = contentType.includes("application/json")
-      ? await response.json()
-      : null;
-
-    if (!response.ok) {
-      const payload = body as { message?: string; error?: string; code?: string } | null;
-      const message = payload?.message || fallback;
-      throw new ApiError(message, response.status, payload?.code || payload?.error);
-    }
-
-    return body as T;
+    throw new ApiError(fallback);
   }, fallback);
 };
 
@@ -215,10 +245,12 @@ const parseResponse = <T>(
 export const setAuthToken = (token: string | null) => {
   if (typeof window === "undefined") return;
   if (!token) {
-    localStorage.removeItem("cloudcanvas-auth-token");
+    localStorage.removeItem(FROODLE_AUTH_TOKEN_KEY);
+    localStorage.removeItem(LEGACY_AUTH_TOKEN_KEY);
     return;
   }
-  localStorage.setItem("cloudcanvas-auth-token", token);
+  localStorage.setItem(FROODLE_AUTH_TOKEN_KEY, token);
+  localStorage.removeItem(LEGACY_AUTH_TOKEN_KEY);
 };
 
 export const createRoom = async (payload: {
@@ -318,7 +350,7 @@ export const guestLogin = async (): Promise<{
 }> =>
   request(
     "/api/auth/guest",
-    { method: "POST" },
+    { method: "POST", timeoutMs: 25000, retryOnTimeout: true, retryAttempts: 1 },
     "Failed to continue as guest.",
   );
 
