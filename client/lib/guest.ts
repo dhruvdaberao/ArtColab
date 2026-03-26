@@ -1,6 +1,7 @@
 import type { SessionUser } from "./api";
 
-export const GUEST_DISPLAY_NAME_STORAGE_KEY = "cloudcanvas-display-name";
+export const GUEST_DISPLAY_NAME_STORAGE_KEY = "froodle-guest-display-name";
+const LEGACY_GUEST_DISPLAY_NAME_STORAGE_KEY = "cloudcanvas-display-name";
 const MAX_GUEST_NAME_LENGTH = 32;
 
 const normalizeGuestDisplayName = (name: string | null | undefined) =>
@@ -10,7 +11,8 @@ export const getStoredDisplayName = () =>
   typeof window === "undefined"
     ? ""
     : normalizeGuestDisplayName(
-        localStorage.getItem(GUEST_DISPLAY_NAME_STORAGE_KEY),
+        localStorage.getItem(GUEST_DISPLAY_NAME_STORAGE_KEY) ??
+          localStorage.getItem(LEGACY_GUEST_DISPLAY_NAME_STORAGE_KEY),
       );
 
 export const createGuestDisplayName = () => {
@@ -23,8 +25,10 @@ export const setStoredDisplayName = (name: string) => {
   const normalized = normalizeGuestDisplayName(name);
   if (normalized) {
     localStorage.setItem(GUEST_DISPLAY_NAME_STORAGE_KEY, normalized);
+    localStorage.removeItem(LEGACY_GUEST_DISPLAY_NAME_STORAGE_KEY);
   } else {
     localStorage.removeItem(GUEST_DISPLAY_NAME_STORAGE_KEY);
+    localStorage.removeItem(LEGACY_GUEST_DISPLAY_NAME_STORAGE_KEY);
   }
   return normalized;
 };

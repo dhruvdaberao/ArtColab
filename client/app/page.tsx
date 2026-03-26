@@ -180,10 +180,16 @@ function HomeContent() {
               className="w-full"
               disabled={isGuesting}
               onClick={() => {
+                if (isGuesting) return;
                 setIsGuesting(true);
                 setError(null);
                 loginAsGuest()
-                  .catch((e) => setError((e as Error).message))
+                  .catch((e) =>
+                    setError(
+                      (e as Error).message ||
+                        "Could not start a guest session. Please try again.",
+                    ),
+                  )
                   .finally(() => setIsGuesting(false));
               }}
             >

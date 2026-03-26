@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
-import { getMe, guestLogin, loginUser, logoutUser, registerUser, setAuthToken, type SessionUser } from '@/lib/api';
+import { getAuthToken, getMe, guestLogin, loginUser, logoutUser, registerUser, setAuthToken, type SessionUser } from '@/lib/api';
 import { getStoredDisplayName, setStoredDisplayName } from '@/lib/guest';
 
 type AuthContextValue = {
@@ -25,6 +25,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setAuthToken(null);
     setStoredDisplayName('');
     if (typeof window !== 'undefined') {
+      localStorage.removeItem('froodle-user-id');
       localStorage.removeItem('cloudcanvas-user-id');
     }
     setUser(null);
@@ -48,7 +49,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const login = async (identifier: string, password: string) => {
-    const guestToken = typeof window !== 'undefined' ? localStorage.getItem('cloudcanvas-auth-token') : null;
+    const guestToken = getAuthToken();
     const res = await loginUser({ identifier, password, guestToken, guestDisplayName: getStoredDisplayName() || undefined });
     setAuthToken(res.token);
     setUser({ ...res.user, role: 'user' });
@@ -56,7 +57,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const register = async (email: string, username: string, password: string, confirmPassword: string) => {
-    const guestToken = typeof window !== 'undefined' ? localStorage.getItem('cloudcanvas-auth-token') : null;
+    const guestToken = getAuthToken();
     const res = await registerUser({ email, username, password, confirmPassword, guestToken, guestDisplayName: getStoredDisplayName() || undefined });
     setAuthToken(res.token);
     setUser({ ...res.user, role: 'user' });

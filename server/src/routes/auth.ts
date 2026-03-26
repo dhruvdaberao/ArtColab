@@ -191,9 +191,17 @@ export const authRouter = (roomManager: RoomManager) => {
   });
 
   router.post('/guest', asyncHandler(async (_req: Request, res: Response) => {
-    const username = generateGuestUsername();
-    const token = signGuestToken({ sub: crypto.randomUUID(), username, role: 'guest' });
-    res.status(201).json({ success: true, token, user: { username, role: 'guest' as const } });
+    const startedAt = Date.now();
+    try {
+      const username = generateGuestUsername();
+      const token = signGuestToken({ sub: crypto.randomUUID(), username, role: 'guest' });
+      return res.status(201).json({ success: true, token, user: { username, role: 'guest' as const } });
+    } catch (error) {
+      console.error('[auth] guest session creation failed', error);
+      return res.status(500).json({ success: false, message: 'Failed to start guest session.', code: 'GUEST_SESSION_FAILED' });
+    } finally {
+      console.info('[auth] guest request completed', { durationMs: Date.now() - startedAt });
+    }
   }));
 
   router.post('/register', asyncHandler(async (req: Request, res: Response) => {
