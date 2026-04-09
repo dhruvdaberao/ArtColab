@@ -74,7 +74,11 @@ const ensureMongo = async (res: Response): Promise<boolean> => {
   const connected = await connectMongo();
   if (connected) return true;
 
-  res.status(500).json({ success: false, message: 'Authentication database is unavailable.', code: 'AUTH_DB_UNAVAILABLE' });
+  res.status(503).json({
+    success: false,
+    message: 'Database connection is unavailable.',
+    code: 'AUTH_DB_UNAVAILABLE'
+  });
   return false;
 };
 
@@ -206,6 +210,12 @@ export const authRouter = (roomManager: RoomManager) => {
 
   router.post('/register', asyncHandler(async (req: Request, res: Response) => {
     console.info('[auth] register request received');
+    console.info('[auth] register payload', {
+      email: req.body?.email ?? null,
+      username: req.body?.username ?? null,
+      hasGuestToken: Boolean(req.body?.guestToken),
+      guestDisplayName: req.body?.guestDisplayName ?? null
+    });
 
     if (!await ensureMongo(res)) return;
 
@@ -227,9 +237,14 @@ export const authRouter = (roomManager: RoomManager) => {
       await migrateGuestData({ roomManager, userId: String(created._id), username: created.username, upgrade: getGuestUpgradeContext(guestToken, guestDisplayName) });
       const token = signUserToken({ sub: String(created._id), username: created.username, email: created.email, role: 'user' });
       return res.status(201).json({ success: true, token, user: serializeSafeUser(created) });
-    } catch (error) {
-      console.error('[auth] register failed', error);
-      return res.status(400).json({ success: false, message: getDuplicateMessage(error) });
+    } catch (err) {
+      const duplicateError = err as { code?: number };
+      if (duplicateError.code === 11000) {
+        return res.status(400).json({ success: false, message: getDuplicateMessage(err) });
+      }
+      console.error(err);
+      const message = err instanceof Error ? err.message : 'Unknown register error.';
+      return res.status(500).json({ error: message });
     }
   }));
 
