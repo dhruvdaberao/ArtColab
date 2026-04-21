@@ -2,6 +2,10 @@ import dotenv from 'dotenv';
 import { z } from 'zod';
 
 dotenv.config();
+console.info('[env] dotenv config loaded', {
+  hasMongoUri: Boolean(process.env.MONGO_URI || process.env.MONGODB_URI),
+  nodeEnv: process.env.NODE_ENV ?? null
+});
 
 const envSchema = z.object({
   PORT: z.coerce.number().default(4000),

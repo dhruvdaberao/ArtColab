@@ -127,7 +127,13 @@ cleanupTimer.unref();
 
 const start = async () => {
   validateCriticalEnv();
-  await connectMongo();
+  console.info('[startup] mongo env check', {
+    hasMongoUri: Boolean(process.env.MONGO_URI || process.env.MONGODB_URI)
+  });
+  const mongoConnected = await connectMongo();
+  if (!mongoConnected) {
+    throw new Error('MongoDB connection failed. Refusing to start HTTP server.');
+  }
 
   const emailValidation = await validateEmailTransport();
   if (!emailValidation.ok) {
@@ -153,4 +159,5 @@ const start = async () => {
 
 start().catch((error) => {
   console.error('[CloudCanvas] failed to start server', error);
+  process.exit(1);
 });
