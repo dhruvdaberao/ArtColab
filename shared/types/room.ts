@@ -5,7 +5,7 @@ export interface Participant {
   socketId: string;
   userId: string;
   displayName: string;
-  avatarUrl?: string;
+  avatarUrl?: string | null;
   joinedAt: number;
 }
 
@@ -14,7 +14,7 @@ export interface ChatMessage {
   roomId: string;
   userId: string;
   displayName: string;
-  avatarUrl?: string;
+  avatarUrl?: string | null;
   text: string;
   timestamp: number;
 }

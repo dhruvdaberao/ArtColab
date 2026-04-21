@@ -40,14 +40,14 @@ export interface JoinRoomPayload {
   roomId: string;
   userId: string;
   displayName: string;
-  avatarUrl?: string;
+  avatarUrl?: string | null;
 }
 
 export interface CursorPayload {
   roomId: string;
   userId: string;
   displayName: string;
-  avatarUrl?: string;
+  avatarUrl?: string | null;
   x: number;
   y: number;
   drawing: boolean;
@@ -93,7 +93,7 @@ export interface ChatMessagePayload {
   roomId: string;
   userId: string;
   displayName: string;
-  avatarUrl?: string;
+  avatarUrl?: string | null;
   text: string;
 }
 
