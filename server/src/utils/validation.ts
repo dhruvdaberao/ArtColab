@@ -87,7 +87,7 @@ export const joinRoomSocketSchema = z.object({
   roomId: roomIdSchema,
   userId: z.string().trim().min(1).max(64),
   displayName: z.string().trim().min(1).max(32),
-  avatarUrl: z.string().url().max(2048).optional(),
+  avatarUrl: z.string().max(2048).nullable().optional(),
 });
 
 export const pointSchema = z.object({
@@ -137,9 +137,9 @@ export const cursorSchema = z.object({
   roomId: roomIdSchema,
   userId: z.string().trim().min(1).max(64),
   displayName: z.string().trim().min(1).max(32),
-  avatarUrl: z.string().url().max(2048).optional(),
-  x: z.number().min(0).max(1200),
-  y: z.number().min(0).max(700),
+  avatarUrl: z.string().max(2048).nullable().optional(),
+  x: z.number().min(-1000).max(10000),
+  y: z.number().min(-1000).max(10000),
   drawing: z.boolean(),
 });
 
@@ -158,7 +158,7 @@ export const chatSchema = z.object({
   roomId: roomIdSchema,
   userId: z.string().trim().min(1).max(64),
   displayName: z.string().trim().min(1).max(32),
-  avatarUrl: z.string().url().max(2048).optional(),
+  avatarUrl: z.string().max(2048).nullable().optional(),
   text: z.string().trim().min(1).max(240),
 });
 
@@ -167,8 +167,8 @@ export const reactionSchema = z.object({
   userId: z.string().trim().min(1).max(64),
   displayName: z.string().trim().min(1).max(32),
   emoji: z.enum(["❤️", "😂", "😮", "🔥", "🎉"]),
-  x: z.number().min(0).max(1200).optional(),
-  y: z.number().min(0).max(700).optional(),
+  x: z.number().min(-1000).max(10000).optional(),
+  y: z.number().min(-1000).max(10000).optional(),
 });
 
 export const stickerSchema = z.object({
@@ -178,8 +178,8 @@ export const stickerSchema = z.object({
     roomId: roomIdSchema,
     userId: z.string().trim().min(1).max(64),
     value: z.string().trim().min(1).max(6),
-    x: z.number().min(0).max(1200),
-    y: z.number().min(0).max(700),
+    x: z.number().min(-1000).max(10000),
+    y: z.number().min(-1000).max(10000),
     size: z.number().min(16).max(96),
     timestamp: z.number().int().positive(),
   }),
